@@ -31,11 +31,12 @@
 
         <tbody>
         <?php foreach ($custom_fields as $custom_field) { ?>
+          <?php $alpha = str_replace("-","_",strtolower($custom_field->custom_field_type));  ?>
             <tr>
-                <td><?php echo $custom_field->custom_field_table; ?></td>
+                <td><?php echo lang($custom_tables[$custom_field->custom_field_table]); ?></td>
                 <td><?php echo $custom_field->custom_field_label; ?></td>
                 <td><?php echo $custom_field->custom_field_column; ?></td>
-                <td><?php echo $custom_field->custom_field_type; ?></td>
+                <td><?php echo trans($alpha);                     ?></td>
                 <td>
                     <div class="options btn-group">
                         <a class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" href="#">
