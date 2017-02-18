@@ -26,7 +26,7 @@
         $('#invoice_change_client').click(function () {
             $('#modal-placeholder').load("<?php echo site_url('invoices/ajax/modal_change_client'); ?>", {
                 invoice_id: <?php echo $invoice_id; ?>,
-                client_name: "<?php echo $this->db->escape_str($invoice->client_name); ?>"
+                client_id: "<?php echo $this->db->escape_str($invoice->client_id); ?>"
             });
         });
 
@@ -252,7 +252,7 @@ if ($this->config->item('disable_read_only') == true) {
                 <div class="col-xs-12 col-md-5">
                     <div class="pull-left">
                         <h2>
-                            <a href="<?php echo site_url('clients/view/' . $invoice->client_id); ?>"><?php echo $invoice->client_name; ?></a>
+                            <a href="<?php echo site_url('clients/view/' . $invoice->client_id); ?>"><?php echo format_client($invoice) ?></a>
                             <?php if ($invoice->invoice_status_id == 1) { ?>
                                 <span id="invoice_change_client" class="fa fa-edit cursor-pointer small"
                                       data-toggle="tooltip" data-placement="bottom"
