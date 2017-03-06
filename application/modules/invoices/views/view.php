@@ -26,7 +26,7 @@
         $('#invoice_change_client').click(function () {
             $('#modal-placeholder').load("<?php echo site_url('invoices/ajax/modal_change_client'); ?>", {
                 invoice_id: <?php echo $invoice_id; ?>,
-                client_name: "<?php echo $this->db->escape_str($invoice->client_name); ?>"
+                client_id: "<?php echo $this->db->escape_str($invoice->client_id); ?>"
             });
         });
 
@@ -83,6 +83,10 @@
 
         $('#btn_generate_pdf').click(function () {
             window.open('<?php echo site_url('invoices/generate_pdf/' . $invoice_id); ?>', '_blank');
+        });
+
+        $('#btn_sumex').click(function () {
+            window.open('<?php echo site_url('invoices/generate_sumex_pdf/' . $invoice_id); ?>', '_blank');
         });
 
         <?php if ($invoice->is_read_only != 1): ?>
@@ -178,6 +182,15 @@ if ($this->config->item('disable_read_only') == true) {
                         <?php echo trans('download_pdf'); ?>
                     </a>
                 </li>
+                <?php if($this->mdl_settings->setting('sumex') == "1"): ?>
+                <li>
+                    <a href="#" id="btn_sumex"
+                       data-invoice-id="<?php echo $invoice_id; ?>">
+                        <i class="fa fa-user-md fa-margin"></i>
+                        <?php echo trans('generate_sumex'); ?>
+                    </a>
+                </li>
+                <?php endif; ?>
                 <li>
                     <a href="<?php echo site_url('mailer/invoice/' . $invoice->invoice_id); ?>">
                         <i class="fa fa-send fa-margin"></i>
@@ -238,7 +251,7 @@ if ($this->config->item('disable_read_only') == true) {
                 <div class="col-xs-12 col-md-5">
                     <div class="pull-left">
                         <h2>
-                            <a href="<?php echo site_url('clients/view/' . $invoice->client_id); ?>"><?php echo $invoice->client_name; ?></a>
+                            <a href="<?php echo site_url('clients/view/' . $invoice->client_id); ?>"><?php echo format_client($invoice) ?></a>
                             <?php if ($invoice->invoice_status_id == 1) { ?>
                                 <span id="invoice_change_client" class="fa fa-edit cursor-pointer small"
                                       data-toggle="tooltip" data-placement="bottom"
