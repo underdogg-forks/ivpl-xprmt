@@ -1,19 +1,12 @@
 <?php
-if (!defined('BASEPATH')) {
-    exit('No direct script access allowed');
-}
 
 /**
- * InvoicePlane
+ * Class Test
  *
  * @author         InvoicePlane Developers & Contributors
  * @copyright      Copyright (c) 2012 - 2018 InvoicePlane.com
  * @license        https://invoiceplane.com/license.txt
  * @link           https://invoiceplane.com
- */
-
-/**
- * Class Test
  */
 class Test extends Permission_Controller
 {
