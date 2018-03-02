@@ -10,7 +10,22 @@
  */
 class Mdl_Test extends IP_Model
 {
+    /** @var string */
     public $table = 'tests';
+
+    /** @var string */
+    public $primary_key = 'id';
+
+    /** @var array */
+    public $joins = [
+        'Mdl_Test_Items' => 'test_id'
+    ];
+
+    /** @var array */
+    public $fields = [
+        'id',
+        'name',
+    ];
 
     public function check()
     {
