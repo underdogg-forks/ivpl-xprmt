@@ -375,10 +375,16 @@ class Mdl_Quotes extends Response_Model
      */
     public function get_url_key()
     {
+<<<<<<< HEAD
         $this->load->helper('ip_security');
 
         // 16 bytes -> 32 hexadecimal characters (matches the guest-view url_key format).
         return generate_secure_token(16);
+=======
+        $this->load->helper('security');
+
+        return generate_secure_token(32);
+>>>>>>> e37c4306e (Use CSPRNG for invoice/quote URL keys and CRON key)
     }
 
     /**
