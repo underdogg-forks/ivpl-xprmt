@@ -268,6 +268,7 @@ function verify_csrf_token(): bool
 
     return false;
 }
+<<<<<<< HEAD
 
 /**
 <<<<<<< HEAD
@@ -415,3 +416,5 @@ function generate_secure_token(int $length = 32): string
     return substr(bin2hex($bytes), 0, $length);
 }
 >>>>>>> e37c4306e (Use CSPRNG for invoice/quote URL keys and CRON key)
+=======
+>>>>>>> 688a09aab (Reuse canonical CSPRNG token generator for URL and CRON keys)

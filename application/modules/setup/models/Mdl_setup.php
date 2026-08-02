@@ -460,10 +460,14 @@ class Mdl_Setup extends CI_Model
     private function install_default_settings()
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
         $this->load->helper('ip_security');
 =======
         $this->load->helper('security');
 >>>>>>> e37c4306e (Use CSPRNG for invoice/quote URL keys and CRON key)
+=======
+        $this->load->helper('ip_security');
+>>>>>>> 688a09aab (Reuse canonical CSPRNG token generator for URL and CRON keys)
 
         $default_settings = [
             'default_language'             => $this->session->userdata('ip_lang'),
@@ -478,10 +482,14 @@ class Mdl_Setup extends CI_Model
             'thousands_separator'          => ',',
             'decimal_point'                => '.',
 <<<<<<< HEAD
+<<<<<<< HEAD
             'cron_key'                     => generate_secure_token(8),
 =======
             'cron_key'                     => generate_secure_token(16),
 >>>>>>> e37c4306e (Use CSPRNG for invoice/quote URL keys and CRON key)
+=======
+            'cron_key'                     => generate_secure_token(8),
+>>>>>>> 688a09aab (Reuse canonical CSPRNG token generator for URL and CRON keys)
             'tax_rate_decimal_places'      => 2,
             'pdf_invoice_template'         => 'InvoicePlane',
             'pdf_invoice_template_paid'    => 'InvoicePlane - paid',

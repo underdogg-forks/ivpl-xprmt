@@ -506,6 +506,7 @@ class Mdl_Invoices extends Response_Model
     public function get_url_key()
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
         $this->load->helper('ip_security');
 
         // 16 bytes -> 32 hexadecimal characters (matches the guest-view url_key format).
@@ -515,6 +516,12 @@ class Mdl_Invoices extends Response_Model
 
         return generate_secure_token(32);
 >>>>>>> e37c4306e (Use CSPRNG for invoice/quote URL keys and CRON key)
+=======
+        $this->load->helper('ip_security');
+
+        // 16 bytes -> 32 hexadecimal characters (matches the guest-view url_key format).
+        return generate_secure_token(16);
+>>>>>>> 688a09aab (Reuse canonical CSPRNG token generator for URL and CRON keys)
     }
 
     /**
