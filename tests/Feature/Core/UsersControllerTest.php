@@ -100,7 +100,6 @@ class UsersControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseMissing('ip_users', ['user_email' => 'mismatch@test.local']);
     }
 

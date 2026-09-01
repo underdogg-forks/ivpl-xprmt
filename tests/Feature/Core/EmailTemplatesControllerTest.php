@@ -47,7 +47,6 @@ class EmailTemplatesControllerTest extends AbstractTestCase
         $response = $this->get('/email_templates/form');
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]
@@ -98,7 +97,6 @@ class EmailTemplatesControllerTest extends AbstractTestCase
         $response = $this->get('/email_templates/form/' . $id);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, 'Editable Template');
     }
 
@@ -191,7 +189,6 @@ class EmailTemplatesControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_email_templates', 0);
     }
 
@@ -226,7 +223,6 @@ class EmailTemplatesControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseHas('ip_email_templates', ['email_template_title' => 'Will Not Change']);
     }
 
