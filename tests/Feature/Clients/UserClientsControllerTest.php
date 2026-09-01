@@ -180,7 +180,7 @@ class UserClientsControllerTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_denies_a_non_admin_from_unassigning_a_client(): void
+    public function it_blocks_a_non_admin_from_unassigning_a_client(): void
     {
         /* Arrange */
         $ownerId = $this->seedSecondaryUser();
@@ -191,7 +191,7 @@ class UserClientsControllerTest extends AbstractTestCase
         $response = $this->post('/user_clients/delete/' . $id, []);
 
         /* Assert */
-        self::assertFalse($response->isRedirect(), 'A non-admin unassign is refused, not redirected.');
+        self::assertTrue($response->isRedirect(), 'A non-admin is bounced off the admin controller entirely.');
         $this->assertDatabaseHas('ip_user_clients', ['user_client_id' => $id]);
     }
 

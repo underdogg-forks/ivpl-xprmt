@@ -20,6 +20,10 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     {
         parent::setUp();
         $this->actingAsAdmin();
+        // Mdl_quotes::get_date_expires() builds a DateInterval straight from this
+        // setting with no fallback; a real install seeds it during setup.
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'quotes_expire_after', 'setting_value' => '15']);
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'invoices_due_after', 'setting_value' => '30']);
     }
 
     // -------------------------------------------------------------------------

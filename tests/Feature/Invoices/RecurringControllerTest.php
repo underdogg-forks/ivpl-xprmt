@@ -61,7 +61,7 @@ class RecurringControllerTest extends AbstractTestCase
 
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Stopping a schedule redirects to the recurring list.');
-        $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_recurring_id' => $id, 'recur_next_date' => null]);
+        $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_recurring_id' => $id, 'recur_end_date' => date('Y-m-d')]);
     }
 
     // -------------------------------------------------------------------------

@@ -124,8 +124,8 @@ class QuotesControllerTest extends AbstractTestCase
     {
         /* Arrange */
         $quoteId = $this->seedQuote();
-        $rateId  = (int) $this->seedModel('QuoteTaxRate', ['quote_id' => $quoteId])->quote_tax_rate_id;
-        $keepId  = (int) $this->seedModel('QuoteTaxRate', ['quote_id' => $quoteId])->quote_tax_rate_id;
+        $rateId  = $this->databaseInsert('ip_quote_tax_rates', ['quote_id' => $quoteId, 'tax_rate_id' => 1, 'include_item_tax' => 0, 'quote_tax_rate_amount' => '0.00']);
+        $keepId  = $this->databaseInsert('ip_quote_tax_rates', ['quote_id' => $quoteId, 'tax_rate_id' => 1, 'include_item_tax' => 0, 'quote_tax_rate_amount' => '0.00']);
 
         /* Act */
         $response = $this->post('/quotes/delete_quote_tax/' . $quoteId . '/' . $rateId, []);
