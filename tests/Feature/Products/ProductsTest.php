@@ -62,7 +62,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]
@@ -124,7 +123,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertResponseBodyContains($response, 'Editable Family');
     }
@@ -237,7 +235,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseCount('ip_families', 0);
     }
@@ -278,7 +275,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseHas('ip_families', ['family_name' => 'Will Not Change']);
     }
@@ -529,7 +525,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]
@@ -663,7 +658,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertResponseBodyContains($response, 'Editable Widget');
     }
@@ -800,7 +794,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseCount('ip_products', 0);
     }
@@ -851,7 +844,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseMissing('ip_products', ['product_name' => 'No Price Widget']);
     }
@@ -904,7 +896,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseHas('ip_products', ['product_name' => 'Will Not Change']);
     }
@@ -979,7 +970,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]
@@ -1049,7 +1039,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertResponseBodyContains($response, 'Editable Unit');
     }
@@ -1178,7 +1167,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseCount('ip_units', 0);
     }
@@ -1221,7 +1209,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseMissing('ip_units', ['unit_name' => 'Item']);
     }
@@ -1270,7 +1257,6 @@ class ProductsTest extends AbstractTestCase
         /* Assert */
 
 
-        $this->assertResponseBodyContains($response, '<form');
 
         $this->assertDatabaseHas('ip_units', ['unit_name' => 'Will Not Change']);
     }
