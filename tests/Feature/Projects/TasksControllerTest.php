@@ -11,8 +11,11 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Tasks controller — application/modules/tasks/controllers/Tasks.php.
  *
  * Required fields (Mdl_Tasks::validation_rules): task_name, task_price, task_finish_date.
- * Absorbs TaskDeletionValidationFeatureTest and Issue1694TasksDeleteCsrfTest.
- * AJAX lookups live in TasksAjaxControllerTest.
+ * Absorbs Issue1694TasksDeleteCsrfTest. AJAX lookups live in
+ * TasksAjaxControllerTest. TaskDeletionValidationFeatureTest's real subject —
+ * Projects::delete() orphaning (not cascade-deleting) a project's tasks — is
+ * Projects::delete()'s behaviour, not Tasks::delete()'s; that assertion lives
+ * in ProjectsControllerTest::it_orphans_rather_than_deletes_the_tasks_of_a_deleted_project.
  */
 #[Group('tasks')]
 class TasksControllerTest extends AbstractTestCase

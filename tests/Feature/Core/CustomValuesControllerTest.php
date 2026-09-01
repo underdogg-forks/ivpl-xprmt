@@ -197,6 +197,25 @@ class CustomValuesControllerTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $id, 'custom_values_value' => 'CSRF Segment Kept']);
     }
 
+    #[Test]
+    public function it_does_not_delete_a_value_on_a_plain_get_request(): void
+    {
+        /* Arrange */
+        // Base_Controller::__construct() 404s any GET whose URL contains
+        // "delete" before the controller (and ensure_valid_post_request())
+        // ever runs — a distinct, earlier guard than the CSRF-token checks
+        // above, and one no test here currently exercises.
+        $fieldId = $this->seedChoiceField();
+        $id      = $this->seedValue($fieldId, 'GET Segment Kept');
+
+        /* Act */
+        $response = $this->get('/custom_values/delete/' . $id);
+
+        /* Assert */
+        self::assertSame(404, $response->statusCode(), 'The global GET-to-delete gate in Base_Controller must reject this before it is acted on.');
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $id, 'custom_values_value' => 'GET Segment Kept']);
+    }
+
     // -------------------------------------------------------------------------
     // Guest access — always last
     // -------------------------------------------------------------------------
