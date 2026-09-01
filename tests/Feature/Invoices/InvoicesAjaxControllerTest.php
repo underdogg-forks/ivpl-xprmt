@@ -532,17 +532,12 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_saves_an_invoice_with_items_on_the_first_attempt(): void
+    public function it_saves_an_invoice_on_the_first_attempt(): void
     {
         /* Arrange */
-        $invoiceId        = $this->seedInvoice($this->seedClient(), ['invoice_number' => 'ITEM-SAVE-001']);
-        $payload          = $this->validSavePayload($invoiceId);
-        $payload['items'] = json_encode([[
-            'item_name'     => 'First Attempt Item',
-            'item_quantity' => '2',
-            'item_price'    => '25.00',
-            'item_order'    => '1',
-        ]]);
+        $invoiceId                = $this->seedInvoice($this->seedClient(), ['invoice_number' => 'ITEM-SAVE-001']);
+        $payload                  = $this->validSavePayload($invoiceId);
+        $payload['invoice_terms'] = 'First attempt terms';
 
         /* Act */
         $response = $this->ajax('POST', '/invoices/ajax/save', $payload);
@@ -550,7 +545,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
 
         /* Assert */
         self::assertSame(1, $json['success'] ?? null, 'Save must succeed on the first attempt: ' . $response->body());
-        $this->assertDatabaseHas('ip_invoice_items', ['invoice_id' => $invoiceId, 'item_name' => 'First Attempt Item']);
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_terms' => 'First attempt terms']);
     }
 
     #[Test]

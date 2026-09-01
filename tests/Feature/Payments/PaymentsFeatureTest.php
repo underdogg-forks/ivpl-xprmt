@@ -42,17 +42,6 @@ class PaymentsFeatureTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_renders_the_create_payment_form(): void
-    {
-        /* Arrange */
-
-        /* Act */
-        $response = $this->get('/payments/form');
-
-        /* Assert */
-    }
-
-    #[Test]
     public function it_creates_a_payment_and_links_it_to_the_invoice(): void
     {
         /**

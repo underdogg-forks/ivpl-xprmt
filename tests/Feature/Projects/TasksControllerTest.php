@@ -60,11 +60,11 @@ class TasksControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/tasks/form', self::REQUIRED + [
+        $response = $this->post('/tasks/form', array_merge(self::REQUIRED, [
             'task_name'   => 'Review Pull Request',
             'task_status' => '1',
             'btn_submit'  => '1',
-        ]);
+        ]));
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'tasks');
@@ -81,11 +81,11 @@ class TasksControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/tasks/form', self::REQUIRED + [
+        $response = $this->post('/tasks/form', array_merge(self::REQUIRED, [
             'task_name'  => '',
             'task_price' => '77.00',
             'btn_submit' => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -98,11 +98,11 @@ class TasksControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/tasks/form', self::REQUIRED + [
+        $response = $this->post('/tasks/form', array_merge(self::REQUIRED, [
             'task_name'  => 'Priceless Task',
             'task_price' => '',
             'btn_submit' => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -115,11 +115,11 @@ class TasksControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/tasks/form', self::REQUIRED + [
+        $response = $this->post('/tasks/form', array_merge(self::REQUIRED, [
             'task_name'        => 'Dateless Task',
             'task_finish_date' => '',
             'btn_submit'       => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -152,12 +152,12 @@ class TasksControllerTest extends AbstractTestCase
         $id = $this->seedTask(['task_name' => 'Original Task', 'task_price' => '50.00']);
 
         /* Act */
-        $response = $this->post('/tasks/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/tasks/form/' . $id, array_merge(self::REQUIRED, [
             'task_name'   => 'Renamed Task',
             'task_price'  => '150.00',
             'task_status' => '1',
             'btn_submit'  => '1',
-        ]);
+        ]));
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'tasks');
@@ -176,10 +176,10 @@ class TasksControllerTest extends AbstractTestCase
         $id = $this->seedTask(['task_name' => 'Keep This Task']);
 
         /* Act */
-        $response = $this->post('/tasks/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/tasks/form/' . $id, array_merge(self::REQUIRED, [
             'task_name'  => '',
             'btn_submit' => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
@@ -193,11 +193,11 @@ class TasksControllerTest extends AbstractTestCase
         $id = $this->seedTask(['task_name' => 'Price Kept Task', 'task_price' => '50.00']);
 
         /* Act */
-        $response = $this->post('/tasks/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/tasks/form/' . $id, array_merge(self::REQUIRED, [
             'task_name'  => 'Price Kept Task',
             'task_price' => '',
             'btn_submit' => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
@@ -211,11 +211,11 @@ class TasksControllerTest extends AbstractTestCase
         $id = $this->seedTask(['task_name' => 'Date Kept Task', 'task_finish_date' => '2026-06-30']);
 
         /* Act */
-        $response = $this->post('/tasks/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/tasks/form/' . $id, array_merge(self::REQUIRED, [
             'task_name'        => 'Date Kept Task',
             'task_finish_date' => '',
             'btn_submit'       => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');

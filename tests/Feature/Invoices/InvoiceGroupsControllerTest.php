@@ -62,10 +62,10 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/invoice_groups/form', self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form', array_merge(self::REQUIRED, [
             'invoice_group_name' => 'Yearly 2026',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'invoice_groups');
@@ -83,11 +83,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/invoice_groups/form', self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form', array_merge(self::REQUIRED, [
             'invoice_group_name'              => '',
             'invoice_group_identifier_format' => 'NONAME-{{{id}}}',
             'btn_submit'                      => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -101,11 +101,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/invoice_groups/form', self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form', array_merge(self::REQUIRED, [
             'invoice_group_name'              => 'Missing Format Group',
             'invoice_group_identifier_format' => '',
             'btn_submit'                      => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -119,11 +119,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/invoice_groups/form', self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form', array_merge(self::REQUIRED, [
             'invoice_group_name'    => 'Missing Next Id Group',
             'invoice_group_next_id' => '',
             'btn_submit'            => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -137,11 +137,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/invoice_groups/form', self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form', array_merge(self::REQUIRED, [
             'invoice_group_name'     => 'Missing Pad Group',
             'invoice_group_left_pad' => '',
             'btn_submit'             => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -175,11 +175,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $id = $this->seedGroup(['invoice_group_name' => 'Original Group']);
 
         /* Act */
-        $response = $this->post('/invoice_groups/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form/' . $id, array_merge(self::REQUIRED, [
             'invoice_group_name'    => 'Renamed Group',
             'invoice_group_next_id' => '5',
             'btn_submit'            => '1',
-        ]);
+        ]));
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'invoice_groups');
@@ -198,10 +198,10 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $id = $this->seedGroup(['invoice_group_name' => 'Keep This Group']);
 
         /* Act */
-        $response = $this->post('/invoice_groups/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form/' . $id, array_merge(self::REQUIRED, [
             'invoice_group_name' => '',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
@@ -215,11 +215,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $id = $this->seedGroup(['invoice_group_name' => 'Format Kept Group', 'invoice_group_identifier_format' => 'FK-{{{id}}}']);
 
         /* Act */
-        $response = $this->post('/invoice_groups/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form/' . $id, array_merge(self::REQUIRED, [
             'invoice_group_name'              => 'Format Kept Group',
             'invoice_group_identifier_format' => '',
             'btn_submit'                      => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
@@ -233,11 +233,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $id = $this->seedGroup(['invoice_group_name' => 'Next Id Kept Group', 'invoice_group_next_id' => 7]);
 
         /* Act */
-        $response = $this->post('/invoice_groups/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form/' . $id, array_merge(self::REQUIRED, [
             'invoice_group_name'    => 'Next Id Kept Group',
             'invoice_group_next_id' => '',
             'btn_submit'            => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
@@ -251,11 +251,11 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $id = $this->seedGroup(['invoice_group_name' => 'Pad Kept Group', 'invoice_group_left_pad' => 6]);
 
         /* Act */
-        $response = $this->post('/invoice_groups/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/invoice_groups/form/' . $id, array_merge(self::REQUIRED, [
             'invoice_group_name'     => 'Pad Kept Group',
             'invoice_group_left_pad' => '',
             'btn_submit'             => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');

@@ -60,10 +60,10 @@ class CustomFieldsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/custom_fields/form', self::REQUIRED + [
+        $response = $this->post('/custom_fields/form', array_merge(self::REQUIRED, [
             'custom_field_label' => 'Client Industry',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'custom_fields');
@@ -81,11 +81,11 @@ class CustomFieldsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/custom_fields/form', self::REQUIRED + [
+        $response = $this->post('/custom_fields/form', array_merge(self::REQUIRED, [
             'custom_field_table' => '',
             'custom_field_label' => 'Tableless Field',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -98,10 +98,10 @@ class CustomFieldsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/custom_fields/form', self::REQUIRED + [
+        $response = $this->post('/custom_fields/form', array_merge(self::REQUIRED, [
             'custom_field_label' => '',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -114,11 +114,11 @@ class CustomFieldsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/custom_fields/form', self::REQUIRED + [
+        $response = $this->post('/custom_fields/form', array_merge(self::REQUIRED, [
             'custom_field_label' => 'Typeless Field',
             'custom_field_type'  => '',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
@@ -131,11 +131,11 @@ class CustomFieldsControllerTest extends AbstractTestCase
         /* Arrange */
 
         /* Act */
-        $response = $this->post('/custom_fields/form', self::REQUIRED + [
+        $response = $this->post('/custom_fields/form', array_merge(self::REQUIRED, [
             'custom_field_table' => 'ip_users',
             'custom_field_label' => 'Injected Field',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'A non-allow-listed table must be rejected by validation.');
@@ -168,10 +168,10 @@ class CustomFieldsControllerTest extends AbstractTestCase
         $id = $this->seedField(['custom_field_label' => 'Original Custom Field']);
 
         /* Act */
-        $response = $this->post('/custom_fields/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/custom_fields/form/' . $id, array_merge(self::REQUIRED, [
             'custom_field_label' => 'Renamed Custom Field',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'custom_fields');
@@ -190,10 +190,10 @@ class CustomFieldsControllerTest extends AbstractTestCase
         $id = $this->seedField(['custom_field_label' => 'Keep This Field']);
 
         /* Act */
-        $response = $this->post('/custom_fields/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/custom_fields/form/' . $id, array_merge(self::REQUIRED, [
             'custom_field_label' => '',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
@@ -207,11 +207,11 @@ class CustomFieldsControllerTest extends AbstractTestCase
         $id = $this->seedField(['custom_field_label' => 'Type Kept Field', 'custom_field_type' => 'TEXT']);
 
         /* Act */
-        $response = $this->post('/custom_fields/form/' . $id, self::REQUIRED + [
+        $response = $this->post('/custom_fields/form/' . $id, array_merge(self::REQUIRED, [
             'custom_field_label' => 'Type Kept Field',
             'custom_field_type'  => '',
             'btn_submit'         => '1',
-        ]);
+        ]));
 
         /* Assert */
         self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
