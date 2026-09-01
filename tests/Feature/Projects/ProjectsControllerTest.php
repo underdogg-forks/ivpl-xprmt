@@ -11,7 +11,8 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Projects controller — application/modules/projects/controllers/Projects.php.
  *
  * Required fields (Mdl_Projects::validation_rules): project_name.
- * Absorbs ProjectsSmokeTest and Issue1694ProjectsDeleteCsrfTest.
+ * Absorbs ProjectsSmokeTest, Issue1694ProjectsDeleteCsrfTest and
+ * TaskDeletionValidationFeatureTest's orphan-on-delete assertion.
  */
 #[Group('projects')]
 class ProjectsControllerTest extends AbstractTestCase
@@ -165,6 +166,24 @@ class ProjectsControllerTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_projects', ['project_id' => $keep]);
     }
 
+    #[Test]
+    public function it_orphans_rather_than_deletes_the_tasks_of_a_deleted_project(): void
+    {
+        /* Arrange */
+        $id     = $this->seedProject(['project_name' => 'Project With Tasks']);
+        $taskId = $this->seedTask(['project_id' => $id, 'task_name' => 'Task To Orphan']);
+
+        /* Act */
+        $response = $this->post('/projects/delete/' . $id, []);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'Delete redirects back to the project list.');
+        // Mdl_tasks::update_on_project_delete() saves project_id = null, but
+        // ip_tasks.project_id is a non-nullable column, so the DB coerces it
+        // to 0 — that coercion is the actual "orphaned" state, not NULL.
+        $this->assertDatabaseHas('ip_tasks', ['task_id' => $taskId, 'project_id' => 0]);
+    }
+
     // -------------------------------------------------------------------------
     // Delete — CSRF regression (#1694)
     // -------------------------------------------------------------------------
@@ -224,6 +243,19 @@ class ProjectsControllerTest extends AbstractTestCase
         return $this->databaseInsert('ip_projects', array_merge([
             'project_name' => 'Seeded Project',
             'client_id'    => $this->seedClient(),
+        ], $overrides));
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedTask(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_tasks', array_merge([
+            'task_name'        => 'Seeded Task',
+            'task_description' => '',
+            'task_price'       => '50.00',
+            'task_finish_date' => '2026-06-30',
+            'task_status'      => 1,
+            'project_id'       => 0,
         ], $overrides));
     }
 }

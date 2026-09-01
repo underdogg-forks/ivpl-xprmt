@@ -328,6 +328,24 @@ class UsersControllerTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_users', ['user_id' => $id, 'user_name' => 'CSRF User Kept']);
     }
 
+    #[Test]
+    public function it_does_not_delete_a_user_on_a_plain_get_request(): void
+    {
+        /* Arrange */
+        // Base_Controller::__construct() 404s any GET whose URL contains
+        // "delete" before the controller (and ensure_valid_post_request())
+        // ever runs — a distinct, earlier guard than the CSRF-token tests
+        // above.
+        $id = $this->seedUser(['user_name' => 'GET User Kept']);
+
+        /* Act */
+        $response = $this->get('/users/delete/' . $id);
+
+        /* Assert */
+        self::assertSame(404, $response->statusCode(), 'The global GET-to-delete gate in Base_Controller must reject this before it is acted on.');
+        $this->assertDatabaseHas('ip_users', ['user_id' => $id, 'user_name' => 'GET User Kept']);
+    }
+
     // -------------------------------------------------------------------------
     // Edge cases
     // -------------------------------------------------------------------------
@@ -353,6 +371,60 @@ class UsersControllerTest extends AbstractTestCase
         self::assertFalse($response->isRedirect(), 'A duplicate email must be rejected by is_unique.');
         $this->assertDatabaseCount('ip_users', 1, ['user_email' => 'taken@test.local']);
         $this->assertDatabaseMissing('ip_users', ['user_name' => 'Second Taken']);
+    }
+
+    #[Test]
+    public function it_prevents_a_non_primary_admin_from_changing_another_users_password(): void
+    {
+        /**
+         * POST /users/change_password/{victim_id}
+         * {
+         *   "user_password": "attacker-chosen-password",
+         *   "user_password_confirm": "attacker-chosen-password",
+         *   "btn_submit": "1"
+         * }.
+         */
+        /* Arrange */
+        $attackerId = $this->databaseInsert('ip_users', [
+            'user_name'          => 'Attacker Admin',
+            'user_password'      => password_hash('attacker-secret', PASSWORD_DEFAULT),
+            'user_psalt'         => bin2hex(random_bytes(10)),
+            'user_email'         => 'attacker-admin@test.local',
+            'user_type'          => 1,
+            'user_active'        => 1,
+            'user_date_created'  => date('Y-m-d H:i:s'),
+            'user_date_modified' => date('Y-m-d H:i:s'),
+        ]);
+
+        $victimHash = password_hash('victim-secret', PASSWORD_DEFAULT);
+        $victimId   = $this->databaseInsert('ip_users', [
+            'user_name'          => 'Victim Admin',
+            'user_password'      => $victimHash,
+            'user_psalt'         => bin2hex(random_bytes(10)),
+            'user_email'         => 'victim-admin@test.local',
+            'user_type'          => 1,
+            'user_active'        => 1,
+            'user_date_created'  => date('Y-m-d H:i:s'),
+            'user_date_modified' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->actingAsAdmin($attackerId);
+
+        /* Act */
+        $response = $this->post('/users/change_password/' . $victimId, [
+            'user_password'         => 'attacker-chosen-password',
+            'user_password_confirm' => 'attacker-chosen-password',
+            'btn_submit'            => '1',
+        ]);
+
+        /* Assert */
+        self::assertSame(403, $response->statusCode(), 'Only the primary admin (user_id 1) may change another user\'s password.');
+        $victim = $this->databaseFetchOne('ip_users', ['user_id' => $victimId]);
+        self::assertSame(
+            $victimHash,
+            $victim['user_password'],
+            'A non-primary admin must not be able to mutate another user\'s password hash.'
+        );
     }
 
     // -------------------------------------------------------------------------

@@ -52,6 +52,25 @@ $readAll = static function (array $paths): string {
 $glob = static function (string $pattern) use ($root): array {
     return glob($root . '/' . $pattern, GLOB_BRACE) ?: [];
 };
+// PHP's glob() does NOT recurse on "**" — it behaves like a single "*" and
+// never crosses a "/", so "application/**/*.php" silently misses everything
+// nested past one directory (e.g. every application/modules/*/controllers
+// file). Walk the tree for real recursion instead.
+$rglob = static function (string $dir, string $suffix = '.php') use ($root): array {
+    $base = $root . '/' . $dir;
+    if ( ! is_dir($base)) {
+        return [];
+    }
+    $found = [];
+    $it    = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
+    foreach ($it as $file) {
+        if ($file->isFile() && str_ends_with($file->getFilename(), $suffix)) {
+            $found[] = $file->getPathname();
+        }
+    }
+
+    return $found;
+};
 
 // ---------------------------------------------------------------------------
 // 1. suite is actually green, not masked-green
@@ -107,7 +126,7 @@ if (is_file($cpg)) {
 // ---------------------------------------------------------------------------
 // 3. one ControllerTest per HTTP controller
 // ---------------------------------------------------------------------------
-$testBlob = $readAll(array_merge($glob('tests/Feature/**/*.php'), $glob('tests/Feature/*.php')));
+$testBlob = $readAll($rglob('tests/Feature'));
 $missing  = [];
 foreach ($glob('application/modules/*/controllers/*.php') as $file) {
     $mod  = basename(dirname($file, 2));
@@ -116,9 +135,12 @@ foreach ($glob('application/modules/*/controllers/*.php') as $file) {
     if (in_array($key, NON_HTTP_CONTROLLERS, true)) {
         continue;
     }
-    // "Ajax" controller => <Module>AjaxControllerTest ; else <Name>ControllerTest
+    // "Ajax" controller => <Module>AjaxControllerTest ; else <Name>ControllerTest.
+    // Strip underscores on both branches (email_templates -> "Emailtemplates"
+    // still matches EmailTemplatesAjaxControllerTest case-insensitively) — the
+    // Ajax branch used to skip this and false-flagged every underscored module.
     $needleClass = $name === 'Ajax'
-        ? '/class\s+\w*' . preg_quote(ucfirst($mod), '/') . '\w*AjaxControllerTest/i'
+        ? '/class\s+\w*' . preg_quote(str_replace('_', '', ucfirst($mod)), '/') . '\w*AjaxControllerTest/i'
         : '/class\s+\w*' . preg_quote(str_replace('_', '', $name), '/') . '\w*ControllerTest/i';
     if ( ! preg_match($needleClass, $testBlob)) {
         $missing[] = $key;
@@ -135,7 +157,7 @@ if ($missing === []) {
 // 4. environmental markTestSkipped (coverage rot)
 // ---------------------------------------------------------------------------
 $rot = [];
-foreach (array_merge($glob('tests/**/*.php'), $glob('tests/*.php')) as $t) {
+foreach ($rglob('tests') as $t) {
     if ( ! is_file($t)) {
         continue;
     }
@@ -201,7 +223,7 @@ if (is_file($ex)) {
 // 7. no debug hatch left open outside tests/ and vendor/
 // ---------------------------------------------------------------------------
 $hatch    = [];
-$appFiles = array_merge($glob('application/**/*.php'), $glob('core/**/*.php'), $glob('libraries/**/*.php'));
+$appFiles = array_merge($rglob('application'), $rglob('core'), $rglob('libraries'));
 foreach ($appFiles as $f) {
     if (str_contains($f, '/tests/') || str_contains($f, '/vendor/')) {
         continue;
