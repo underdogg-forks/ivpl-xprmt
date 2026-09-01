@@ -11,8 +11,11 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Recurring controller — application/modules/invoices/controllers/Recurring.php
  * (routes under /invoices/recurring).
  *
- * Recurring schedules are created from an invoice, not through a standalone
- * form, so this controller only lists, stops and deletes them. Absorbs
+ * Recurring schedules are created from an invoice through
+ * POST /invoices/ajax/create_recurring (Invoices\Ajax::create_recurring, see
+ * InvoicesAjaxControllerTest for the field-level validation cases); this
+ * controller itself only lists, stops and deletes them. The create test below
+ * covers the invoice -> schedule -> list round trip end to end. Absorbs
  * Issue1694RecurringInvoiceDeleteCsrfTest.
  */
 #[Group('invoices')]
@@ -44,6 +47,38 @@ class RecurringControllerTest extends AbstractTestCase
         /* Assert */
         $this->assertResponseBodyContains($response, 'INV-REC-0001');
         $this->assertResponseBodyContains($response, 'INV-REC-0002');
+    }
+
+    // -------------------------------------------------------------------------
+    // Create — a schedule is spun off an existing invoice, then shows in the list
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_creates_a_recurring_schedule_from_an_invoice_and_shows_it_in_the_list(): void
+    {
+        /**
+         * POST /invoices/ajax/create_recurring
+         * {
+         *   "invoice_id": "<seeded invoice id>",
+         *   "recur_start_date": "<today>",
+         *   "recur_frequency": "1D"
+         * }.
+         */
+        /* Arrange */
+        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_number' => 'INV-REC-NEW-01']);
+
+        /* Act */
+        $create = $this->ajax('POST', '/invoices/ajax/create_recurring', [
+            'invoice_id'       => (string) $invoiceId,
+            'recur_start_date' => date('Y-m-d'),
+            'recur_frequency'  => '1D',
+        ]);
+        $list = $this->get('/invoices/recurring');
+
+        /* Assert */
+        $this->assertResponseBodyContains($create, '"success":1');
+        $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_id' => $invoiceId]);
+        $this->assertResponseBodyContains($list, 'INV-REC-NEW-01');
     }
 
     // -------------------------------------------------------------------------

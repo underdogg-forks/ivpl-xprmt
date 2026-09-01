@@ -183,8 +183,19 @@ class UsersControllerTest extends AbstractTestCase
     #[Test]
     public function it_updates_a_user_without_touching_the_password(): void
     {
+        /**
+         * POST /users/form/{id}
+         * {
+         *   "user_type": "2",
+         *   "user_name": "Renamed User Name",
+         *   "user_email": "update.me@test.local",
+         *   "user_language": "system",
+         *   "btn_submit": "1"
+         * }.
+         */
         /* Arrange */
-        $id = $this->seedUser(['user_name' => 'Original User Name', 'user_email' => 'update.me@test.local']);
+        $id             = $this->seedUser(['user_name' => 'Original User Name', 'user_email' => 'update.me@test.local']);
+        $passwordBefore = $this->databaseFetchOne('ip_users', ['user_id' => $id])['user_password'];
 
         /* Act */
         $response = $this->post('/users/form/' . $id, [
@@ -199,6 +210,11 @@ class UsersControllerTest extends AbstractTestCase
         $this->assertResponseRedirectsToRoute($response, 'users');
         $this->assertDatabaseHas('ip_users', ['user_id' => $id, 'user_name' => 'Renamed User Name']);
         $this->assertDatabaseMissing('ip_users', ['user_name' => 'Original User Name']);
+        self::assertSame(
+            $passwordBefore,
+            $this->databaseFetchOne('ip_users', ['user_id' => $id])['user_password'],
+            'An update that carries no new password must leave the stored hash untouched.'
+        );
     }
 
     // -------------------------------------------------------------------------
