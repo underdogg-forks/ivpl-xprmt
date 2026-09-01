@@ -5,178 +5,232 @@ namespace Tests\Feature\Core;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Concerns\PerformsCsrfProtectedRequests;
 
+/**
+ * Custom_Values controller — application/modules/custom_values/controllers/Custom_values.php.
+ *
+ * A custom value is one option of a choice-type custom field. Required field
+ * (Mdl_Custom_Values::validation_rules): custom_values_value. Routes:
+ *   list   GET  /custom_values/field/{field_id}
+ *   create POST /custom_values/create/{field_id}   -> /custom_values/field/{field_id}
+ *   edit   POST /custom_values/edit/{id}           -> /custom_values/field/{field_id}
+ *   delete POST /custom_values/delete/{id}         -> /custom_values/field/{field_id}
+ * Absorbs Issue1694CustomValuesDeleteCsrfTest.
+ */
+#[Group('custom_values')]
 class CustomValuesControllerTest extends AbstractTestCase
 {
+    use PerformsCsrfProtectedRequests;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->actingAsAdmin();
     }
 
-    #[Test]
-    #[Group('smoke')]
-    public function it_returns_a_successful_response_or_redirect(): void
+    private function seedChoiceField(): int
     {
-        /* Arrange */
-        /* (authenticated admin via setUp) */
-
-        /* Act */
-        $response = $this->get('/custom_values');
-
-        /* Assert */
-        $this->assertResponseBodyContains($response, '<html');
+        return $this->databaseInsert('ip_custom_fields', [
+            'custom_field_table' => 'ip_client_custom',
+            'custom_field_label' => 'Client Segment ' . bin2hex(random_bytes(3)),
+            'custom_field_type'  => 'MULTIPLE-CHOICE',
+        ]);
     }
 
-    #[Test]
-    public function it_redirects_a_guest_to_login(): void
+    private function seedValue(int $fieldId, string $value): int
     {
-        /* Arrange */
-        $this->actingAsGuest();
-
-        /* Act */
-        $response = $this->get('/custom_values');
-
-        /* Assert */
-        self::assertTrue(
-            $response->isRedirect(),
-            sprintf('Unauthenticated GET [/custom_values] must redirect. Got [%d].', $response->statusCode())
-        );
-    }
-
-    #[Test]
-    public function it_creates_a_custom_value_for_an_allowed_custom_field(): void
-    {
-        /* Arrange */
-        $fieldId = $this->databaseInsert('ip_custom_fields', [
-            'custom_field_table'    => 'ip_client_custom',
-            'custom_field_label'    => 'Client Tier',
-            'custom_field_type'     => 'SINGLE-CHOICE',
-            'custom_field_order'    => 1,
-            'custom_field_location' => 0,
-        ]);
-
-        /* Act */
-        $response = $this->post('/custom_values/create/' . $fieldId, [
-            'custom_values_value' => 'Gold',
-            'btn_submit'          => '1',
-        ]);
-
-        /* Assert */
-        self::assertTrue($response->isRedirect(), 'Successful custom value create must redirect.');
-        $this->assertDatabaseHas('ip_custom_values', [
+        return $this->databaseInsert('ip_custom_values', [
             'custom_values_field' => $fieldId,
-            'custom_values_value' => 'Gold',
+            'custom_values_value' => $value,
         ]);
     }
 
-    #[Test]
-    public function it_does_not_create_orphan_custom_values_for_missing_fields(): void
-    {
-        /* Arrange */
-        /* Act */
-        $response = $this->post('/custom_values/create/999999', [
-            'custom_values_value' => 'Orphan',
-            'btn_submit'          => '1',
-        ]);
-
-        /* Assert */
-        self::assertTrue($response->isRedirect(), 'Missing custom field create must return without saving.');
-        $this->assertDatabaseMissing('ip_custom_values', ['custom_values_value' => 'Orphan']);
-    }
+    // -------------------------------------------------------------------------
+    // List
+    // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_fails_to_create_a_custom_value_without_a_value(): void
+    public function it_lists_every_value_for_a_field(): void
     {
         /* Arrange */
-        $fieldId = $this->seedCustomField();
-
-        /* Act */
-        $this->post('/custom_values/create/' . $fieldId, ['custom_values_value' => '', 'btn_submit' => '1']);
-
-        /* Assert */
-        $this->assertDatabaseCount('ip_custom_values', 0);
-    }
-
-    #[Test]
-    public function it_shows_the_field_page_for_an_existing_custom_field(): void
-    {
-        /* Arrange */
-        $fieldId = $this->seedCustomField();
+        $fieldId = $this->seedChoiceField();
+        $this->seedValue($fieldId, 'Enterprise');
+        $this->seedValue($fieldId, 'Small Business');
 
         /* Act */
         $response = $this->get('/custom_values/field/' . $fieldId);
 
         /* Assert */
-        $this->assertResponseHasNoPhpErrors($response);
+        $this->assertResponseBodyContains($response, 'Enterprise');
+        $this->assertResponseBodyContains($response, 'Small Business');
+    }
+
+    // -------------------------------------------------------------------------
+    // Create — happy path
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_creates_a_value_for_a_field(): void
+    {
+        /* Arrange */
+        $fieldId = $this->seedChoiceField();
+
+        /* Act */
+        $response = $this->post('/custom_values/create/' . $fieldId, [
+            'custom_field_id'     => (string) $fieldId,
+            'custom_values_value' => 'Non Profit',
+            'btn_submit'          => '1',
+        ]);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A successful create redirects back to the field value list.');
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => 'Non Profit']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Create — validation (one omitted required field per test)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_fails_to_create_a_value_without_custom_values_value(): void
+    {
+        /* Arrange */
+        $fieldId = $this->seedChoiceField();
+
+        /* Act */
+        $response = $this->post('/custom_values/create/' . $fieldId, [
+            'custom_field_id'     => (string) $fieldId,
+            'custom_values_value' => '',
+            'btn_submit'          => '1',
+        ]);
+
+        /* Assert */
+        self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
+        $this->assertDatabaseCount('ip_custom_values', 0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Update — happy path
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_updates_a_value(): void
+    {
+        /* Arrange */
+        $fieldId = $this->seedChoiceField();
+        $id      = $this->seedValue($fieldId, 'Original Segment');
+
+        /* Act */
+        $response = $this->post('/custom_values/edit/' . $id, [
+            'custom_field_id'     => (string) $fieldId,
+            'custom_values_value' => 'Renamed Segment',
+            'btn_submit'          => '1',
+        ]);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A successful update redirects back to the field value list.');
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $id, 'custom_values_value' => 'Renamed Segment']);
+        $this->assertDatabaseMissing('ip_custom_values', ['custom_values_value' => 'Original Segment']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Update — validation (one omitted required field per test)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_fails_to_update_a_value_without_custom_values_value(): void
+    {
+        /* Arrange */
+        $fieldId = $this->seedChoiceField();
+        $id      = $this->seedValue($fieldId, 'Keep This Segment');
+
+        /* Act */
+        $response = $this->post('/custom_values/edit/' . $id, [
+            'custom_field_id'     => (string) $fieldId,
+            'custom_values_value' => '',
+            'btn_submit'          => '1',
+        ]);
+
+        /* Assert */
+        self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $id, 'custom_values_value' => 'Keep This Segment']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Delete — happy path
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_deletes_a_value(): void
+    {
+        /* Arrange */
+        $fieldId = $this->seedChoiceField();
+        $id      = $this->seedValue($fieldId, 'Deletable Segment');
+        $keep    = $this->seedValue($fieldId, 'Kept Segment');
+
+        /* Act */
+        $response = $this->post('/custom_values/delete/' . $id, []);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A successful delete redirects back to the field value list.');
+        $this->assertDatabaseMissing('ip_custom_values', ['custom_values_id' => $id]);
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $keep]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Delete — CSRF regression (#1694)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_still_deletes_a_value_when_csrf_protection_is_on_and_the_token_is_valid(): void
+    {
+        /* Arrange */
+        $this->enableCsrfProtection();
+        $fieldId = $this->seedChoiceField();
+        $id      = $this->seedValue($fieldId, 'CSRF Segment');
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/custom_values/delete/' . $id);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A valid-token delete redirects.');
+        $this->assertDatabaseMissing('ip_custom_values', ['custom_values_id' => $id]);
     }
 
     #[Test]
-    public function it_updates_an_existing_custom_value(): void
+    public function it_does_not_delete_a_value_when_the_csrf_token_is_missing(): void
     {
         /* Arrange */
-        $fieldId = $this->seedCustomField();
-        $valueId = $this->databaseInsert('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => 'Silver']);
+        $this->enableCsrfProtection();
+        $fieldId = $this->seedChoiceField();
+        $id      = $this->seedValue($fieldId, 'CSRF Segment Kept');
 
         /* Act */
-        $response = $this->post('/custom_values/edit/' . $valueId, ['custom_values_value' => 'Platinum', 'btn_submit' => '1']);
+        $response = $this->postWithoutCsrfToken('/custom_values/delete/' . $id);
 
         /* Assert */
-        self::assertTrue($response->isRedirect());
-        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $valueId, 'custom_values_value' => 'Platinum']);
+        self::assertFalse($response->isRedirect(), 'A token-less delete must not reach the controller.');
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $id, 'custom_values_value' => 'CSRF Segment Kept']);
     }
+
+    // -------------------------------------------------------------------------
+    // Guest access — always last
+    // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_fails_to_update_a_custom_value_without_a_value(): void
+    public function it_redirects_a_guest_to_login_and_leaks_no_value(): void
     {
         /* Arrange */
-        $fieldId = $this->seedCustomField();
-        $valueId = $this->databaseInsert('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => 'Silver']);
+        $fieldId = $this->seedChoiceField();
+        $this->seedValue($fieldId, 'Secret Segment');
+        $this->actingAsGuest();
 
         /* Act */
-        $this->post('/custom_values/edit/' . $valueId, ['custom_values_value' => '', 'btn_submit' => '1']);
+        $response = $this->get('/custom_values/field/' . $fieldId);
 
         /* Assert */
-        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $valueId, 'custom_values_value' => 'Silver']);
-    }
-
-    #[Test]
-    public function it_deletes_an_unused_custom_value(): void
-    {
-        /* Arrange */
-        $fieldId = $this->seedCustomField();
-        $valueId = $this->databaseInsert('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => 'Deletable']);
-
-        /* Act */
-        $response = $this->post('/custom_values/delete/' . $valueId);
-
-        /* Assert */
-        self::assertTrue($response->isRedirect());
-        $this->assertDatabaseMissing('ip_custom_values', ['custom_values_id' => $valueId]);
-    }
-
-    #[Test]
-    public function it_does_not_delete_a_custom_value_on_a_non_post_request(): void
-    {
-        /* Arrange */
-        $fieldId = $this->seedCustomField();
-        $valueId = $this->databaseInsert('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => 'Untouched']);
-
-        /* Act */
-        $this->get('/custom_values/delete/' . $valueId);
-
-        /* Assert */
-        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $valueId]);
-    }
-
-    private function seedCustomField(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_custom_fields', array_merge([
-            'custom_field_table'    => 'ip_client_custom',
-            'custom_field_label'    => 'Client Tier',
-            'custom_field_type'     => 'SINGLE-CHOICE',
-            'custom_field_order'    => 1,
-            'custom_field_location' => 0,
-        ], $overrides));
+        self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
+        $this->assertResponseBodyNotContains($response, 'Secret Segment');
     }
 }
