@@ -89,6 +89,7 @@ class InvoicesControllerTest extends AbstractTestCase
     public function it_refuses_to_delete_a_sent_invoice_while_deletion_is_disabled(): void
     {
         /* Arrange */
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'false']);
         $clientId  = $this->seedClient();
         $invoiceId = $this->seedInvoice($clientId, ['invoice_status_id' => 2]);
 
@@ -98,6 +99,39 @@ class InvoicesControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'A refused delete still redirects back to the list.');
         $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_status_id' => 2]);
+    }
+
+    #[Test]
+    public function it_refuses_to_delete_a_paid_invoice_while_deletion_is_disabled(): void
+    {
+        /* Arrange */
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'false']);
+        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_status_id' => 4, 'invoice_number' => 'INV-PAID-KEPT']);
+
+        /* Act */
+        $response = $this->post('/invoices/delete/' . $invoiceId, []);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A refused delete still redirects back to the list.');
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'INV-PAID-KEPT']);
+    }
+
+    #[Test]
+    public function it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled(): void
+    {
+        /* Arrange */
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'true']);
+        $clientId  = $this->seedClient();
+        $invoiceId = $this->seedInvoice($clientId, ['invoice_status_id' => 2]);
+        $keepId    = $this->seedInvoice($clientId, ['invoice_status_id' => 2]);
+
+        /* Act */
+        $response = $this->post('/invoices/delete/' . $invoiceId, []);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'Delete redirects back to the invoice list.');
+        $this->assertDatabaseMissing('ip_invoices', ['invoice_id' => $invoiceId]);
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $keepId, 'invoice_status_id' => 2]);
     }
 
     // -------------------------------------------------------------------------

@@ -2,9 +2,20 @@
 
 namespace Tests\Feature\Core;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Integration\Support\HttpResponse;
 
+/**
+ * Reports controller — application/modules/reports/controllers/Reports.php.
+ *
+ * Every report renders straight to a streamed mPDF document; there is no
+ * create/update/delete surface. Each test proves the response is a well-formed,
+ * non-empty PDF (header + %%EOF trailer + realistic size) built from the seeded
+ * rows, and that generating a report never writes to the tables it reads.
+ */
+#[Group('reports')]
 class ReportsControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
@@ -12,6 +23,10 @@ class ReportsControllerTest extends AbstractTestCase
         parent::setUp();
         $this->actingAsAdmin();
     }
+
+    // -------------------------------------------------------------------------
+    // Report generation — each type returns a real PDF over the seeded data
+    // -------------------------------------------------------------------------
 
     #[Test]
     public function it_generates_an_invoices_per_client_report_for_a_date_range_without_mutating_data(): void
@@ -40,8 +55,7 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseHasNoPhpErrors($response);
-        self::assertStringStartsWith('%PDF-', $response->body());
+        $this->assertIsPdfDocument($response);
         $this->assertDatabaseCount('ip_clients', 2);
         $this->assertDatabaseCount('ip_invoices', 2);
     }
@@ -59,7 +73,8 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        self::assertStringStartsWith('%PDF-', $response->body());
+        $this->assertIsPdfDocument($response);
+        $this->assertDatabaseCount('ip_invoices', 1);
     }
 
     #[Test]
@@ -68,7 +83,7 @@ class ReportsControllerTest extends AbstractTestCase
         /* Arrange */
         $clientId  = $this->seedClient();
         $invoiceId = $this->seedInvoice($clientId);
-        $this->seedPayment($invoiceId, ['payment_date' => '2026-01-15']);
+        $paymentId = $this->seedPayment($invoiceId, ['payment_date' => '2026-01-15']);
 
         /* Act */
         $response = $this->post('/reports/payment_history', [
@@ -76,21 +91,23 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        self::assertStringStartsWith('%PDF-', $response->body());
+        $this->assertIsPdfDocument($response);
+        $this->assertDatabaseHas('ip_payments', ['payment_id' => $paymentId]);
     }
 
     #[Test]
     public function it_generates_an_invoice_aging_report(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient();
-        $this->seedInvoice($clientId, ['invoice_date_due' => date('Y-m-d', strtotime('-10 days'))], ['invoice_balance' => '50.00']);
+        $clientId  = $this->seedClient();
+        $invoiceId = $this->seedInvoice($clientId, ['invoice_date_due' => date('Y-m-d', strtotime('-10 days'))], ['invoice_balance' => '50.00']);
 
         /* Act */
         $response = $this->post('/reports/invoice_aging', ['btn_submit' => '1']);
 
         /* Assert */
-        self::assertStringStartsWith('%PDF-', $response->body());
+        $this->assertIsPdfDocument($response);
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId]);
     }
 
     #[Test]
@@ -106,11 +123,16 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        self::assertStringStartsWith('%PDF-', $response->body());
+        $this->assertIsPdfDocument($response);
+        $this->assertDatabaseCount('ip_invoices', 1);
     }
 
+    // -------------------------------------------------------------------------
+    // Guest access — always last
+    // -------------------------------------------------------------------------
+
     #[Test]
-    public function it_redirects_a_guest_to_login_for_reports(): void
+    public function it_redirects_a_guest_to_login_and_serves_no_report(): void
     {
         /* Arrange */
         $this->actingAsGuest();
@@ -119,6 +141,21 @@ class ReportsControllerTest extends AbstractTestCase
         $response = $this->get('/reports/sales_by_client');
 
         /* Assert */
-        self::assertTrue($response->isRedirect());
+        self::assertTrue($response->isRedirect(), 'An unauthenticated report request must redirect to login.');
+        self::assertStringNotContainsString('%PDF-', $response->body(), 'No PDF may be streamed to a guest.');
+    }
+
+    /**
+     * A generated report must be a complete PDF stream, not an error page, an
+     * empty buffer or a truncated document: header marker, trailer marker and a
+     * realistic byte size (a one-row report already clears ~1 KB).
+     */
+    private function assertIsPdfDocument(HttpResponse $response): void
+    {
+        $body = $response->body();
+
+        self::assertStringStartsWith('%PDF-', $body, 'Response is not a PDF document.');
+        self::assertStringContainsString('%%EOF', $body, 'PDF stream is missing its %%EOF trailer.');
+        self::assertGreaterThan(1000, strlen($body), 'PDF stream is implausibly small for a rendered report.');
     }
 }

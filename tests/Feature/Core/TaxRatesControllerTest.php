@@ -50,6 +50,14 @@ class TaxRatesControllerTest extends AbstractTestCase
     #[Test]
     public function it_creates_a_tax_rate(): void
     {
+        /**
+         * POST /tax_rates/form
+         * {
+         *   "tax_rate_name": "Standard VAT",
+         *   "tax_rate_percent": "21.00",
+         *   "btn_submit": "1"
+         * }.
+         */
         /* Arrange */
 
         /* Act */
