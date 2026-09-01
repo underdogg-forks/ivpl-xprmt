@@ -465,7 +465,13 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseHasNoPhpErrors($response);
+        $body = trim($response->body());
+        self::assertMatchesRegularExpression(
+            '#^\d{4}-\d{2}-\d{2}$|^\d{2}/\d{2}/\d{4}$#',
+            $body,
+            'The endpoint must echo a single formatted start date, got: ' . $body
+        );
+        self::assertNotSame(date('Y-m-d'), $body, 'A 1-day frequency must advance the start date past the invoice date.');
     }
 
     #[Test]
@@ -494,8 +500,8 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_create_invoice', ['client_id' => (string) $clientId]);
 
         /* Assert */
-        $this->assertResponseHasNoPhpErrors($response);
-        self::assertNotSame('', $response->body(), 'The create-invoice modal must render markup.');
+        $this->assertResponseBodyContains($response, 'name="invoice_group_id"');
+        $this->assertResponseBodyContains($response, 'id="create_invoice_client_id"');
     }
 
     #[Test]
@@ -508,8 +514,8 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_create_recurring', ['invoice_id' => (string) $invoiceId]);
 
         /* Assert */
-        $this->assertResponseHasNoPhpErrors($response);
-        self::assertNotSame('', $response->body(), 'The create-recurring modal must render markup.');
+        $this->assertResponseBodyContains($response, 'name="recur_frequency"');
+        $this->assertResponseBodyContains($response, 'name="recur_start_date"');
     }
 
     #[Test]
@@ -522,8 +528,8 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_create_credit', ['invoice_id' => (string) $invoiceId]);
 
         /* Assert */
-        $this->assertResponseHasNoPhpErrors($response);
-        self::assertNotSame('', $response->body(), 'The create-credit modal must render markup.');
+        $this->assertResponseBodyContains($response, 'name="parent_id"');
+        $this->assertResponseBodyContains($response, 'value="' . $invoiceId . '"');
     }
 
     // -------------------------------------------------------------------------
@@ -549,21 +555,29 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_handles_sequential_create_then_save_ajax_calls(): void
+    public function it_persists_a_save_that_immediately_follows_a_create(): void
     {
         /* Arrange */
+        // csrf_regenerate is forced on for the Feature harness (config.php), which
+        // is the #1601 scenario: two AJAX writes back to back. The second must
+        // still land. (The token echo itself only fires when CSRF_PROTECTION is
+        // also on, and turning that on for an AJAX route trips a separate,
+        // pre-existing json_encode_ajax() double-verify bug — noted for the
+        // maintainer in the release-readiness report.)
         $clientId = $this->seedClient();
 
         /* Act */
         $createResponse = $this->ajax('POST', '/invoices/ajax/create', $this->validCreatePayload($clientId));
         $createData     = json_decode($createResponse->body(), true);
         $invoiceId      = (int) ($createData['invoice_id'] ?? 0);
-        $saveResponse   = $this->ajax('POST', '/invoices/ajax/save', $this->validSavePayload($invoiceId));
+        $savePayload    = $this->validSavePayload($invoiceId) + ['invoice_terms' => 'Terms set on the follow-up save'];
+        $saveResponse   = $this->ajax('POST', '/invoices/ajax/save', $savePayload);
         $saveData       = json_decode($saveResponse->body(), true);
 
         /* Assert */
         self::assertSame(1, $createData['success'] ?? null, 'Create failed: ' . $createResponse->body());
-        self::assertSame(1, $saveData['success'] ?? null, 'Save after create failed (CSRF token chain): ' . $saveResponse->body());
+        self::assertSame(1, $saveData['success'] ?? null, 'Save after create failed: ' . $saveResponse->body());
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_terms' => 'Terms set on the follow-up save']);
     }
 
     // -------------------------------------------------------------------------
