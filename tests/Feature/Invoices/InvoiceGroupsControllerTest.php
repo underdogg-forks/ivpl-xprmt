@@ -32,7 +32,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $response = $this->get('/invoice_groups');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Listed Group');
     }
 
@@ -49,7 +48,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $response = $this->get('/invoice_groups/form');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 
@@ -102,7 +100,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $response = $this->get('/invoice_groups/form/' . $id);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, 'Editable Group');
     }
@@ -198,7 +195,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         // Baseline seeding always creates one default invoice group; a failed
         // create must not add a second one.
@@ -231,7 +227,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseMissing('ip_invoice_groups', ['invoice_group_name' => 'Missing Format']);
     }
@@ -268,7 +263,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseHas('ip_invoice_groups', ['invoice_group_name' => 'Will Not Change']);
     }

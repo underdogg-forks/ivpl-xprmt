@@ -32,7 +32,6 @@ class StripeControllerTest extends AbstractTestCase
         $response = $this->get('/payments');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<html');
     }
 

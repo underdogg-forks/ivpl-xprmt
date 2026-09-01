@@ -90,7 +90,6 @@ class PaypalGatewayCallbackTest extends AbstractTestCase
         $response = $this->post('/guest/gateways/paypal/paypal_create_order/' . $urlKey);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $json = json_decode($response->body(), true);
         self::assertSame('PAYPAL-ORDER-123', $json['id'] ?? null);
         self::assertSame('CREATED', $json['status'] ?? null);

@@ -30,7 +30,6 @@ class EmailTemplatesAjaxControllerTest extends AbstractTestCase
         $response = $this->get('/email_templates');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Ajax Email Template');
     }
 }

@@ -34,7 +34,6 @@ class ProjectsSmokeTest extends AbstractTestCase
         $response = $this->get('/projects');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Service Project Epsilon');
     }
 

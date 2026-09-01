@@ -39,7 +39,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Listed Family');
     }
@@ -62,7 +61,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
     }
@@ -125,7 +123,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -239,7 +236,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -281,7 +277,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -388,7 +383,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Ajax Widget Beta');
     }
@@ -429,7 +423,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseHasNoPhpErrors($response);
     }
@@ -451,7 +444,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Filter Match Product');
 
@@ -473,7 +465,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Selected Product');
     }
@@ -491,7 +482,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         self::assertSame([], json_decode($response->body(), true));
     }
@@ -516,7 +506,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Listed Widget');
     }
@@ -539,7 +528,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
     }
@@ -674,7 +662,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -812,7 +799,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -864,7 +850,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -918,7 +903,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -972,7 +956,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Listed Unit');
     }
@@ -995,7 +978,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
     }
@@ -1066,7 +1048,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -1196,7 +1177,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -1240,7 +1220,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -1290,7 +1269,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 

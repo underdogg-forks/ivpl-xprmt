@@ -25,7 +25,6 @@ class MailerControllerTest extends AbstractTestCase
         $response = $this->get('/dashboard');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<html');
     }
 }

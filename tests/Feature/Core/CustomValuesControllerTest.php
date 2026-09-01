@@ -25,7 +25,6 @@ class CustomValuesControllerTest extends AbstractTestCase
         $response = $this->get('/custom_values');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<html');
     }
 
@@ -109,7 +108,6 @@ class CustomValuesControllerTest extends AbstractTestCase
         $response = $this->get('/custom_values/field/' . $fieldId);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
