@@ -31,16 +31,6 @@ class CustomFieldsControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,mixed> $overrides */
-    private function seedField(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_custom_fields', array_merge([
-            'custom_field_table' => 'ip_client_custom',
-            'custom_field_label' => 'Seeded Field ' . bin2hex(random_bytes(3)),
-            'custom_field_type'  => 'TEXT',
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -299,5 +289,15 @@ class CustomFieldsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Custom Field');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedField(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_custom_fields', array_merge([
+            'custom_field_table' => 'ip_client_custom',
+            'custom_field_label' => 'Seeded Field ' . bin2hex(random_bytes(3)),
+            'custom_field_type'  => 'TEXT',
+        ], $overrides));
     }
 }

@@ -30,26 +30,6 @@ class UserClientsControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    private function seedSecondaryUser(): int
-    {
-        return $this->databaseInsert('ip_users', [
-            'user_type'          => 2,
-            'user_name'          => 'Assignee ' . bin2hex(random_bytes(3)),
-            'user_email'         => 'assignee+' . bin2hex(random_bytes(4)) . '@test.local',
-            'user_password'      => password_hash('secret123', PASSWORD_DEFAULT),
-            'user_psalt'         => bin2hex(random_bytes(8)),
-            'user_language'      => 'system',
-            'user_active'        => 1,
-            'user_date_created'  => date('Y-m-d H:i:s'),
-            'user_date_modified' => date('Y-m-d H:i:s'),
-        ]);
-    }
-
-    private function seedAssignment(int $userId, int $clientId): int
-    {
-        return $this->databaseInsert('ip_user_clients', ['user_id' => $userId, 'client_id' => $clientId]);
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -85,8 +65,8 @@ class UserClientsControllerTest extends AbstractTestCase
 
         /* Act */
         $response = $this->post('/user_clients/create/' . $userId, [
-            'user_id'   => (string) $userId,
-            'client_id' => (string) $clientId,
+            'user_id'    => (string) $userId,
+            'client_id'  => (string) $clientId,
             'btn_submit' => '1',
         ]);
 
@@ -234,5 +214,25 @@ class UserClientsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Assigned Client');
+    }
+
+    private function seedSecondaryUser(): int
+    {
+        return $this->databaseInsert('ip_users', [
+            'user_type'          => 2,
+            'user_name'          => 'Assignee ' . bin2hex(random_bytes(3)),
+            'user_email'         => 'assignee+' . bin2hex(random_bytes(4)) . '@test.local',
+            'user_password'      => password_hash('secret123', PASSWORD_DEFAULT),
+            'user_psalt'         => bin2hex(random_bytes(8)),
+            'user_language'      => 'system',
+            'user_active'        => 1,
+            'user_date_created'  => date('Y-m-d H:i:s'),
+            'user_date_modified' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    private function seedAssignment(int $userId, int $clientId): int
+    {
+        return $this->databaseInsert('ip_user_clients', ['user_id' => $userId, 'client_id' => $clientId]);
     }
 }

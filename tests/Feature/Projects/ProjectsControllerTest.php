@@ -24,15 +24,6 @@ class ProjectsControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,mixed> $overrides */
-    private function seedProject(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_projects', array_merge([
-            'project_name' => 'Seeded Project',
-            'client_id'    => $this->seedClient(),
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -225,5 +216,14 @@ class ProjectsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Project');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedProject(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_projects', array_merge([
+            'project_name' => 'Seeded Project',
+            'client_id'    => $this->seedClient(),
+        ], $overrides));
     }
 }
