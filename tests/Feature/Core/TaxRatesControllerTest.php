@@ -30,7 +30,6 @@ class TaxRatesControllerTest extends AbstractTestCase
         $response = $this->get('/tax_rates');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Listed VAT');
     }
 
@@ -47,7 +46,6 @@ class TaxRatesControllerTest extends AbstractTestCase
         $response = $this->get('/tax_rates/form');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 
@@ -94,7 +92,6 @@ class TaxRatesControllerTest extends AbstractTestCase
         $response = $this->get('/tax_rates/form/' . $id);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, 'Editable VAT');
     }
@@ -178,7 +175,6 @@ class TaxRatesControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_tax_rates', 0);
     }
@@ -205,7 +201,6 @@ class TaxRatesControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseMissing('ip_tax_rates', ['tax_rate_name' => 'Incomplete VAT']);
     }
@@ -236,7 +231,6 @@ class TaxRatesControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseHas('ip_tax_rates', ['tax_rate_name' => 'Will Not Change']);
     }

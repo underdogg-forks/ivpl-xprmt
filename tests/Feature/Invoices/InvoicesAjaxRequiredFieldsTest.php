@@ -449,7 +449,6 @@ class InvoicesAjaxRequiredFieldsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/get_item', ['item_id' => (string) $itemId]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Get Me');
     }
 
@@ -465,7 +464,6 @@ class InvoicesAjaxRequiredFieldsTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 

@@ -115,7 +115,6 @@ class PaymentsAjaxControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 

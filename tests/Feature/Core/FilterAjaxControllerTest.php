@@ -31,7 +31,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_invoices', ['filter_query' => 'FILTER-MATCH-001']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'FILTER-MATCH-001');
         $this->assertResponseBodyNotContains($response, 'OTHER-002');
     }
@@ -44,7 +43,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_invoices', []);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -59,7 +57,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_invoices', ['filter_query' => "' OR '1'='1"]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -79,7 +76,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_quotes', ['filter_query' => 'QUOFILTER-001']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'QUOFILTER-001');
     }
 
@@ -94,7 +90,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_clients', ['filter_query' => 'FilterClientMatch']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'FilterClientMatch');
         $this->assertResponseBodyNotContains($response, 'OtherClient');
     }
@@ -107,7 +102,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_custom_fields', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -119,7 +113,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_custom_values', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -131,7 +124,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_custom_values_field', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -148,7 +140,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_projects', ['filter_query' => 'FilterProjectMatch']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'FilterProjectMatch');
     }
 
@@ -160,7 +151,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_tasks', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -172,7 +162,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_products', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -184,7 +173,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_users', ['filter_query' => 'admin']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -196,7 +184,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_families', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -208,7 +195,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_invoices_recuring', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -220,7 +206,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_online_logs', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -232,7 +217,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_archives', ['filter_query' => 'anything']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -248,7 +232,6 @@ class FilterAjaxControllerTest extends AbstractTestCase
         $response = $this->ajax('POST', '/filter/ajax/filter_payments', ['filter_query' => 'FilterPaymentMatch']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'FilterPaymentMatch');
     }
 

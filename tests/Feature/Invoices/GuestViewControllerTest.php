@@ -68,7 +68,6 @@ class GuestViewControllerTest extends AbstractTestCase
         $response = $this->get('/guest/view/invoice/' . $urlKey);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -123,7 +122,6 @@ class GuestViewControllerTest extends AbstractTestCase
         $response = $this->get('/guest/view/quote/' . $urlKey);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 

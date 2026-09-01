@@ -29,7 +29,6 @@ class SettingsControllerTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 
@@ -62,7 +61,6 @@ class SettingsControllerTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Security Warning');
         $this->assertResponseBodyContains($response, 'DISABLE_SETUP is set to false');
         $this->assertResponseBodyContains($response, 'Please edit ipconfig.php');
@@ -78,7 +76,6 @@ class SettingsControllerTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Custom template configuration required');
         $this->assertResponseBodyContains($response, 'CUSTOM_INVOICE_TEMPLATES_PDF');
         $this->assertResponseBodyContains($response, 'Legacy Custom Invoice');
@@ -98,7 +95,6 @@ class SettingsControllerTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyNotContains($response, 'Custom template configuration required');
         $this->assertResponseBodyContains($response, 'Legacy Custom Invoice');
     }

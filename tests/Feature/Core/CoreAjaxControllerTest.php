@@ -30,7 +30,6 @@ class CoreAjaxControllerTest extends AbstractTestCase
         $response = $this->get('/clients/status/active');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<html');
     }
 

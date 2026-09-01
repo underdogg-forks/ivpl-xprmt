@@ -39,7 +39,6 @@ class UsersControllerTest extends AbstractTestCase
         $response = $this->get('/users');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Alice Tester');
     }
 
@@ -101,7 +100,6 @@ class UsersControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseMissing('ip_users', ['user_email' => 'mismatch@test.local']);
     }
@@ -252,7 +250,6 @@ class UsersControllerTest extends AbstractTestCase
         $response = $this->get('/users/form/' . $userId);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 }

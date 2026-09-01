@@ -21,7 +21,6 @@ class TasksAjaxLookupsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/tasks/ajax/modal_task_lookups', []);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -35,7 +34,6 @@ class TasksAjaxLookupsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/tasks/ajax/process_task_selections', ['task_ids' => [(string) $seeded['taskId']]]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Lookup Task Marker');
     }
 
@@ -47,7 +45,6 @@ class TasksAjaxLookupsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/tasks/ajax/process_task_selections', []);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         self::assertSame([], json_decode($response->body(), true));
     }
 

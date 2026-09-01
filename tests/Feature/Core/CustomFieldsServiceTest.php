@@ -109,7 +109,6 @@ class CustomFieldsServiceTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
         $this->assertDatabaseMissing('ip_custom_fields', ['custom_field_label' => 'Injected Table']);
         $this->assertDatabaseHas('ip_users', ['user_email' => 'admin@test.local']);

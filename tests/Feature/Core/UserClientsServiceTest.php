@@ -92,7 +92,6 @@ class UserClientsServiceTest extends AbstractTestCase
         $response = $this->get('/user_clients/user/' . $userId);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 

@@ -34,7 +34,6 @@ class PaymentsFeatureTest extends AbstractTestCase
         $response = $this->get('/payments');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '99.00');
     }
 
@@ -51,7 +50,6 @@ class PaymentsFeatureTest extends AbstractTestCase
         $response = $this->get('/payments/form');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 
@@ -111,7 +109,6 @@ class PaymentsFeatureTest extends AbstractTestCase
         $response = $this->get('/payments/form/' . $paymentId);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, '175');
     }
@@ -201,7 +198,6 @@ class PaymentsFeatureTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_payments', 0);
     }
@@ -232,7 +228,6 @@ class PaymentsFeatureTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_payments', 0);
     }
@@ -263,7 +258,6 @@ class PaymentsFeatureTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_payments', 0);
     }

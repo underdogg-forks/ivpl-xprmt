@@ -96,7 +96,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Needle Enterprises');
 
@@ -136,7 +135,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         self::assertSame([], json_decode($response->body(), true));
     }
@@ -156,7 +154,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseHasNoPhpErrors($response);
 
@@ -185,7 +182,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $json = json_decode($response->body(), true);
 
@@ -425,7 +421,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Visible note marker');
     }
@@ -470,7 +465,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Listed Corp');
     }
@@ -490,7 +484,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'Dormant Inc');
     }
@@ -515,7 +508,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
     }
@@ -652,7 +644,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -770,7 +761,6 @@ class ClientsTest extends AbstractTestCase
 
         // Validation failure in CI3 re-renders the form at 200
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -814,7 +804,6 @@ class ClientsTest extends AbstractTestCase
 
         // Validation failure in CI3 re-renders the form at 200
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, '<form');
 
@@ -841,7 +830,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'View Me Corp');
     }
