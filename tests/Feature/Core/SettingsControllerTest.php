@@ -28,12 +28,6 @@ class SettingsControllerTest extends AbstractTestCase
         ]);
     }
 
-    private function setSetting(string $key, string $value): void
-    {
-        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => $key, 'setting_value' => '']);
-        $this->databaseUpdate('ip_settings', ['setting_value' => $value], ['setting_key' => $key]);
-    }
-
     // -------------------------------------------------------------------------
     // Read
     // -------------------------------------------------------------------------
@@ -200,5 +194,11 @@ class SettingsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'guest-must-not-see-this');
+    }
+
+    private function setSetting(string $key, string $value): void
+    {
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => $key, 'setting_value' => '']);
+        $this->databaseUpdate('ip_settings', ['setting_value' => $value], ['setting_key' => $key]);
     }
 }

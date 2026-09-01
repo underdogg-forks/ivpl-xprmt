@@ -33,17 +33,6 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,string> $overrides */
-    private function seedGroup(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_invoice_groups', array_merge([
-            'invoice_group_name'              => 'Seeded Group',
-            'invoice_group_identifier_format' => 'SG-{{{id}}}',
-            'invoice_group_next_id'           => 1,
-            'invoice_group_left_pad'          => 4,
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -344,5 +333,16 @@ class InvoiceGroupsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Group');
+    }
+
+    /** @param array<string,string> $overrides */
+    private function seedGroup(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_invoice_groups', array_merge([
+            'invoice_group_name'              => 'Seeded Group',
+            'invoice_group_identifier_format' => 'SG-{{{id}}}',
+            'invoice_group_next_id'           => 1,
+            'invoice_group_left_pad'          => 4,
+        ], $overrides));
     }
 }

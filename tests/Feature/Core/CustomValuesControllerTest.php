@@ -29,23 +29,6 @@ class CustomValuesControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    private function seedChoiceField(): int
-    {
-        return $this->databaseInsert('ip_custom_fields', [
-            'custom_field_table' => 'ip_client_custom',
-            'custom_field_label' => 'Client Segment ' . bin2hex(random_bytes(3)),
-            'custom_field_type'  => 'MULTIPLE-CHOICE',
-        ]);
-    }
-
-    private function seedValue(int $fieldId, string $value): int
-    {
-        return $this->databaseInsert('ip_custom_values', [
-            'custom_values_field' => $fieldId,
-            'custom_values_value' => $value,
-        ]);
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -232,5 +215,22 @@ class CustomValuesControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Segment');
+    }
+
+    private function seedChoiceField(): int
+    {
+        return $this->databaseInsert('ip_custom_fields', [
+            'custom_field_table' => 'ip_client_custom',
+            'custom_field_label' => 'Client Segment ' . bin2hex(random_bytes(3)),
+            'custom_field_type'  => 'MULTIPLE-CHOICE',
+        ]);
+    }
+
+    private function seedValue(int $fieldId, string $value): int
+    {
+        return $this->databaseInsert('ip_custom_values', [
+            'custom_values_field' => $fieldId,
+            'custom_values_value' => $value,
+        ]);
     }
 }

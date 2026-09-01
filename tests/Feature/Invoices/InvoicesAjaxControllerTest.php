@@ -535,8 +535,8 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     public function it_saves_an_invoice_with_items_on_the_first_attempt(): void
     {
         /* Arrange */
-        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_number' => 'ITEM-SAVE-001']);
-        $payload   = $this->validSavePayload($invoiceId);
+        $invoiceId        = $this->seedInvoice($this->seedClient(), ['invoice_number' => 'ITEM-SAVE-001']);
+        $payload          = $this->validSavePayload($invoiceId);
         $payload['items'] = json_encode([[
             'item_name'     => 'First Attempt Item',
             'item_quantity' => '2',

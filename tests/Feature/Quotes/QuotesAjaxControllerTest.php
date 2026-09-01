@@ -22,17 +22,6 @@ class QuotesAjaxControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @return array<string,string> */
-    private function createPayload(int $clientId): array
-    {
-        return [
-            'client_id'          => (string) $clientId,
-            'quote_date_created' => date('Y-m-d'),
-            'invoice_group_id'   => '1',
-            'user_id'            => '1',
-        ];
-    }
-
     // -------------------------------------------------------------------------
     // Create — happy path
     // -------------------------------------------------------------------------
@@ -60,8 +49,8 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     public function it_fails_to_create_a_quote_without_client_id(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient();
-        $payload  = $this->createPayload($clientId);
+        $clientId             = $this->seedClient();
+        $payload              = $this->createPayload($clientId);
         $payload['client_id'] = '';
 
         /* Act */
@@ -77,8 +66,8 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     public function it_fails_to_create_a_quote_without_quote_date_created(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient();
-        $payload  = $this->createPayload($clientId);
+        $clientId                      = $this->seedClient();
+        $payload                       = $this->createPayload($clientId);
         $payload['quote_date_created'] = '';
 
         /* Act */
@@ -94,8 +83,8 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     public function it_fails_to_create_a_quote_without_invoice_group_id(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient();
-        $payload  = $this->createPayload($clientId);
+        $clientId                    = $this->seedClient();
+        $payload                     = $this->createPayload($clientId);
         $payload['invoice_group_id'] = '';
 
         /* Act */
@@ -124,5 +113,16 @@ class QuotesAjaxControllerTest extends AbstractTestCase
         /* Assert */
         self::assertStringNotContainsString('"success":1', $response->body(), 'A guest must not create a quote.');
         $this->assertDatabaseCount('ip_quotes', 0);
+    }
+
+    /** @return array<string,string> */
+    private function createPayload(int $clientId): array
+    {
+        return [
+            'client_id'          => (string) $clientId,
+            'quote_date_created' => date('Y-m-d'),
+            'invoice_group_id'   => '1',
+            'user_id'            => '1',
+        ];
     }
 }
