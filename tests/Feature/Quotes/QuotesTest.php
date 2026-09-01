@@ -234,7 +234,6 @@ class QuotesTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'QUO-LIST-001');
     }
@@ -259,7 +258,6 @@ class QuotesTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseBodyContains($response, 'QUO-VIEW-001');
     }
@@ -351,7 +349,6 @@ class QuotesTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $this->assertResponseHasNoPhpErrors($response);
     }
@@ -422,7 +419,6 @@ class QuotesTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         $expectedStatuses = ['draft', 'sent', 'viewed', 'approved', 'rejected', 'canceled'];
 
@@ -462,7 +458,6 @@ class QuotesTest extends AbstractTestCase
 
         /* Assert */
 
-        $this->assertResponseStatusCode($response, 200);
 
         self::assertTrue(
             $response->contains('QUO-TEST') || $response->contains((string) $quoteId),

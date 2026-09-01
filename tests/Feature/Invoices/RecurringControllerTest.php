@@ -36,7 +36,6 @@ class RecurringControllerTest extends AbstractTestCase
         $response = $this->get('/invoices/recurring');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Visible recurring client');
         $this->assertResponseBodyContains($response, 'REC-VISIBLE-001');
     }

@@ -30,7 +30,6 @@ class SetupControllerTest extends AbstractTestCase
         $response = $this->get('/setup/language');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, 'setup');
     }

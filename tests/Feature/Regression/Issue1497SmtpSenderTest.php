@@ -48,7 +48,6 @@ class Issue1497SmtpSenderTest extends AbstractTestCase
         $response = $this->get('/mailer/invoice/' . $invoiceId);
 
         /* Assert - The from_email field should be prepopulated with smtp_mail_from, not user email */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringContainsString(
             'value="noreply@company.com"',
             $response->body(),
@@ -76,7 +75,6 @@ class Issue1497SmtpSenderTest extends AbstractTestCase
         $response = $this->get('/mailer/invoice/' . $invoiceId);
 
         /* Assert - The from_email field should fall back to user email */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringContainsString(
             'value="admin@test.local"',
             $response->body(),

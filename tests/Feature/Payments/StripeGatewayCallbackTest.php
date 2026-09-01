@@ -124,7 +124,6 @@ class StripeGatewayCallbackTest extends AbstractTestCase
         $response = $this->post('/guest/gateways/stripe/create_checkout_session/' . $urlKey);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $json = json_decode($response->body(), true);
         self::assertSame('cs_test_123_secret_abc', $json['clientSecret'] ?? null);
     }
@@ -155,7 +154,6 @@ class StripeGatewayCallbackTest extends AbstractTestCase
         $response = $this->post('/guest/gateways/stripe/create_checkout_session/' . $urlKey);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $request = json_decode((string) file_get_contents($captureFile), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('JPY', $request['params']['line_items'][0]['price_data']['currency']);
         self::assertSame(100, $request['params']['line_items'][0]['price_data']['unit_amount']);

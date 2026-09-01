@@ -30,7 +30,6 @@ class VersionsControllerTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 

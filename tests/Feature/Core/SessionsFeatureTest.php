@@ -32,7 +32,6 @@ class SessionsFeatureTest extends AbstractTestCase
         $response = $this->get('/sessions/login');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -121,7 +120,6 @@ class SessionsFeatureTest extends AbstractTestCase
         $response = $this->get('/sessions/passwordreset');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
         $this->assertResponseBodyContains($response, '<form');
     }

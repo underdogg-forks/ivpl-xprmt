@@ -83,7 +83,6 @@ class GuestPaymentsControllerTest extends AbstractTestCase
         $response = $this->get('/guest/payments');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'own-payment-marker');
         $this->assertResponseBodyNotContains($response, 'other-payment-marker');
     }

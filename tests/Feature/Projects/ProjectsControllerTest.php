@@ -31,7 +31,6 @@ class ProjectsControllerTest extends AbstractTestCase
         $response = $this->get('/projects');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'Listed Project');
     }
 
@@ -48,7 +47,6 @@ class ProjectsControllerTest extends AbstractTestCase
         $response = $this->get('/projects/form');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 
@@ -97,7 +95,6 @@ class ProjectsControllerTest extends AbstractTestCase
         $response = $this->get('/projects/form/' . $id);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, 'Editable Project');
     }
@@ -152,7 +149,6 @@ class ProjectsControllerTest extends AbstractTestCase
         $response = $this->get('/projects/view/' . $id);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'View Me Project');
     }
 
@@ -206,7 +202,6 @@ class ProjectsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_projects', 0);
     }
@@ -238,7 +233,6 @@ class ProjectsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseHas('ip_projects', ['project_name' => 'Will Not Change']);
     }

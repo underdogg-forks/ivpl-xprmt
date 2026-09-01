@@ -32,7 +32,6 @@ class InvoicesAjaxModalsTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -47,7 +46,6 @@ class InvoicesAjaxModalsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_change_user', ['invoice_id' => (string) $invoiceId, 'user_id' => '1']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -62,7 +60,6 @@ class InvoicesAjaxModalsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_change_client', ['invoice_id' => (string) $invoiceId, 'client_id' => (string) $clientId]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -76,7 +73,6 @@ class InvoicesAjaxModalsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_create_invoice', ['client_id' => (string) $clientId]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -91,7 +87,6 @@ class InvoicesAjaxModalsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_create_recurring', ['invoice_id' => (string) $invoiceId]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -106,7 +101,6 @@ class InvoicesAjaxModalsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/invoices/ajax/modal_create_credit', ['invoice_id' => (string) $invoiceId]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
     }
 }

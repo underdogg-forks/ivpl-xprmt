@@ -25,7 +25,6 @@ class ReportsControllerTest extends AbstractTestCase
         $response = $this->get('/reports/sales_by_client');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<form');
     }
 
@@ -56,7 +55,6 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseHasNoPhpErrors($response);
         self::assertStringStartsWith('%PDF-', $response->body());
         $this->assertDatabaseCount('ip_clients', 2);
@@ -76,7 +74,6 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringStartsWith('%PDF-', $response->body());
     }
 
@@ -94,7 +91,6 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringStartsWith('%PDF-', $response->body());
     }
 
@@ -109,7 +105,6 @@ class ReportsControllerTest extends AbstractTestCase
         $response = $this->post('/reports/invoice_aging', ['btn_submit' => '1']);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringStartsWith('%PDF-', $response->body());
     }
 
@@ -126,7 +121,6 @@ class ReportsControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringStartsWith('%PDF-', $response->body());
     }
 

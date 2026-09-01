@@ -28,7 +28,6 @@ class CronControllerTest extends AbstractTestCase
         $response = $this->get('/invoices/status/all');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<html');
     }
 

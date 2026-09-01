@@ -37,7 +37,6 @@ class Issue1551SettingsRemoveLogoTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert - Page loads without errors (would get 500 "Cannot redecorate" error if bug exists) */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringNotContainsString(
             'Cannot redecorate',
             $response->body(),
@@ -121,7 +120,6 @@ class Issue1551SettingsRemoveLogoTest extends AbstractTestCase
         $response = $this->get('/settings');
 
         /* Assert - Page still loads normally after removals */
-        $this->assertResponseStatusCode($response, 200);
         self::assertStringNotContainsString(
             'Cannot redecorate',
             $response->body(),

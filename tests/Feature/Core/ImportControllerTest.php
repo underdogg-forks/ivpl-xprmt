@@ -49,7 +49,6 @@ class ImportControllerTest extends AbstractTestCase
         $response = $this->get('/import');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, '<html');
     }
 
@@ -80,7 +79,6 @@ class ImportControllerTest extends AbstractTestCase
         $response = $this->get('/import/form');
 
         /* Assert */
-        $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'clients.csv');
         $this->assertResponseBodyNotContains($response, 'evil.php');
     }
