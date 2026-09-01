@@ -5,7 +5,8 @@ namespace Tests\Feature\Projects;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
-class TasksAjaxLookupsTest extends AbstractTestCase
+#[\PHPUnit\Framework\Attributes\Group('tasks')]
+class TasksAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
     {
