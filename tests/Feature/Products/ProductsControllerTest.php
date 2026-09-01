@@ -25,20 +25,6 @@ class ProductsControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,mixed> $overrides */
-    private function seedProduct(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_products', array_merge([
-            'family_id'           => 0,
-            'product_sku'         => 'SKU-' . random_int(1000, 9999),
-            'product_name'        => 'Seeded Product',
-            'product_description' => '',
-            'product_price'       => 10,
-            'purchase_price'      => 0,
-            'tax_rate_id'         => 0,
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -273,5 +259,19 @@ class ProductsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Widget');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedProduct(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_products', array_merge([
+            'family_id'           => 0,
+            'product_sku'         => 'SKU-' . random_int(1000, 9999),
+            'product_name'        => 'Seeded Product',
+            'product_description' => '',
+            'product_price'       => 10,
+            'purchase_price'      => 0,
+            'tax_rate_id'         => 0,
+        ], $overrides));
     }
 }

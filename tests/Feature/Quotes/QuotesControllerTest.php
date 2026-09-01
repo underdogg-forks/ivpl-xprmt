@@ -25,14 +25,6 @@ class QuotesControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    private function seedQuote(array $overrides = []): int
-    {
-        $clientId = $overrides['client_id'] ?? $this->seedClient();
-        unset($overrides['client_id']);
-
-        return (int) $this->seedModel('Quote', array_merge(['client_id' => $clientId], $overrides))->quote_id;
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -161,5 +153,13 @@ class QuotesControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'QUO-SECRET-0001');
+    }
+
+    private function seedQuote(array $overrides = []): int
+    {
+        $clientId = $overrides['client_id'] ?? $this->seedClient();
+        unset($overrides['client_id']);
+
+        return (int) $this->seedModel('Quote', array_merge(['client_id' => $clientId], $overrides))->quote_id;
     }
 }

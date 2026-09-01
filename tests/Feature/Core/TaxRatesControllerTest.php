@@ -191,8 +191,8 @@ class TaxRatesControllerTest extends AbstractTestCase
     public function it_deletes_a_tax_rate(): void
     {
         /* Arrange */
-        $id    = $this->databaseInsert('ip_tax_rates', ['tax_rate_name' => 'Deletable VAT', 'tax_rate_percent' => '5.00']);
-        $keep  = $this->databaseInsert('ip_tax_rates', ['tax_rate_name' => 'Kept VAT', 'tax_rate_percent' => '5.00']);
+        $id   = $this->databaseInsert('ip_tax_rates', ['tax_rate_name' => 'Deletable VAT', 'tax_rate_percent' => '5.00']);
+        $keep = $this->databaseInsert('ip_tax_rates', ['tax_rate_name' => 'Kept VAT', 'tax_rate_percent' => '5.00']);
 
         /* Act */
         $response = $this->post('/tax_rates/delete/' . $id, []);

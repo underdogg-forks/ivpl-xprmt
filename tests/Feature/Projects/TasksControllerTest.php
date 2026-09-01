@@ -31,19 +31,6 @@ class TasksControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,mixed> $overrides */
-    private function seedTask(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_tasks', array_merge([
-            'task_name'        => 'Seeded Task',
-            'task_description' => '',
-            'task_price'       => '50.00',
-            'task_finish_date' => '2026-06-30',
-            'task_status'      => 1,
-            'project_id'       => 0,
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -306,5 +293,18 @@ class TasksControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Task');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedTask(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_tasks', array_merge([
+            'task_name'        => 'Seeded Task',
+            'task_description' => '',
+            'task_price'       => '50.00',
+            'task_finish_date' => '2026-06-30',
+            'task_status'      => 1,
+            'project_id'       => 0,
+        ], $overrides));
     }
 }

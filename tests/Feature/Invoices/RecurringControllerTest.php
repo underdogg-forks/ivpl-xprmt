@@ -26,18 +26,6 @@ class RecurringControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    private function seedRecurring(?int $invoiceId = null, array $overrides = []): int
-    {
-        $invoiceId ??= $this->seedInvoice($this->seedClient());
-
-        return $this->databaseInsert('ip_invoices_recurring', array_merge([
-            'invoice_id'       => $invoiceId,
-            'recur_start_date' => date('Y-m-d'),
-            'recur_next_date'  => date('Y-m-d', strtotime('+1 month')),
-            'recur_frequency'  => '1',
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -147,5 +135,17 @@ class RecurringControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'INV-REC-SECRET');
+    }
+
+    private function seedRecurring(?int $invoiceId = null, array $overrides = []): int
+    {
+        $invoiceId ??= $this->seedInvoice($this->seedClient());
+
+        return $this->databaseInsert('ip_invoices_recurring', array_merge([
+            'invoice_id'       => $invoiceId,
+            'recur_start_date' => date('Y-m-d'),
+            'recur_next_date'  => date('Y-m-d', strtotime('+1 month')),
+            'recur_frequency'  => '1',
+        ], $overrides));
     }
 }

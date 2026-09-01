@@ -25,16 +25,6 @@ class EmailTemplatesControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,mixed> $overrides */
-    private function seedTemplate(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_email_templates', array_merge([
-            'email_template_title' => 'Seeded Template',
-            'email_template_type'  => 'invoice',
-            'email_template_body'  => 'Hello {{{client_name}}}',
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -232,5 +222,15 @@ class EmailTemplatesControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret Template');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedTemplate(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_email_templates', array_merge([
+            'email_template_title' => 'Seeded Template',
+            'email_template_type'  => 'invoice',
+            'email_template_body'  => 'Hello {{{client_name}}}',
+        ], $overrides));
     }
 }

@@ -29,22 +29,6 @@ class UsersControllerTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
-    /** @param array<string,mixed> $overrides */
-    private function seedUser(array $overrides = []): int
-    {
-        return $this->databaseInsert('ip_users', array_merge([
-            'user_type'          => 2,
-            'user_name'          => 'Seeded User ' . bin2hex(random_bytes(3)),
-            'user_email'         => 'seed+' . bin2hex(random_bytes(4)) . '@test.local',
-            'user_password'      => password_hash('secret123', PASSWORD_DEFAULT),
-            'user_psalt'         => bin2hex(random_bytes(8)),
-            'user_language'      => 'system',
-            'user_active'        => 1,
-            'user_date_created'  => date('Y-m-d H:i:s'),
-            'user_date_modified' => date('Y-m-d H:i:s'),
-        ], $overrides));
-    }
-
     // -------------------------------------------------------------------------
     // List
     // -------------------------------------------------------------------------
@@ -372,5 +356,21 @@ class UsersControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
         $this->assertResponseBodyNotContains($response, 'Secret User Person');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedUser(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_users', array_merge([
+            'user_type'          => 2,
+            'user_name'          => 'Seeded User ' . bin2hex(random_bytes(3)),
+            'user_email'         => 'seed+' . bin2hex(random_bytes(4)) . '@test.local',
+            'user_password'      => password_hash('secret123', PASSWORD_DEFAULT),
+            'user_psalt'         => bin2hex(random_bytes(8)),
+            'user_language'      => 'system',
+            'user_active'        => 1,
+            'user_date_created'  => date('Y-m-d H:i:s'),
+            'user_date_modified' => date('Y-m-d H:i:s'),
+        ], $overrides));
     }
 }
