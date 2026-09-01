@@ -254,16 +254,8 @@ class CsrfMutationParityTest extends AbstractTestCase
 
     private function seedSecondaryUser(): int
     {
-        return $this->databaseInsert('ip_users', [
-            'user_type'          => 2,
-            'user_name'          => 'Parity User ' . bin2hex(random_bytes(3)),
-            'user_email'         => 'parity+' . bin2hex(random_bytes(4)) . '@test.local',
-            'user_password'      => password_hash('secret123', PASSWORD_DEFAULT),
-            'user_psalt'         => bin2hex(random_bytes(8)),
-            'user_language'      => 'system',
-            'user_active'        => 1,
-            'user_date_created'  => date('Y-m-d H:i:s'),
-            'user_date_modified' => date('Y-m-d H:i:s'),
-        ]);
+        // Delegate to the shared seedModel() row-builder instead of
+        // duplicating its ip_users defaults here; only the type differs.
+        return (int) $this->seedModel('User', ['user_type' => 2])->user_id;
     }
 }
