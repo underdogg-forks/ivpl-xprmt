@@ -39,7 +39,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Listed Family');
     }
 
@@ -60,8 +59,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->get('/families/form');
 
         /* Assert */
-
-
     }
 
     #[Test]
@@ -121,8 +118,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->get('/families/form/' . $id);
 
         /* Assert */
-
-
 
         $this->assertResponseBodyContains($response, 'Editable Family');
     }
@@ -234,8 +229,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
-
         $this->assertDatabaseCount('ip_families', 0);
     }
 
@@ -273,8 +266,6 @@ class ProductsTest extends AbstractTestCase
         ]);
 
         /* Assert */
-
-
 
         $this->assertDatabaseHas('ip_families', ['family_name' => 'Will Not Change']);
     }
@@ -379,7 +370,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Ajax Widget Beta');
     }
 
@@ -419,7 +409,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseHasNoPhpErrors($response);
     }
 
@@ -439,7 +428,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->request('GET', '/products/ajax/modal_product_lookups', ['filter_product' => 'Filter Match Product'], [], true);
 
         /* Assert */
-
 
         $this->assertResponseBodyContains($response, 'Filter Match Product');
 
@@ -461,7 +449,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Selected Product');
     }
 
@@ -477,7 +464,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->ajax('POST', '/products/ajax/process_product_selections', []);
 
         /* Assert */
-
 
         self::assertSame([], json_decode($response->body(), true));
     }
@@ -502,7 +488,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Listed Widget');
     }
 
@@ -523,8 +508,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->get('/products/form');
 
         /* Assert */
-
-
     }
 
     #[Test]
@@ -656,8 +639,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->get('/products/form/' . $id);
 
         /* Assert */
-
-
 
         $this->assertResponseBodyContains($response, 'Editable Widget');
     }
@@ -793,8 +774,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
-
         $this->assertDatabaseCount('ip_products', 0);
     }
 
@@ -842,8 +821,6 @@ class ProductsTest extends AbstractTestCase
         ]);
 
         /* Assert */
-
-
 
         $this->assertDatabaseMissing('ip_products', ['product_name' => 'No Price Widget']);
     }
@@ -895,8 +872,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
-
         $this->assertDatabaseHas('ip_products', ['product_name' => 'Will Not Change']);
     }
 
@@ -947,7 +922,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Listed Unit');
     }
 
@@ -968,8 +942,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->get('/units/form');
 
         /* Assert */
-
-
     }
 
     #[Test]
@@ -1037,8 +1009,6 @@ class ProductsTest extends AbstractTestCase
         $response = $this->get('/units/form/' . $id);
 
         /* Assert */
-
-
 
         $this->assertResponseBodyContains($response, 'Editable Unit');
     }
@@ -1166,8 +1136,6 @@ class ProductsTest extends AbstractTestCase
 
         /* Assert */
 
-
-
         $this->assertDatabaseCount('ip_units', 0);
     }
 
@@ -1207,8 +1175,6 @@ class ProductsTest extends AbstractTestCase
         ]);
 
         /* Assert */
-
-
 
         $this->assertDatabaseMissing('ip_units', ['unit_name' => 'Item']);
     }
@@ -1255,8 +1221,6 @@ class ProductsTest extends AbstractTestCase
         ]);
 
         /* Assert */
-
-
 
         $this->assertDatabaseHas('ip_units', ['unit_name' => 'Will Not Change']);
     }

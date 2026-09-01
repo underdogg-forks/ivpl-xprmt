@@ -96,7 +96,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Needle Enterprises');
 
         $this->assertResponseBodyNotContains($response, 'Haystack Inc');
@@ -135,7 +134,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-
         self::assertSame([], json_decode($response->body(), true));
     }
 
@@ -153,7 +151,6 @@ class ClientsTest extends AbstractTestCase
         $response = $this->request('GET', '/clients/ajax/name_query', ['query' => "x' OR '1'='1"], [], true);
 
         /* Assert */
-
 
         $this->assertResponseHasNoPhpErrors($response);
 
@@ -181,7 +178,6 @@ class ClientsTest extends AbstractTestCase
         $response = $this->request('GET', '/clients/ajax/get_latest', [], [], true);
 
         /* Assert */
-
 
         $json = json_decode($response->body(), true);
 
@@ -421,7 +417,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Visible note marker');
     }
 
@@ -465,7 +460,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-
         $this->assertResponseBodyContains($response, 'Listed Corp');
     }
 
@@ -483,7 +477,6 @@ class ClientsTest extends AbstractTestCase
         $response = $this->get('/clients/status/inactive');
 
         /* Assert */
-
 
         $this->assertResponseBodyContains($response, 'Dormant Inc');
     }
@@ -507,8 +500,6 @@ class ClientsTest extends AbstractTestCase
         $response = $this->get('/clients/form');
 
         /* Assert */
-
-
     }
 
     #[Test]
@@ -643,8 +634,6 @@ class ClientsTest extends AbstractTestCase
 
         /* Assert */
 
-
-
         $this->assertResponseBodyContains($response, 'Editable Corp');
     }
 
@@ -759,8 +748,6 @@ class ClientsTest extends AbstractTestCase
 
         // Validation failure in CI3 re-renders the form at 200
 
-
-
         $this->assertDatabaseCount('ip_clients', 0);
     }
 
@@ -801,8 +788,6 @@ class ClientsTest extends AbstractTestCase
 
         // Validation failure in CI3 re-renders the form at 200
 
-
-
         $this->assertDatabaseHas('ip_clients', ['client_id' => $clientId, 'client_name' => 'Will Not Change']);
     }
 
@@ -825,7 +810,6 @@ class ClientsTest extends AbstractTestCase
         $response = $this->get('/clients/view/' . $clientId);
 
         /* Assert */
-
 
         $this->assertResponseBodyContains($response, 'View Me Corp');
     }
