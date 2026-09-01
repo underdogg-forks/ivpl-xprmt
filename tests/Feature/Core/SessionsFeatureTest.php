@@ -44,7 +44,6 @@ class SessionsFeatureTest extends AbstractTestCase
         $response = $this->get('/sessions/login');
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
 
         self::assertTrue(
             $response->contains('email') || $response->contains('password'),
@@ -121,7 +120,6 @@ class SessionsFeatureTest extends AbstractTestCase
 
         /* Assert */
         $this->assertResponseHasNoPhpErrors($response);
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]

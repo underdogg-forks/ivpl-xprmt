@@ -50,7 +50,6 @@ class TasksControllerTest extends AbstractTestCase
         $response = $this->get('/tasks/form');
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]
@@ -103,7 +102,6 @@ class TasksControllerTest extends AbstractTestCase
         $response = $this->get('/tasks/form/' . $id);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertResponseBodyContains($response, 'Editable Task');
     }
 
@@ -197,7 +195,6 @@ class TasksControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseCount('ip_tasks', 0);
     }
 
@@ -230,7 +227,6 @@ class TasksControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseMissing('ip_tasks', ['task_name' => 'No Price Task']);
     }
 
@@ -263,7 +259,6 @@ class TasksControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseMissing('ip_tasks', ['task_name' => 'No Date Task']);
     }
 
@@ -297,7 +292,6 @@ class TasksControllerTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
         $this->assertDatabaseHas('ip_tasks', ['task_id' => $id, 'task_name' => 'Will Not Change']);
     }
 

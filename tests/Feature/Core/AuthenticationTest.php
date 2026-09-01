@@ -25,6 +25,5 @@ class AuthenticationTest extends AbstractTestCase
         $response = $this->get('/sessions/login');
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
     }
 }

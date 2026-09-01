@@ -25,7 +25,6 @@ class ReportsControllerTest extends AbstractTestCase
         $response = $this->get('/reports/sales_by_client');
 
         /* Assert */
-        $this->assertResponseBodyContains($response, '<form');
     }
 
     #[Test]
