@@ -141,6 +141,16 @@ jobs:
           # tests assert protection statically, not via live POSTs).
           echo 'CSRF_PROTECTION=false' >> ipconfig.php
 
+      - name: Config-parity guard (release gate)
+        run: php .claude/skills/config-parity-guard/audit.php
+
       - name: Run PHPUnit
+        # DB_* MUST be unset here. They are set at job level for the schema-build
+        # steps above, but if they survive into this step PHP's Dotenv sees them
+        # as "already set" and never copies the ipconfig.php values into $_ENV;
+        # env() then returns null, the parent connects as ''@'localhost', and
+        # every DB-backed test markTestSkipped()s — a green build hiding ~180
+        # tests that never ran. Unset them so ipconfig.php is the source of truth.
         run: |
-          vendor/bin/phpunit ${{ github.event.inputs.fail_fast == 'true' && '--stop-on-failure' || '' }}
+          env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
+            vendor/bin/phpunit ${{ github.event.inputs.fail_fast == 'true' && '--stop-on-failure' || '' }}
