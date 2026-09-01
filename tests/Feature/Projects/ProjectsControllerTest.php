@@ -2,15 +2,35 @@
 
 namespace Tests\Feature\Projects;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Concerns\PerformsCsrfProtectedRequests;
 
+/**
+ * Projects controller — application/modules/projects/controllers/Projects.php.
+ *
+ * Required fields (Mdl_Projects::validation_rules): project_name.
+ * Absorbs ProjectsSmokeTest and Issue1694ProjectsDeleteCsrfTest.
+ */
+#[Group('projects')]
 class ProjectsControllerTest extends AbstractTestCase
 {
+    use PerformsCsrfProtectedRequests;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->actingAsAdmin();
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function seedProject(array $overrides = []): int
+    {
+        return $this->databaseInsert('ip_projects', array_merge([
+            'project_name' => 'Seeded Project',
+            'client_id'    => $this->seedClient(),
+        ], $overrides));
     }
 
     // -------------------------------------------------------------------------
@@ -18,229 +38,185 @@ class ProjectsControllerTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_lists_projects(): void
+    public function it_lists_every_project(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project List Client']);
-        $this->databaseInsert('ip_projects', [
-            'client_id'    => $clientId,
-            'project_name' => 'Listed Project',
-        ]);
+        $this->seedProject(['project_name' => 'Website Redesign']);
+        $this->seedProject(['project_name' => 'Mobile App Build']);
 
         /* Act */
         $response = $this->get('/projects');
 
         /* Assert */
-        $this->assertResponseBodyContains($response, 'Listed Project');
+        $this->assertResponseBodyContains($response, 'Website Redesign');
+        $this->assertResponseBodyContains($response, 'Mobile App Build');
     }
 
     // -------------------------------------------------------------------------
-    // Create
+    // Create — happy path
     // -------------------------------------------------------------------------
-
-    #[Test]
-    public function it_renders_the_create_project_form(): void
-    {
-        /* Arrange */
-
-        /* Act */
-        $response = $this->get('/projects/form');
-
-        /* Assert */
-    }
 
     #[Test]
     public function it_creates_a_project(): void
     {
-        /**
-         * POST /projects/form
-         * {
-         *     "project_name": "Build a Rocket",
-         *     "client_id": "<clientId>",
-         *     "btn_submit": "1"
-         * }.
-         */
-
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project Create Client']);
+        $clientId = $this->seedClient(['client_name' => 'Project Client']);
 
         /* Act */
         $response = $this->post('/projects/form', [
-            'project_name' => 'Build a Rocket',
-            'client_id'    => $clientId,
+            'project_name' => 'Q1 Marketing Campaign',
+            'client_id'    => (string) $clientId,
             'btn_submit'   => '1',
         ]);
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'projects');
-        $this->assertDatabaseHas('ip_projects', ['project_name' => 'Build a Rocket']);
+        $this->assertDatabaseHas('ip_projects', ['project_name' => 'Q1 Marketing Campaign', 'client_id' => $clientId]);
     }
 
     // -------------------------------------------------------------------------
-    // Update
+    // Create — validation (one omitted required field per test)
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_renders_the_edit_form_showing_existing_project_name(): void
+    public function it_fails_to_create_without_project_name(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project Edit Client']);
-        $id       = $this->databaseInsert('ip_projects', [
-            'client_id'    => $clientId,
-            'project_name' => 'Editable Project',
-        ]);
+        $clientId = $this->seedClient();
 
         /* Act */
-        $response = $this->get('/projects/form/' . $id);
+        $response = $this->post('/projects/form', [
+            'project_name' => '',
+            'client_id'    => (string) $clientId,
+            'btn_submit'   => '1',
+        ]);
+
+        /* Assert */
+        self::assertFalse($response->isRedirect(), 'Invalid create must re-render the form, not redirect.');
+        $this->assertDatabaseCount('ip_projects', 0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Update — happy path
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_renders_the_edit_form_for_the_requested_project_only(): void
+    {
+        /* Arrange */
+        $target = $this->seedProject(['project_name' => 'Editable Project']);
+        $this->seedProject(['project_name' => 'Other Project']);
+
+        /* Act */
+        $response = $this->get('/projects/form/' . $target);
 
         /* Assert */
         $this->assertResponseBodyContains($response, 'Editable Project');
+        $this->assertResponseBodyNotContains($response, 'Other Project');
     }
 
     #[Test]
     public function it_updates_a_project(): void
     {
-        /**
-         * POST /projects/form/{id}
-         * {
-         *     "project_name": "Renamed Project",
-         *     "client_id": "<clientId>",
-         *     "btn_submit": "1"
-         * }.
-         */
-
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project Update Client']);
-        $id       = $this->databaseInsert('ip_projects', [
-            'client_id'    => $clientId,
-            'project_name' => 'Original Project',
-        ]);
+        $id = $this->seedProject(['project_name' => 'Original Project']);
 
         /* Act */
         $response = $this->post('/projects/form/' . $id, [
             'project_name' => 'Renamed Project',
-            'client_id'    => $clientId,
             'btn_submit'   => '1',
         ]);
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'projects');
-        $this->assertDatabaseHas('ip_projects', ['project_name' => 'Renamed Project']);
+        $this->assertDatabaseHas('ip_projects', ['project_id' => $id, 'project_name' => 'Renamed Project']);
         $this->assertDatabaseMissing('ip_projects', ['project_name' => 'Original Project']);
     }
 
     // -------------------------------------------------------------------------
-    // View
+    // Update — validation (one omitted required field per test)
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_views_a_single_project_and_shows_the_project_name(): void
+    public function it_fails_to_update_without_project_name(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project View Client']);
-        $id       = $this->databaseInsert('ip_projects', [
-            'client_id'    => $clientId,
-            'project_name' => 'View Me Project',
-        ]);
+        $id = $this->seedProject(['project_name' => 'Keep This Project']);
 
         /* Act */
-        $response = $this->get('/projects/view/' . $id);
+        $response = $this->post('/projects/form/' . $id, [
+            'project_name' => '',
+            'btn_submit'   => '1',
+        ]);
 
         /* Assert */
-        $this->assertResponseBodyContains($response, 'View Me Project');
+        self::assertFalse($response->isRedirect(), 'Invalid update must re-render the form, not redirect.');
+        $this->assertDatabaseHas('ip_projects', ['project_id' => $id, 'project_name' => 'Keep This Project']);
     }
 
     // -------------------------------------------------------------------------
-    // Delete
+    // Delete — happy path
     // -------------------------------------------------------------------------
 
     #[Test]
     public function it_deletes_a_project(): void
     {
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project Delete Client']);
-        $id       = $this->databaseInsert('ip_projects', [
-            'client_id'    => $clientId,
-            'project_name' => 'Deletable Project',
-        ]);
-        $this->assertDatabaseHas('ip_projects', ['project_name' => 'Deletable Project']);
+        $id   = $this->seedProject(['project_name' => 'Deletable Project']);
+        $keep = $this->seedProject(['project_name' => 'Kept Project']);
 
         /* Act */
         $response = $this->post('/projects/delete/' . $id, []);
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'projects');
-        $this->assertDatabaseMissing('ip_projects', ['project_name' => 'Deletable Project']);
+        $this->assertDatabaseMissing('ip_projects', ['project_id' => $id]);
+        $this->assertDatabaseHas('ip_projects', ['project_id' => $keep]);
     }
 
     // -------------------------------------------------------------------------
-    // Validation failures — missing required fields
+    // Delete — CSRF regression (#1694)
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_fails_to_create_without_project_name(): void
+    public function it_still_deletes_a_project_when_csrf_protection_is_on_and_the_token_is_valid(): void
     {
-        /**
-         * POST /projects/form
-         * {
-         *     "project_name": "",
-         *     "client_id": "<clientId>",
-         *     "btn_submit": "1"
-         * }.
-         */
-
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project Fail Client']);
+        $this->enableCsrfProtection();
+        $id = $this->seedProject(['project_name' => 'CSRF Project']);
 
         /* Act */
-        $response = $this->post('/projects/form', [
-            'project_name' => '',
-            'client_id'    => $clientId,
-            'btn_submit'   => '1',
-        ]);
+        $response = $this->postWithValidCsrfToken('/projects/delete/' . $id);
 
         /* Assert */
-        $this->assertDatabaseCount('ip_projects', 0);
+        $this->assertResponseRedirectsToRoute($response, 'projects');
+        $this->assertDatabaseMissing('ip_projects', ['project_id' => $id]);
     }
 
     #[Test]
-    public function it_fails_to_update_without_project_name(): void
+    public function it_does_not_delete_a_project_when_the_csrf_token_is_missing(): void
     {
-        /**
-         * POST /projects/form/{id}
-         * {
-         *     "project_name": "",
-         *     "client_id": "<clientId>",
-         *     "btn_submit": "1"
-         * }.
-         */
-
         /* Arrange */
-        $clientId = $this->seedClient(['client_name' => 'Project No Change Client']);
-        $id       = $this->databaseInsert('ip_projects', [
-            'client_id'    => $clientId,
-            'project_name' => 'Will Not Change',
-        ]);
+        $this->enableCsrfProtection();
+        $id = $this->seedProject(['project_name' => 'CSRF Project Kept']);
 
         /* Act */
-        $response = $this->post('/projects/form/' . $id, [
-            'project_name' => '',
-            'client_id'    => $clientId,
-            'btn_submit'   => '1',
-        ]);
+        $response = $this->postWithoutCsrfToken('/projects/delete/' . $id);
 
         /* Assert */
-        $this->assertDatabaseHas('ip_projects', ['project_name' => 'Will Not Change']);
+        self::assertFalse($response->isRedirect(), 'A token-less delete must not reach the controller.');
+        $this->assertDatabaseHas('ip_projects', ['project_id' => $id, 'project_name' => 'CSRF Project Kept']);
     }
 
     // -------------------------------------------------------------------------
-    // Guest redirect — always last
+    // Guest access — always last
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function it_redirects_a_guest_to_login(): void
+    public function it_redirects_a_guest_to_login_and_leaks_no_project(): void
     {
         /* Arrange */
+        $this->seedProject(['project_name' => 'Secret Project']);
         $this->actingAsGuest();
 
         /* Act */
@@ -248,5 +224,6 @@ class ProjectsControllerTest extends AbstractTestCase
 
         /* Assert */
         self::assertTrue($response->isRedirect(), 'Unauthenticated request must redirect to login.');
+        $this->assertResponseBodyNotContains($response, 'Secret Project');
     }
 }
