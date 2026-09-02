@@ -54,3 +54,5 @@ yarn-error.log
 /playwright-report/
 /playwright/.cache/
 /blob-report/
+/tests/E2E/.auth/
+/tests/E2E/error-report.md
