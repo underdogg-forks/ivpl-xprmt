@@ -1,4 +1,6 @@
 import { test as base, expect } from '@playwright/test';
+import { resetDatabase } from './support/db.js';
+import { ensureAdminSession } from './support/auth.js';
 
 /**
  * Drop-in replacement for `import { test, expect } from '@playwright/test'`
@@ -19,6 +21,26 @@ import { test as base, expect } from '@playwright/test';
  * framework-agnostic.)
  */
 export const test = base.extend({
+  /**
+   * Truncate + reseed the app database before every test, mirroring the
+   * PHPUnit Feature suite's per-test reset. Auto-runs; opt out for a rare
+   * multi-step spec with `test.use({ freshDatabase: false })`.
+   */
+  freshDatabase: [true, { option: true }],
+
+  _resetDatabase: [
+    async ({ freshDatabase }, use) => {
+      if (freshDatabase) {
+        resetDatabase();
+        // Runs before the test's browser context is created, so a refreshed
+        // storageState file is picked up by this test, not the next one.
+        await ensureAdminSession();
+      }
+      await use();
+    },
+    { auto: true },
+  ],
+
   page: async ({ page }, use, testInfo) => {
     const errors = [];
 

@@ -10,10 +10,14 @@ const manageServer = !process.env.CI && !process.env.E2E_BASE_URL;
 export default defineConfig({
   testDir: './tests/E2E',
   testMatch: '**/*.spec.js',
-  fullyParallel: true,
+  // Serial by design: one shared app instance (PHP's built-in server handles
+  // one request at a time) backed by one database that every test truncates and
+  // reseeds before it runs (tests/E2E/test.js). Parallel workers would race on
+  // both. Keep this in step with the PHPUnit Feature suite's per-test reset.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: [
     ['html', { open: 'never' }],
     ['list'],
@@ -36,7 +40,12 @@ export default defineConfig({
   ],
   webServer: manageServer
     ? {
-        command: 'php -S localhost:8000 -t . tests/E2E/router.php',
+        // `-d variables_order=EGPCS`: this build's php.ini omits `E`, so without
+        // it exported vars never reach $_ENV and InvoicePlane's env() (which
+        // reads $_ENV only) can't see DB_HOSTNAME=127.0.0.1 — the app then tries
+        // the Docker-only `mariadb` host from ipconfig.php and fails to boot.
+        command:
+          'DB_HOSTNAME=${DB_HOSTNAME:-127.0.0.1} php -d variables_order=EGPCS -S localhost:8000 -t . tests/E2E/router.php',
         url: E2E_BASE_URL,
         reuseExistingServer: true,
         timeout: 120 * 1000,

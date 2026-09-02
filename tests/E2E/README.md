@@ -1,58 +1,115 @@
 # End-to-end tests (Playwright)
 
-Browser tests for the CI3 InvoicePlane app. Adapted from the InvoicePlane v2
-Playwright suite; the Filament/multi-tenant pieces were dropped.
+Browser tests for the CI3 InvoicePlane app. The suite mirrors the PHPUnit
+Feature suite: for every `tests/Feature/<Module>/<Name>ControllerTest.php` there
+is a `tests/E2E/<Module>/<Name>Controller.spec.js` whose tests match the PHPUnit
+methods one-for-one — same scenario, proven through the rendered UI (or, for
+AJAX/destroy-only routes, an authenticated request) instead of an in-process
+request.
 
 ## Layout
 
-| file | role |
-| --- | --- |
-| `../../playwright.config.js` | project root config — `testDir: tests/E2E`, Chromium, HTML + error-summary reporters, optional `php -S` web server |
-| `config.js` | env-driven `E2E_BASE_URL` / `E2E_EMAIL` / `E2E_PASSWORD` and the login/logout paths |
-| `router.php` | front controller for PHP's built-in server (`php -S … tests/E2E/router.php`) — routes clean and `/index.php/*` URLs, serves real static files |
-| `global-setup.js` | logs in once, writes the session to `.auth/admin.json` |
-| `auth-helpers.js` | `login()` / `logout()` / `isAuthenticated()` for tests that exercise auth itself |
-| `test.js` | `import { test, expect } from './test.js'` — same as `@playwright/test` plus per-test console/pageerror capture |
-| `error-summary-reporter.js` | end-of-run consolidated `error-report.md` of every captured browser error |
-| `smoke.spec.js` | example specs: login form renders, guest is redirected, admin reaches the dashboard / integrations pages |
+```
+tests/E2E/
+├── <Module>/<Name>Controller.spec.js   one spec file per Feature-test file
+├── support/
+│   ├── app.js        URL/path helpers (tolerates the /index.php prefix)
+│   ├── db.js         resetDatabase() — truncate + reseed before every test
+│   ├── fixtures.js   createClient(), createSecondaryUser(), uniq()
+│   ├── forms.js      fillByName(), save(), expect{Saved,Error}Flash(), expectBlockedByRequired()
+│   └── http.js       postForm(), readCsrfToken(), getJson() for non-UI routes
+├── config.js         env-driven base URL / credentials / login paths
+├── router.php        front controller for `php -S`
+├── global-setup.js   resets the DB, logs in once, writes .auth/admin.json
+├── test.js           `import { test, expect } from './test.js'` — adds the
+│                      per-test DB reset + console/pageerror capture
+├── error-summary-reporter.js
+└── smoke.spec.js     harness sanity checks
+```
+
+Import `test`/`expect` from `../test.js`, **not** `@playwright/test` — that
+wrapper is what runs the per-test database reset and the browser-error capture.
+
+## Isolation model
+
+Every test runs `tests/Support/reset-test-db.php` first (truncate all tables +
+`ip_seed_baseline`), exactly like `InteractsWithDatabase` does for the PHPUnit
+suite. Consequences, all reflected in `playwright.config.js`:
+
+- **`workers: 1`, `fullyParallel: false`** — one app instance, one database,
+  serial tests. PHP's built-in server also handles one request at a time.
+- Specs assert on their own `uniq()`-suffixed data, never on absolute row counts
+  or list position.
+- The admin session in `.auth/admin.json` survives a reseed (the reseeded admin
+  is still `user_id` 1). It does **not** survive a request in which
+  `User_Controller` calls the raw `session_destroy()` (a non-admin hitting an
+  admin route) — under the single-process dev server that tears down the shared
+  session, so those specs re-authenticate in a fresh context.
 
 ## Run it
 
 ```bash
-yarn install                # or: npm install — pulls @playwright/test
-yarn e2e:install            # one-time: download the Chromium binary
-yarn e2e                     # or: yarn e2e:ui
+yarn install            # or npm install — pulls @playwright/test
+yarn e2e:install        # one-time: download the Chromium binary
+yarn e2e                # or: yarn e2e:ui
 ```
 
-`@playwright/test` is in `package.json` devDependencies and `yarn.lock` (Yarn
-Berry). The E2E CI job uses `npm install`.
+With nothing configured, `playwright.config.js` starts the app itself with:
 
-With nothing configured, the config starts `php -S localhost:8000 -t . tests/E2E/router.php`
-itself and drives that. It needs a working `ipconfig.php` pointing at a
-**seeded** database — the same schema/seed CI builds:
-
-```bash
-for f in $(ls application/modules/setup/sql/*.sql | sort); do mysql … "$DB_DATABASE" < "$f"; done
-mysql … "$DB_DATABASE" < tests/Support/schema_fixups.sql
-php tests/Support/seed-test-db.php
+```
+DB_HOSTNAME=${DB_HOSTNAME:-127.0.0.1} php -d variables_order=EGPCS -S localhost:8000 -t . tests/E2E/router.php
 ```
 
-The seed creates `admin@test.local` / `password` — the defaults in `config.js`.
+- `-d variables_order=EGPCS` — this machine's `php.ini` omits `E`, so without it
+  exported vars never reach `$_ENV` and InvoicePlane's `env()` can't read
+  `DB_HOSTNAME` (it would fall back to the Docker-only `mariadb` host in
+  `ipconfig.php` and fail to boot).
+- `DB_HOSTNAME` defaults to `127.0.0.1` (the host-published MariaDB port);
+  export it if your DB is elsewhere. `tests/Support/reset-test-db.php` reads the
+  same `DB_*` variables.
+
+It needs a schema-built MariaDB reachable on that host — the same one the PHPUnit
+suite uses. If you only have the ivpldock stack, the DB is already there on
+`127.0.0.1:3306`.
 
 ### Point at an already-running instance
 
 ```bash
-E2E_BASE_URL=http://localhost npm run e2e
+E2E_BASE_URL=http://localhost:8000 DB_HOSTNAME=127.0.0.1 npm run e2e
 ```
 
-When `E2E_BASE_URL` is set (or `CI` is set) the config does **not** start its
-own server. For the cleanest URLs set `REMOVE_INDEXPHP=true` and `IP_URL` in
-that instance's `ipconfig.php` (the CI workflow does this); the router and the
-specs also work with the default `/index.php/*` scheme.
+When `E2E_BASE_URL` (or `CI`) is set the config does not start its own server.
+`DB_HOSTNAME` is still needed for the per-test reset.
+
+## CSRF
+
+The E2E server runs with `CSRF_PROTECTION=false` (local `ipconfig.php` and the
+CI workflow both set it). The form-driven tests still submit the real
+`_csrf_field()` hidden input; the few direct `postForm()` calls rely on it being
+off. The `#1694` CSRF-regression cases are therefore `test.skip`ped here and stay
+covered by the PHPUnit Feature suite. Wiring a second Playwright project against a
+`CSRF_PROTECTION=true` server would let them run here too.
+
+## Progress
+
+| Module | Feature files | E2E status |
+| --- | --- | --- |
+| Clients | ClientsController, ClientsAjaxController, UserClientsController | ✅ complete (35 tests) |
+| Core | 30 files | ⬜ pending |
+| Invoices | 9 files | ⬜ pending |
+| Payments | 12 files | ⬜ pending |
+| Products | 4 files | ⬜ pending |
+| Projects | 4 files | ⬜ pending |
+| Quotes | 2 files | ⬜ pending |
+| Security | 3 files | ⬜ pending |
+
+Each pending module follows the Clients pattern: read the Feature file, read the
+matching `application/modules/<m>/` controller + views for field names / routes /
+flash text, then write one `test()` per `#[Test]` method.
 
 ## CI
 
 `.github/workflows/e2e-tests.yml` — MariaDB service, schema + seed, `php -S`,
 `npx playwright install --with-deps chromium`, `npm run e2e`. Runs on
-`prep/v180` pushes and PRs; the HTML report + `error-report.md` are uploaded
-as an artifact.
+`prep/v180` pushes and PRs; the HTML report + `error-report.md` are uploaded as
+an artifact.
