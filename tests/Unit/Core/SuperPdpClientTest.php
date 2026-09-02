@@ -344,6 +344,55 @@ class SuperPdpClientTest extends TestCase
         $this->assertSame($metadata, $result);
     }
 
+    // --- ping ---
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_reports_the_provider_as_reachable_when_the_read_call_answers(): void
+    {
+        /* Arrange */
+        $provider = new FakeSuperPdpClient([
+            ['success' => true, 'status' => 'ok', 'message' => 'ok', 'http_code' => 200, 'request' => [], 'response' => ['invoices' => []]],
+        ]);
+
+        /* Act */
+        $result = $provider->ping($this->defaultSettings());
+
+        /* Assert */
+        $this->assertTrue($result['reachable']);
+        $this->assertSame(200, $result['http_code']);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_reports_the_provider_as_unreachable_when_the_token_request_fails(): void
+    {
+        /* Arrange */
+        $provider = new FakeSuperPdpClient([], ['access_token' => 'tok'], 'SuperPDP OAuth error: connection refused');
+
+        /* Act */
+        $result = $provider->ping($this->defaultSettings());
+
+        /* Assert */
+        $this->assertFalse($result['reachable']);
+        $this->assertSame(0, $result['http_code']);
+        $this->assertStringContainsString('connection refused', $result['message']);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_reports_the_provider_as_unreachable_when_settings_are_missing(): void
+    {
+        /* Arrange */
+        $provider              = new FakeSuperPdpClient();
+        $settings              = $this->defaultSettings();
+        $settings['client_id'] = '';
+
+        /* Act */
+        $result = $provider->ping($settings);
+
+        /* Assert */
+        $this->assertFalse($result['reachable']);
+        $this->assertStringContainsString('Missing SuperPDP OAuth2 settings.', $result['message']);
+    }
+
     private function defaultSettings(): array
     {
         return [
