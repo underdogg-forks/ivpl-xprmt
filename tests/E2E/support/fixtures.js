@@ -10,7 +10,7 @@
 
 import { expect } from '../test.js';
 import { idFromUrl } from './app.js';
-import { dbQuery } from './db.js';
+import { dbExec, dbQuery } from './db.js';
 
 let counter = 0;
 
@@ -221,6 +221,70 @@ export async function createInvoice(page, overrides = {}) {
   const [row] = dbQuery(`SELECT invoice_number FROM ip_invoices WHERE invoice_id = ${Number(json.invoice_id)}`);
 
   return { id: Number(json.invoice_id), number: row?.invoice_number ?? '', clientId };
+}
+
+/** Create an invoice and set its amounts row so a payment can be recorded against it. */
+export async function createInvoiceWithBalance(page, balance = '100.00', overrides = {}) {
+  const invoice = await createInvoice(page, overrides);
+  dbExec(
+    `UPDATE ip_invoice_amounts SET invoice_total = ${Number(balance)}, invoice_balance = ${Number(balance)}, invoice_paid = 0`
+    + ` WHERE invoice_id = ${invoice.id}`,
+  );
+
+  return invoice;
+}
+
+/**
+ * Record a payment against `invoiceId` through the real add-payment AJAX
+ * endpoint and return `{ id, amount }`. The invoice needs a balance
+ * (createInvoiceWithBalance).
+ */
+export async function createPayment(page, invoiceId, overrides = {}) {
+  const amount = overrides.payment_amount ?? '25.00';
+  const response = await page.request.post('/payments/ajax/add', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    form: {
+      invoice_id: String(invoiceId),
+      payment_date: new Date().toISOString().slice(0, 10),
+      payment_amount: amount,
+      ...overrides,
+    },
+  });
+  const json = await response.json();
+  expect(json.success, `payment add failed: ${JSON.stringify(json)}`).toBe(1);
+
+  return { id: Number(json.payment_id), amount };
+}
+
+/**
+ * A guest-visible invoice with a url_key and a real balance — the shape the
+ * public payment / gateway flows require. Returns `{ id, key, clientId }`.
+ */
+export async function createPayableGuestInvoice(page, { statusId = 2, balance = '100.00' } = {}) {
+  const invoice = await createInvoice(page);
+  const key = uniq('pay').toLowerCase();
+  dbExec(
+    `UPDATE ip_invoices SET invoice_url_key = '${key}', invoice_status_id = ${statusId}, payment_method = 0`
+    + ` WHERE invoice_id = ${invoice.id}`,
+  );
+  dbExec(
+    `UPDATE ip_invoice_amounts SET invoice_total = ${Number(balance)}, invoice_balance = ${Number(balance)},`
+    + ` invoice_paid = ${Number(balance) === 0 ? 0 : 0} WHERE invoice_id = ${invoice.id}`,
+  );
+
+  return { id: invoice.id, key, clientId: invoice.clientId };
+}
+
+export async function createPaymentMethod(page, name = uniq('Method')) {
+  const id = await createByForm(page, {
+    formPath: '/payment_methods/form',
+    indexPath: '/payment_methods',
+    editSegment: 'payment_methods/form',
+    marker: name,
+    fields: { payment_method_name: name },
+  });
+
+  return { id, name };
 }
 
 export async function createProject(page, overrides = {}) {
