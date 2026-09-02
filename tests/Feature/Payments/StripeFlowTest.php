@@ -7,14 +7,14 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
 /**
- * guest/gateways/Stripe.php feature tests.
+ * guest/gateways/Stripe.php end-to-end payment flow tests.
  *
  * The Stripe SDK's HTTP layer is process-global (Stripe\ApiRequestor::setHttpClient()),
  * so the guest Stripe controller swaps it for a canned response queue in the test
  * environment (see Stripe::useTestHttpClientIfConfigured()). Responses are consumed
  * in the order the controller calls the SDK.
  */
-class StripeGatewayCallbackTest extends AbstractTestCase
+class StripeFlowTest extends AbstractTestCase
 {
     // Matches ipconfig.php's ENCRYPTION_KEY for this test DB, so Crypt::decode()
     // in the request subprocess correctly recovers the plaintext fake API key.
