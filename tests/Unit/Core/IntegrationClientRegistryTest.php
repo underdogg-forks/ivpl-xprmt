@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Integration;
+namespace Tests\Unit\Core;
 
 use IntegrationClientInterface;
 use IntegrationClientRegistry;

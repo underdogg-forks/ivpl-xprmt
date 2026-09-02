@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Integrations;
+namespace Tests\Feature\Core;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
