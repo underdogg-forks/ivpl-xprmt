@@ -1,46 +1,45 @@
 import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
-import { E2E_BASE_URL } from './Modules/Core/Tests/E2E/config.js';
+import { E2E_BASE_URL } from './tests/E2E/config.js';
+
+// Start our own PHP built-in server only for local runs that did not point
+// E2E_BASE_URL at an already-running instance. CI starts the server itself
+// (see .github/workflows/e2e-tests.yml) and sets E2E_BASE_URL.
+const manageServer = !process.env.CI && !process.env.E2E_BASE_URL;
 
 export default defineConfig({
-  // testDir does not support glob patterns (only testMatch does) — the
-  // literal directory './Modules/*/Tests/E2E' never existed, so this
-  // config discovered zero tests no matter what ran `npx playwright test`.
-  // Scoped to `Modules/` (not repo root) so the directory walk never touches
-  // storage/ (root-owned files from Docker runs make it unreadable) or
-  // vendor/node_modules.
-  testDir: './Modules',
-  testMatch: '*/Tests/E2E/**/*.spec.js',
+  testDir: './tests/E2E',
+  testMatch: '**/*.spec.js',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [
-    ['html'],
-    ['github'],
+    ['html', { open: 'never' }],
     ['list'],
-    ['./Modules/Core/Tests/E2E/error-summary-reporter.js'],
+    ...(process.env.CI ? [['github']] : []),
+    ['./tests/E2E/error-summary-reporter.js'],
   ],
-  globalSetup: path.resolve('./Modules/Core/Tests/E2E/global-setup.js'),
+  globalSetup: path.resolve('./tests/E2E/global-setup.js'),
   use: {
     baseURL: E2E_BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    storageState: 'auth.json',
+    storageState: 'tests/E2E/.auth/admin.json',
   },
-
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  webServer: process.env.CI ? undefined : {
-    command: 'php artisan serve',
-    url: 'http://localhost:8000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  webServer: manageServer
+    ? {
+        command: 'php -S localhost:8000 -t . tests/E2E/router.php',
+        url: E2E_BASE_URL,
+        reuseExistingServer: true,
+        timeout: 120 * 1000,
+      }
+    : undefined,
 });
