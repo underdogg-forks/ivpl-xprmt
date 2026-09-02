@@ -54,6 +54,9 @@ $e2eSettings = [
     // than an empty string (matches a normal InvoicePlane install).
     'generate_quote_number_for_draft'   => '1',
     'generate_invoice_number_for_draft' => '1',
+    // Let the mailer render its send form (rather than the "not configured"
+    // stub) — no mail is actually sent from the E2E server.
+    'email_send_method' => 'phpmail',
 ];
 $upsert = $pdo->prepare(
     'INSERT INTO `ip_settings` (`setting_key`, `setting_value`) VALUES (:k, :v)'
