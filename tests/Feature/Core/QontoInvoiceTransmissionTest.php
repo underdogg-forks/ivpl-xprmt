@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Integrations;
+namespace Tests\Feature\Core;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
  * so a completed send lands in ip_merchant_responses with status "pending".
  *
  * Unit-level coverage of the request shapes lives in
- * tests/Unit/Integration/QontoClientTest.php.
+ * tests/Unit/Core/QontoClientTest.php.
  */
 #[Group('integration')]
 final class QontoInvoiceTransmissionTest extends AbstractInvoiceTransmissionTestCase

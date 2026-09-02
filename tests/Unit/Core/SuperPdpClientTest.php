@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Integration;
+namespace Tests\Unit\Core;
 
 use ApiClientInterface;
 use PHPUnit\Framework\TestCase;
