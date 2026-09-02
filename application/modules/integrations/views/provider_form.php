@@ -102,8 +102,60 @@
                     </div>
                 </div>
 
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <button type="button" class="btn btn-default js-test-connection"
+                                data-url="<?php echo site_url('integrations/settings/test_connection/' . $provider['id']); ?>">
+                            <i class="fa fa-plug"></i> <?php _trans('einvoice_test_connection'); ?>
+                        </button>
+                        <span class="js-test-connection-result" role="status"></span>
+                    </div>
+                </div>
+
             </div>
         </div>
 
     </div>
 </form>
+
+<script>
+(function () {
+    var btn = document.querySelector('.js-test-connection');
+    if (!btn || typeof jQuery === 'undefined') {
+        return;
+    }
+
+    var out = document.querySelector('.js-test-connection-result');
+
+    var messages = {
+        running: '<?php echo addslashes(trans('einvoice_test_connection_running')); ?>',
+        ok: '<?php echo addslashes(trans('einvoice_test_connection_ok')); ?>',
+        failed: '<?php echo addslashes(trans('einvoice_test_connection_failed')); ?>'
+    };
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        out.className = 'js-test-connection-result text-muted';
+        out.textContent = messages.running;
+
+        jQuery.post(btn.getAttribute('data-url'))
+            .done(function (data) {
+                if (typeof data === 'string') {
+                    try { data = JSON.parse(data); } catch (e) { data = {}; }
+                }
+                var reachable = !!(data && data.reachable);
+                var detail = (data && data.message ? ' — ' + data.message : '')
+                    + (data && data.http_code ? ' (HTTP ' + data.http_code + ')' : '');
+                out.className = 'js-test-connection-result ' + (reachable ? 'text-success' : 'text-danger');
+                out.textContent = (reachable ? messages.ok : messages.failed) + detail;
+            })
+            .fail(function () {
+                out.className = 'js-test-connection-result text-danger';
+                out.textContent = messages.failed;
+            })
+            .always(function () {
+                btn.disabled = false;
+            });
+    });
+})();
+</script>
