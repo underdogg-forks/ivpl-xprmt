@@ -41,23 +41,31 @@ function writeUpload(name, content) {
 
 test.describe('Guest get — show_files', () => {
   test('it returns an empty response for show_files with no key', async ({ page }) => {
+    /* Arrange + Act + Assert */
     const response = await page.request.get('/guest/get/show_files');
     expect((await response.text()).trim()).toBe('{}');
   });
 
   test('it returns an empty response for show_files on a draft invoice', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 1);
+
+    /* Act + Assert */
     const response = await page.request.get(`/guest/get/show_files/${key}`);
     expect((await response.text()).trim()).toBe('{}');
   });
 
   test('it returns an empty response for show_files with no uploads', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 2);
+
+    /* Act + Assert */
     const response = await page.request.get(`/guest/get/show_files/${key}`);
     expect((await response.text()).trim()).toBe('{}');
   });
 
   test('it lists uploaded files for a guest visible invoice', async ({ page }) => {
+    /* Arrange */
     const client = await createClient(page);
     const invoice = await createInvoice(page, { client_id: client.id });
     const key = hexKey();
@@ -71,8 +79,10 @@ test.describe('Guest get — show_files', () => {
     });
     writeUpload(`${key}${MARK}attachment.pdf`, 'attachment-bytes');
 
+    /* Act */
     const response = await page.request.get(`/guest/get/show_files/${key}`);
 
+    /* Assert */
     expect(await response.text()).toContain('attachment.pdf');
   });
 });
@@ -91,42 +101,57 @@ test.describe('Guest get — get_file', () => {
   });
 
   test('it returns 404 for get_file whose url key belongs to a draft invoice', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 1);
+
+    /* Act + Assert */
     expect((await page.request.get(`/guest/get/get_file/${key}_file.pdf`)).status()).toBe(404);
   });
 
   test('it returns 404 for a visible invoice whose file does not exist on disk', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 2);
+
+    /* Act + Assert */
     expect((await page.request.get(`/guest/get/get_file/${key}_missing.pdf`)).status()).toBe(404);
   });
 
   test('it downloads an existing file for a guest visible invoice', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 2);
     const filename = `${key}${MARK}download.pdf`;
     writeUpload(filename, 'pdf-bytes');
 
+    /* Act */
     const response = await page.request.get(`/guest/get/get_file/${filename}`);
 
+    /* Assert */
     expect(await response.text()).toBe('pdf-bytes');
   });
 
   test('it rejects a path traversal attempt in the filename', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 2);
 
+    /* Act */
     const response = await page.request.get(
       `/guest/get/get_file/${encodeURIComponent(`${key}_../../../../etc/passwd`)}`,
     );
 
+    /* Assert */
     expect(response.status()).not.toBe(200);
   });
 
   test('it serves attachment route the same as get_file', async ({ page }) => {
+    /* Arrange */
     const { key } = await visibleInvoiceKey(page, 2);
     const filename = `${key}${MARK}attach2.pdf`;
     writeUpload(filename, 'attachment-bytes');
 
+    /* Act */
     const response = await page.request.get(`/guest/get/attachment/${filename}`);
 
+    /* Assert */
     expect(await response.text()).toBe('attachment-bytes');
   });
 });
