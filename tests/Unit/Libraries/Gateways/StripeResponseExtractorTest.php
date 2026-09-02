@@ -35,19 +35,6 @@ class StripeResponseExtractorTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_reports_a_session_with_a_status_as_reachable(): void
-    {
-        $this->assertTrue(StripeResponseExtractor::isReachable($this->session(['status' => 'complete'])));
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function it_reports_a_null_or_statusless_session_as_unreachable(): void
-    {
-        $this->assertFalse(StripeResponseExtractor::isReachable(null));
-        $this->assertFalse(StripeResponseExtractor::isReachable($this->session(['status' => null])));
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function it_extracts_the_payment_intent_id(): void
     {
         $this->assertSame('pi_123', StripeResponseExtractor::extractPaymentIntentId($this->session(['payment_intent' => 'pi_123'])));

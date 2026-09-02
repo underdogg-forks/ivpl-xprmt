@@ -391,6 +391,58 @@ class QontoClientTest extends TestCase
         self::assertNull($metadata['invoice_number']);
     }
 
+    // -------------------------------------------------------------------------
+    // ping
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_reports_the_provider_as_reachable_when_the_incoming_list_call_answers(): void
+    {
+        /* Arrange */
+        $client = new QontoClient(new ApiClientFake([
+            $this->envelope(['http_code' => 200, 'message' => 'ok']),
+        ]));
+
+        /* Act */
+        $result = $client->ping($this->settings());
+
+        /* Assert */
+        self::assertTrue($result['reachable']);
+        self::assertSame(200, $result['http_code']);
+    }
+
+    #[Test]
+    public function it_reports_the_provider_as_unreachable_when_authentication_fails(): void
+    {
+        /* Arrange */
+        $client   = new QontoClient(new ApiClientFake());
+        $settings = $this->settings();
+        unset($settings['access_token']);
+
+        /* Act */
+        $result = $client->ping($settings);
+
+        /* Assert */
+        self::assertFalse($result['reachable']);
+        self::assertSame(0, $result['http_code']);
+        self::assertStringContainsString('Missing Qonto setting: access_token', $result['message']);
+    }
+
+    #[Test]
+    public function it_reports_the_provider_as_unreachable_when_the_incoming_endpoint_is_not_configured(): void
+    {
+        /* Arrange */
+        $client   = new QontoClient(new ApiClientFake());
+        $settings = $this->settings();
+        unset($settings['incoming_invoices_endpoint']);
+
+        /* Act */
+        $result = $client->ping($settings);
+
+        /* Assert */
+        self::assertFalse($result['reachable']);
+    }
+
     private function settings(array $overrides = []): array
     {
         return array_merge(QontoClient::defaultSettings(), [

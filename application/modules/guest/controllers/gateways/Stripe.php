@@ -200,8 +200,8 @@ class Stripe extends Base_Controller
             log_message('error', sanitize_for_logging(strtr($response . ' user_msg: ' . $user_msg, ['<br>' => ' ']))); // No br's
         } finally {
             $paid = is_bool($paid) ? ($paid ? 'success' : 'info') : $paid; // Tweak to reuse (flashdata alert_*)
-            // Check stripe server ok
-            $ok = StripeResponseExtractor::isReachable($session); // Stripe is accessible?
+            // Check stripe server ok — this session was retrieved, so it answered.
+            $ok = $session !== null && ($session->status ?? null) !== null;
             // Record a succeeded/canceled and other merchant response (This helps you keep track of incomplete attempts).
             // $invoice is null when the lookup above never found one (invalid/inaccessible
             // client_reference_id) — ip_merchant_responses.invoice_id is NOT NULL and there's
