@@ -19,16 +19,13 @@ Playwright suite; the Filament/multi-tenant pieces were dropped.
 ## Run it
 
 ```bash
-npm install                 # pulls @playwright/test (added to package.json devDependencies)
-npm run e2e:install         # one-time: download the Chromium binary
-npm run e2e                  # or: npm run e2e:ui
+yarn install                # or: npm install — pulls @playwright/test
+yarn e2e:install            # one-time: download the Chromium binary
+yarn e2e                     # or: yarn e2e:ui
 ```
 
-> `@playwright/test` was added to `package.json` but this repo's `yarn.lock` is
-> Yarn Berry format and can only be regenerated with Berry (`yarn install`),
-> which was not available where the scaffold was built. Run Berry `yarn install`
-> once to sync the lockfile and commit it. The E2E CI job uses `npm install`, so
-> it already resolves the dependency.
+`@playwright/test` is in `package.json` devDependencies and `yarn.lock` (Yarn
+Berry). The E2E CI job uses `npm install`.
 
 With nothing configured, the config starts `php -S localhost:8000 -t . tests/E2E/router.php`
 itself and drives that. It needs a working `ipconfig.php` pointing at a
