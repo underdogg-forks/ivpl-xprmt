@@ -13,7 +13,8 @@
     },
     "homepage": "https://www.invoiceplane.com",
     "scripts": {
-        "build": "grunt build"
+        "build": "grunt build",
+        "test:js": "node --test \"tests/js/**/*.test.js\""
     },
     "devDependencies": {
         "autoprefixer": "9.8",

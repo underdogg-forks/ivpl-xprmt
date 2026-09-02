@@ -490,6 +490,42 @@ class LetsPeppolScenarioTest extends TestCase
         $this->assertSame('cn-ext-01', $result['external_id']);
         $this->assertSame('sent', $result['response']['status']);
     }
+
+    // -----------------------------------------------------------------------
+    // ping — reachability probe
+    // -----------------------------------------------------------------------
+
+    #[Test]
+    public function it_reports_the_provider_as_reachable_after_a_successful_read(): void
+    {
+        /* Arrange */
+        [$provider] = $this->makeProvider([
+            ['success' => true, 'http_code' => 200, 'response' => ['invoices' => []]],
+        ]);
+
+        /* Act */
+        $result = $provider->ping($this->defaultSettings());
+
+        /* Assert */
+        $this->assertTrue($result['reachable']);
+        $this->assertIsInt($result['http_code']);
+    }
+
+    #[Test]
+    public function it_reports_the_provider_as_unreachable_when_the_token_request_fails(): void
+    {
+        /* Arrange */
+        [$provider] = $this->makeProvider([], ['access_token' => 'x'], 'LetsPeppol OAuth error: timeout');
+
+        /* Act */
+        $result = $provider->ping($this->defaultSettings());
+
+        /* Assert */
+        $this->assertFalse($result['reachable']);
+        $this->assertSame(0, $result['http_code']);
+        $this->assertStringContainsString('timeout', $result['message']);
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------

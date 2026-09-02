@@ -14,7 +14,7 @@ use Tests\AbstractTestCase;
  * The first queued response always satisfies authorize(); later ones are
  * consumed in the order the controller calls createOrder()/captureOrder().
  */
-class PaypalGatewayCallbackTest extends AbstractTestCase
+class PaypalFlowTest extends AbstractTestCase
 {
     // -------------------------------------------------------------------------
     // paypal_create_order
