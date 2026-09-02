@@ -14,9 +14,11 @@
     "homepage": "https://www.invoiceplane.com",
     "scripts": {
         "build": "grunt build",
-        "test:js": "node --test \"tests/js/**/*.test.js\""
+        "test:js": "node --test \"tests/js/**/*.test.js\"",
+        "e2e": "playwright test"
     },
     "devDependencies": {
+        "@playwright/test": "^1.62.1",
         "autoprefixer": "9.8",
         "bootstrap-datepicker": "1.10",
         "bootstrap-sass": "3.4",
