@@ -2,10 +2,14 @@
 
 Browser tests for the CI3 InvoicePlane app. The suite mirrors the PHPUnit
 Feature suite: for every `tests/Feature/<Module>/<Name>ControllerTest.php` there
-is a `tests/E2E/<Module>/<Name>Controller.spec.js` whose tests match the PHPUnit
-methods one-for-one — same scenario, proven through the rendered UI (or, for
-AJAX/destroy-only routes, an authenticated request) instead of an in-process
-request.
+is a `tests/E2E/<module>/<name>-controller.spec.js` whose tests match the PHPUnit
+methods one-for-one — same scenario, same `/* Arrange */ /* Act */ /* Assert */`
+shape, proven through the rendered UI (or, for AJAX/destroy-only routes, an
+authenticated request) instead of an in-process request.
+
+Frontend-test conventions: lowercase kebab-case file and directory names;
+`test.describe('<Module> — <area>')` grouping; test titles read `it …` to match
+the PHPUnit method they mirror.
 
 ## Layout
 
@@ -92,15 +96,15 @@ covered by the PHPUnit Feature suite. Wiring a second Playwright project against
 
 ## Progress
 
-| Module | Feature files | E2E status |
+| Module | Spec files | E2E status |
 | --- | --- | --- |
-| Clients | ClientsController, ClientsAjaxController, UserClientsController | ✅ 35 tests |
-| Products | Families, Products, ProductsAjax, Units | ✅ 40 tests |
-| Projects | Projects, Services, Tasks, TasksAjax (Services + Tasks live here) | ✅ 41 tests |
-| Quotes | Quotes, QuotesAjax | ✅ 12 tests |
-| Invoices | 9 files | ⬜ pending |
-| Payments | 12 files | ⬜ pending |
-| Core | 30 files (Security + Integrations fold in here) | ⬜ pending |
+| clients | clients-controller, clients-ajax-controller, user-clients-controller | ✅ 35 tests |
+| products | families-, products-, products-ajax-, units-controller | ✅ 40 tests |
+| projects | projects-, services-, tasks-, tasks-ajax-controller | ✅ 41 tests |
+| quotes | quotes-, quotes-ajax-controller | ✅ 12 tests |
+| invoices | invoice-groups-, invoices-, invoices-ajax-, recurring-, guest-view-, guest-get-, cron-, cron-recur-controller | ✅ ~100 tests |
+| payments | 12 files | ⬜ pending |
+| core | 30 files (Security + Integrations fold in here) | ⬜ pending |
 
 Module mapping: `Core, Clients, Invoices, Payments, Products, Projects, Quotes`
 are the real modules; **Security** and **Integrations** (1.8.0) fold into Core,
