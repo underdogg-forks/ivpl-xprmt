@@ -10,7 +10,7 @@
 
 import { expect } from '../test.js';
 import { idFromUrl } from './app.js';
-import { dbExec, dbQuery } from './db.js';
+import { dbExec, dbInsert, dbQuery } from './db.js';
 
 let counter = 0;
 
@@ -107,6 +107,52 @@ export async function createByForm(page, { formPath, indexPath, editSegment, mar
   expect(id, `the new record (${marker}) should appear at ${indexPath}`).toBeGreaterThan(0);
 
   return id;
+}
+
+/** Raw ip_users row (like the PHPUnit seedUser helper) — for arrange-only users. */
+export function seedUser(overrides = {}) {
+  const name = overrides.user_name ?? uniq('User');
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const id = dbInsert('ip_users', {
+    user_type: 2,
+    user_name: name,
+    user_email: overrides.user_email ?? `${uniq('seed').toLowerCase()}@test.local`,
+    user_password: 'x',
+    user_psalt: 'e2e',
+    user_language: 'system',
+    user_active: 1,
+    user_date_created: now,
+    user_date_modified: now,
+    ...overrides,
+  });
+
+  return { id, name };
+}
+
+/** Raw ip_email_templates row (like the PHPUnit seedTemplate helper). */
+export function seedEmailTemplate(overrides = {}) {
+  const title = overrides.email_template_title ?? uniq('Template');
+  const id = dbInsert('ip_email_templates', {
+    email_template_title: title,
+    email_template_type: 'invoice',
+    email_template_body: 'Hello {{{client_name}}}',
+    ...overrides,
+  });
+
+  return { id, title };
+}
+
+/** Raw ip_custom_fields row (like the PHPUnit seedField helper). */
+export function seedCustomField(overrides = {}) {
+  const label = overrides.custom_field_label ?? uniq('Field');
+  const id = dbInsert('ip_custom_fields', {
+    custom_field_table: 'ip_client_custom',
+    custom_field_label: label,
+    custom_field_type: 'TEXT',
+    ...overrides,
+  });
+
+  return { id, label };
 }
 
 export async function createTaxRate(page, overrides = {}) {
