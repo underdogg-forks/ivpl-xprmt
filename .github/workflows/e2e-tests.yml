@@ -1,8 +1,10 @@
 name: E2E Tests
 
-# Playwright end-to-end smoke suite (tests/E2E/). Serves the app with PHP's
-# built-in server against a freshly-seeded MariaDB, logs in once, and drives
-# Chromium. The schema/seed/ipconfig steps mirror phpunit.yml.
+# Playwright end-to-end suite (tests/E2E/) — browser coverage mirroring the
+# PHPUnit Feature tests, organised by module. Serves the app with PHP's
+# built-in server against a MariaDB that every test truncates and reseeds,
+# logs in once, and drives Chromium. Schema/seed/ipconfig steps mirror
+# phpunit.yml.
 
 on:
   push:
@@ -74,11 +76,16 @@ jobs:
             -e 's|^SETUP_COMPLETED=.*|SETUP_COMPLETED=true|' \
             -e 's|^REMOVE_INDEXPHP=.*|REMOVE_INDEXPHP=true|' \
             -e 's|^ENCRYPTION_KEY=.*|ENCRYPTION_KEY=0123456789abcdef0123456789abcdef|' \
+            -e 's|^#\s*CSRF_PROTECTION=.*|CSRF_PROTECTION=false|' \
             ipconfig.php
+          # The E2E suite drives the app through its rendered forms (which carry
+          # _csrf_field()) but also posts directly to a few AJAX/destroy routes;
+          # CSRF stays off here, matching the local ipconfig, and the CSRF
+          # regression cases remain covered by the PHPUnit Feature suite.
 
       - name: Start the application server
         run: |
-          php -S localhost:8000 -t . tests/E2E/router.php > server.log 2>&1 &
+          php -d variables_order=EGPCS -S localhost:8000 -t . tests/E2E/router.php > server.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf -o /dev/null "${E2E_BASE_URL}/sessions/login" && break
             sleep 1
