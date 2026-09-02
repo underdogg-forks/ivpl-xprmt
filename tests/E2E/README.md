@@ -103,8 +103,14 @@ covered by the PHPUnit Feature suite. Wiring a second Playwright project against
 | projects | projects-, services-, tasks-, tasks-ajax-controller | ✅ 41 tests |
 | quotes | quotes-, quotes-ajax-controller | ✅ 12 tests |
 | invoices | invoice-groups-, invoices-, invoices-ajax-, recurring-, guest-view-, guest-get-, cron-, cron-recur-controller | ✅ ~100 tests |
-| payments | 12 files | ⬜ pending |
-| core | 30 files (Security + Integrations fold in here) | ⬜ pending |
+| payments | payment-methods-, payments-, payments-ajax-, payment-information-, payment-information-form, payment-provider-allowlist, guest-payments-, paypal-, paypal-flow, stripe-, stripe-flow | ✅ 55 tests |
+| core | 41 files (Security + Integrations fold in here) | ⬜ pending |
+
+Gateway-response tests (PayPal/Stripe order + capture + callback) are
+`test.fixme` — they need the outbound `PHP → gateway` HTTP call stubbed, which
+Playwright can't intercept; they stay covered by the PHPUnit fakes. The guard
+clauses (method / key / status / already-paid) run for real. The e-invoice flow
+files in `core/` (SuperPdp / Qonto / LetsPeppol) will follow the same split.
 
 Module mapping: `Core, Clients, Invoices, Payments, Products, Projects, Quotes`
 are the real modules; **Security** and **Integrations** (1.8.0) fold into Core,
