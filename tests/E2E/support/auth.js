@@ -69,3 +69,23 @@ export async function ensureAdminSession() {
     await refreshAdminSession();
   }
 }
+
+/**
+ * Log in as an arbitrary user in a brand-new browser context (its own cookie
+ * jar) and return `{ context, page }`. The caller owns `context` and must
+ * `close()` it. Used for the guest-session and non-admin authorization tests.
+ */
+export async function loginAs(browser, email, password) {
+  const context = await browser.newContext({ baseURL: E2E_BASE_URL });
+  const page = await context.newPage();
+
+  await page.goto(LOGIN_PATH);
+  await page.fill('input[name="email"]', email);
+  await page.fill('input[name="password"]', password);
+  await Promise.all([
+    page.waitForURL((url) => !url.pathname.includes(LOGIN_PATH)),
+    page.click('form button[type="submit"]'),
+  ]);
+
+  return { context, page };
+}

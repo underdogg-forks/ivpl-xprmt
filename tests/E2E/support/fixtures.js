@@ -176,6 +176,53 @@ export async function createQuote(page, overrides = {}) {
   return { id: Number(json.quote_id), number: row?.quote_number ?? '', clientId };
 }
 
+export async function createInvoiceGroup(page, overrides = {}) {
+  const name = overrides.invoice_group_name ?? uniq('Group');
+  const id = await createByForm(page, {
+    formPath: '/invoice_groups/form',
+    indexPath: '/invoice_groups',
+    editSegment: 'invoice_groups/form',
+    marker: name,
+    fields: {
+      invoice_group_name: name,
+      invoice_group_identifier_format: overrides.invoice_group_identifier_format ?? '{{{id}}}',
+      invoice_group_next_id: overrides.invoice_group_next_id ?? '1',
+      invoice_group_left_pad: overrides.invoice_group_left_pad ?? '0',
+    },
+  });
+
+  return { id, name };
+}
+
+/**
+ * Create an invoice through the real "new invoice" AJAX endpoint and return
+ * `{ id, number, clientId }`. Required fields (Mdl_Invoices::validation_rules):
+ * client_id, invoice_date_created, invoice_time_created, invoice_group_id,
+ * user_id.
+ */
+export async function createInvoice(page, overrides = {}) {
+  const clientId = overrides.client_id ?? (await createClient(page)).id;
+  const now = new Date();
+
+  const response = await page.request.post('/invoices/ajax/create', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    form: {
+      client_id: String(clientId),
+      invoice_date_created: now.toISOString().slice(0, 10),
+      invoice_time_created: now.toTimeString().slice(0, 8),
+      invoice_group_id: '1',
+      user_id: '1',
+      ...overrides,
+    },
+  });
+  const json = await response.json();
+  expect(json.success, `invoice create failed: ${JSON.stringify(json)}`).toBe(1);
+
+  const [row] = dbQuery(`SELECT invoice_number FROM ip_invoices WHERE invoice_id = ${Number(json.invoice_id)}`);
+
+  return { id: Number(json.invoice_id), number: row?.invoice_number ?? '', clientId };
+}
+
 export async function createProject(page, overrides = {}) {
   const name = overrides.project_name ?? uniq('Project');
   const id = await createByForm(page, {

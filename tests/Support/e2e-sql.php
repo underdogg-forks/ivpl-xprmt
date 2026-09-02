@@ -52,5 +52,11 @@ if ($mode === 'query') {
     return;
 }
 
-fwrite(STDERR, "unknown mode '{$mode}' (expected: insert | query)\n");
+if ($mode === 'exec') {
+    echo $pdo->exec($argv[2] ?? '');
+
+    return;
+}
+
+fwrite(STDERR, "unknown mode '{$mode}' (expected: insert | query | exec)\n");
 exit(1);
