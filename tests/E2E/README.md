@@ -104,7 +104,14 @@ covered by the PHPUnit Feature suite. Wiring a second Playwright project against
 | quotes | quotes-, quotes-ajax-controller | ✅ 12 tests |
 | invoices | invoice-groups-, invoices-, invoices-ajax-, recurring-, guest-view-, guest-get-, cron-, cron-recur-controller | ✅ ~100 tests |
 | payments | payment-methods-, payments-, payments-ajax-, payment-information-, payment-information-form, payment-provider-allowlist, guest-payments-, paypal-, paypal-flow, stripe-, stripe-flow | ✅ 55 tests |
-| core | 41 files (Security + Integrations fold in here) | ⬜ pending |
+| core | 41 files — CRUD (tax-rates, email-templates, custom-fields, custom-values, users, settings), auth (sessions, login-security, password-reset), smoke (dashboard x2, reports, mailer x2, import, upload, layout, welcome, versions, view-template-system, controllers-auth-guard, settings-ajax), filter-ajax, integrations x2, setup x2, csrf-mutation-parity, the 3 e-invoice provider flows + 4 transmission mirrors | ✅ complete |
+| security | csrf-delete-security, develop-merge-security, security-regression | ✅ complete |
+
+**All 7 modules done.** Config-dependent / gateway-dependent cases across the
+suite are `test.fixme` with a pointer to the PHPUnit mirror: CSRF-on parity, the
+PayPal/Stripe/e-invoice provider *response* assertions, `SETUP_COMPLETED=false`,
+CLI-only behaviour, `SessionsSecurityTest`'s pure helper math, and the SUMEX
+storage/config checks.
 
 Gateway-response tests (PayPal/Stripe order + capture + callback) are
 `test.fixme` — they need the outbound `PHP → gateway` HTTP call stubbed, which
