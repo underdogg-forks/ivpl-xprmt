@@ -134,8 +134,15 @@ class IntegrationTestConnectionTest extends AbstractTestCase
 
         /* Assert */
         $this->assertResponseStatusCode($response, 200);
+        // The button carries the endpoint URL and the three UI strings the
+        // extracted JS module reads off data-msg-* attributes.
         $this->assertResponseBodyContains($response, 'test_connection/' . $id);
         $this->assertResponseBodyContains($response, 'js-test-connection');
+        $this->assertResponseBodyContains($response, 'data-msg-running');
+        $this->assertResponseBodyContains($response, 'data-msg-ok');
+        $this->assertResponseBodyContains($response, 'data-msg-failed');
+        // The behaviour itself lives in the tested module, not inline in the view.
+        $this->assertResponseBodyContains($response, 'js/integration-settings.js');
     }
 
     // -------------------------------------------------------------------------
