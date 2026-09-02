@@ -13,6 +13,8 @@ if ( ! defined('BASEPATH')) {
  * Every accessor tolerates a null session (the SDK retrieve() call may have
  * thrown before assignment), so the callback's finally block can query it
  * safely. Mirrors PaypalResponseExtractor for the Stripe side.
+ *
+ * Live API reachability is a separate concern — see StripeApiClient::ping().
  */
 class StripeResponseExtractor
 {
@@ -25,15 +27,6 @@ class StripeResponseExtractor
     public static function isPaid(?object $session): bool
     {
         return ($session->payment_status ?? null) === 'paid';
-    }
-
-    /**
-     * Whether the session came back from Stripe at all — a non-null status
-     * means the API call succeeded.
-     */
-    public static function isReachable(?object $session): bool
-    {
-        return ($session->status ?? null) !== null;
     }
 
     /**
