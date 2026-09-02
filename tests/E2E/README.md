@@ -94,18 +94,40 @@ covered by the PHPUnit Feature suite. Wiring a second Playwright project against
 
 | Module | Feature files | E2E status |
 | --- | --- | --- |
-| Clients | ClientsController, ClientsAjaxController, UserClientsController | ✅ complete (35 tests) |
-| Core | 30 files | ⬜ pending |
+| Clients | ClientsController, ClientsAjaxController, UserClientsController | ✅ 35 tests |
+| Products | Families, Products, ProductsAjax, Units | ✅ 40 tests |
+| Projects | Projects, Services, Tasks, TasksAjax (Services + Tasks live here) | ✅ 41 tests |
+| Quotes | Quotes, QuotesAjax | ✅ 12 tests |
 | Invoices | 9 files | ⬜ pending |
 | Payments | 12 files | ⬜ pending |
-| Products | 4 files | ⬜ pending |
-| Projects | 4 files | ⬜ pending |
-| Quotes | 2 files | ⬜ pending |
-| Security | 3 files | ⬜ pending |
+| Core | 30 files (Security + Integrations fold in here) | ⬜ pending |
+
+Module mapping: `Core, Clients, Invoices, Payments, Products, Projects, Quotes`
+are the real modules; **Security** and **Integrations** (1.8.0) fold into Core,
+**Services** and **Tasks** into Projects.
 
 Each pending module follows the Clients pattern: read the Feature file, read the
 matching `application/modules/<m>/` controller + views for field names / routes /
 flash text, then write one `test()` per `#[Test]` method.
+
+## Run through the Docker stack
+
+`tests/E2E/docker-e2e.sh [playwright args]` (or `npm run e2e:docker`) serves the
+app from inside the `ivpldock-workspace-1` container — the same stack
+`make docker-test` uses — and runs Playwright + the per-test DB reset from the
+host against it. It resolves the container IP, starts `php -S` there with
+`IP_URL` / `COOKIE_SECURE=false` / `variables_order=EGPCS` set, and points
+`E2E_BASE_URL` at it.
+
+## Helpers beyond the browser
+
+`support/db.js` also exports `dbInsert(table, row)` / `dbQuery(sql)` (via
+`tests/Support/e2e-sql.php`) — the E2E equivalent of the PHPUnit suite's
+`databaseInsert` / `assertDatabase*`, for setup rows and assertions with no clean
+UI path (quote/invoice tax-rate rows, client-service links, orphaned tasks).
+`support/forms.js` has `expectErrorFlash` (controller flashdata,
+`.alert-danger[role=alert]`) vs `expectValidationError` (CI3
+`validation_errors()`, a plain `.alert-danger`).
 
 ## CI
 
