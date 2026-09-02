@@ -40,3 +40,25 @@ $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
 require_once __DIR__ . '/seed_baseline.php';
 ip_seed_baseline($pdo);
+
+// Settings that individual PHPUnit Feature tests add in their own setUp() but
+// that the E2E suite needs present for every browser flow that touches quotes
+// or invoices (Mdl_Quotes::get_date_due() etc. build a DateInterval straight
+// from these — a missing value throws "Unknown or bad format").
+$e2eSettings = [
+    'quotes_expire_after' => '15',
+    'invoices_due_after'  => '30',
+    'default_invoice_group' => '1',
+    'default_quote_group'   => '1',
+    // So a freshly created draft quote/invoice gets a visible number rather
+    // than an empty string (matches a normal InvoicePlane install).
+    'generate_quote_number_for_draft'   => '1',
+    'generate_invoice_number_for_draft' => '1',
+];
+$upsert = $pdo->prepare(
+    'INSERT INTO `ip_settings` (`setting_key`, `setting_value`) VALUES (:k, :v)'
+    . ' ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)'
+);
+foreach ($e2eSettings as $key => $value) {
+    $upsert->execute([':k' => $key, ':v' => $value]);
+}

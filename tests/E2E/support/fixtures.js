@@ -10,6 +10,7 @@
 
 import { expect } from '../test.js';
 import { idFromUrl } from './app.js';
+import { dbQuery } from './db.js';
 
 let counter = 0;
 
@@ -85,4 +86,150 @@ export async function createSecondaryUser(page, overrides = {}) {
   expect(id, `the new user (${email}) should appear in the user list`).toBeGreaterThan(0);
 
   return { id, email, name, password };
+}
+
+/**
+ * Create a record whose form save redirects to the module's index (not an
+ * edit/view page carrying an id) — families, units, products, tax rates, ….
+ * Posts the form as the authenticated admin, then recovers the id from the
+ * index row that now contains `marker` via its `{editSegment}/{id}` link.
+ */
+export async function createByForm(page, { formPath, indexPath, editSegment, marker, fields }) {
+  const response = await page.request.post(formPath, {
+    form: { is_update: '0', btn_submit: '1', ...fields },
+    maxRedirects: 0,
+  });
+  expect(response.status(), `${formPath} should accept a valid create`).toBe(303);
+
+  const html = await (await page.request.get(indexPath)).text();
+  const row = html.split(/<tr[\s>]/).find((chunk) => chunk.includes(marker));
+  const id = Number(row?.match(new RegExp(`${editSegment}/(\\d+)`))?.[1]);
+  expect(id, `the new record (${marker}) should appear at ${indexPath}`).toBeGreaterThan(0);
+
+  return id;
+}
+
+export async function createTaxRate(page, overrides = {}) {
+  const name = overrides.tax_rate_name ?? uniq('Tax');
+  const percent = overrides.tax_rate_percent ?? '10.00';
+  const id = await createByForm(page, {
+    formPath: '/tax_rates/form',
+    indexPath: '/tax_rates',
+    editSegment: 'tax_rates/form',
+    marker: name,
+    fields: { tax_rate_name: name, tax_rate_percent: percent },
+  });
+
+  return { id, name, percent };
+}
+
+export async function createFamily(page, name = uniq('Family')) {
+  const id = await createByForm(page, {
+    formPath: '/families/form',
+    indexPath: '/families',
+    editSegment: 'families/form',
+    marker: name,
+    fields: { family_name: name },
+  });
+
+  return { id, name };
+}
+
+export async function createUnit(page, overrides = {}) {
+  const name = overrides.unit_name ?? uniq('Unit');
+  const plural = overrides.unit_name_plrl ?? `${name}s`;
+  const id = await createByForm(page, {
+    formPath: '/units/form',
+    indexPath: '/units',
+    editSegment: 'units/form',
+    marker: name,
+    fields: { unit_name: name, unit_name_plrl: plural },
+  });
+
+  return { id, name, plural };
+}
+
+/**
+ * Create a quote through the real "new quote" AJAX endpoint (the modal's
+ * $.post target) and return `{ id, number, clientId }`. Required fields
+ * (Mdl_Quotes::validation_rules): client_id, quote_date_created,
+ * invoice_group_id — group 1 is the baseline "Default" group.
+ */
+export async function createQuote(page, overrides = {}) {
+  const clientId = overrides.client_id ?? (await createClient(page)).id;
+
+  const response = await page.request.post('/quotes/ajax/create', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    form: {
+      client_id: String(clientId),
+      quote_date_created: new Date().toISOString().slice(0, 10),
+      invoice_group_id: '1',
+      user_id: '1',
+      ...overrides,
+    },
+  });
+  const json = await response.json();
+  expect(json.success, `quote create failed: ${JSON.stringify(json)}`).toBe(1);
+
+  const [row] = dbQuery(`SELECT quote_number FROM ip_quotes WHERE quote_id = ${Number(json.quote_id)}`);
+
+  return { id: Number(json.quote_id), number: row?.quote_number ?? '', clientId };
+}
+
+export async function createProject(page, overrides = {}) {
+  const name = overrides.project_name ?? uniq('Project');
+  const id = await createByForm(page, {
+    formPath: '/projects/form',
+    indexPath: '/projects',
+    editSegment: 'projects/(?:form|view)',
+    marker: name,
+    fields: { project_name: name, ...overrides },
+  });
+
+  return { id, name };
+}
+
+export async function createService(page, overrides = {}) {
+  const name = overrides.service_name ?? uniq('Service');
+  const id = await createByForm(page, {
+    formPath: '/services/form',
+    indexPath: '/services',
+    editSegment: 'services/form',
+    marker: name,
+    fields: { service_name: name, ...overrides },
+  });
+
+  return { id, name };
+}
+
+export async function createTask(page, overrides = {}) {
+  const name = overrides.task_name ?? uniq('Task');
+  const id = await createByForm(page, {
+    formPath: '/tasks/form',
+    indexPath: '/tasks',
+    editSegment: 'tasks/form',
+    marker: name,
+    fields: {
+      task_name: name,
+      task_price: overrides.task_price ?? '100.00',
+      task_finish_date: overrides.task_finish_date ?? '2026-12-31',
+      ...overrides,
+    },
+  });
+
+  return { id, name };
+}
+
+export async function createProduct(page, overrides = {}) {
+  const name = overrides.product_name ?? uniq('Product');
+  const price = overrides.product_price ?? '19.99';
+  const id = await createByForm(page, {
+    formPath: '/products/form',
+    indexPath: '/products',
+    editSegment: 'products/form',
+    marker: name,
+    fields: { product_name: name, product_price: price, ...overrides },
+  });
+
+  return { id, name, price };
 }

@@ -61,9 +61,20 @@ export async function expectSavedFlash(page, text) {
   if (text) await expect(alert).toContainText(text);
 }
 
-/** Assert a red flash / validation summary is shown. */
+/** Assert a red flash message (controller-set flashdata) is shown. */
 export async function expectErrorFlash(page, text) {
   const alert = page.locator(FLASH_ERROR);
+  await expect(alert).toBeVisible();
+  if (text) await expect(alert).toContainText(text);
+}
+
+/**
+ * Assert a CI3 form-validation summary is shown. alerts.php renders these as a
+ * plain `<div class="alert alert-danger">` (no role) via validation_errors(),
+ * so this is deliberately broader than expectErrorFlash().
+ */
+export async function expectValidationError(page, text) {
+  const alert = page.locator('#content .alert.alert-danger').first();
   await expect(alert).toBeVisible();
   if (text) await expect(alert).toContainText(text);
 }
