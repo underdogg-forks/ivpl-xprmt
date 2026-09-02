@@ -109,6 +109,16 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
 
+      # The e-invoicing generation tests validate the produced Factur-X / UBL
+      # against EN 16931 Schematron, which EInvoiceSchematronValidator runs
+      # through Saxon (a JAR). Without a JDK those tests skip themselves; a JDK
+      # here lets them run for real.
+      - name: Set up JDK (Saxon / Schematron)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Build MariaDB schema and seed baseline
         run: |
           export MYSQL_PWD="$DB_PASSWORD"
