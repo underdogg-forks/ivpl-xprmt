@@ -26,7 +26,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # >= 21 for glob support in `node --test` (see package.json test:js).
+          node-version: '22'
 
       - name: Run the JS test suite
         run: npm run test:js
