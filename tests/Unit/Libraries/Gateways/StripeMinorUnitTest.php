@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
  * The end-to-end behaviour is exercised in
  * tests/Feature/Payments/StripeFlowTest.php.
  */
-class StripeMinorUnitsTest extends TestCase
+class StripeMinorUnitTest extends TestCase
 {
     protected function setUp(): void
     {
@@ -29,16 +29,23 @@ class StripeMinorUnitsTest extends TestCase
         require_once dirname(__DIR__, 4) . '/application/helpers/currency_helper.php';
     }
 
-    /** @return array<string, array{0: string}> */
+    /**
+     * Every currency stripe_minor_unit_multiplier() treats as zero-decimal.
+     * Keep this in lock-step with the helper's list.
+     *
+     * @return array<string, array{0: string}>
+     */
     public static function zeroDecimalCurrencyProvider(): array
     {
-        return [
-            'JPY'           => ['JPY'],
-            'KRW'           => ['KRW'],
-            'VND'           => ['VND'],
-            'XOF'           => ['XOF'],
-            'lowercase jpy' => ['jpy'],
-        ];
+        $codes = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
+
+        $cases = [];
+        foreach ($codes as $code) {
+            $cases[$code] = [$code];
+        }
+        $cases['lowercase jpy'] = ['jpy'];
+
+        return $cases;
     }
 
     /** @return array<string, array{0: string}> */
