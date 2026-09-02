@@ -44,3 +44,13 @@ export function dbQuery(sql) {
 
   return JSON.parse(out.toString() || '[]');
 }
+
+/** Run an UPDATE/DELETE/INSERT statement; returns the affected-row count. */
+export function dbExec(sql) {
+  const out = execFileSync('php', [SQL_SCRIPT, 'exec', sql], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: dbEnv(),
+  });
+
+  return Number(out.toString().trim() || 0);
+}
