@@ -931,4 +931,8 @@ $lang = [
     'disable_pre_check'                  => 'Disable Peppol directory pre-check',
     'leave_blank_to_keep'                => 'Leave blank to keep the stored value',
     'einvoice_provider_settings_invalid' => 'Please check the provider settings.',
+    'einvoice_test_connection'           => 'Test connection',
+    'einvoice_test_connection_running'   => 'Testing the connection…',
+    'einvoice_test_connection_ok'        => 'Connection successful.',
+    'einvoice_test_connection_failed'    => 'Connection failed.',
 ];
