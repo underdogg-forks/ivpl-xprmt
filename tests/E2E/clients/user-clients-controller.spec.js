@@ -4,8 +4,6 @@
  * Mirrors tests/Feature/Clients/UserClientsControllerTest.php. A user-client row
  * assigns a client to a non-admin user; it is created or deleted, never edited.
  * Required fields (Mdl_User_Clients::validation_rules): user_id, client_id.
- * Routes: list GET /user_clients/user/{uid}, create POST
- * /user_clients/create/{uid}, delete POST /user_clients/delete/{ucid}.
  */
 
 import { test, expect } from '../test.js';
@@ -25,14 +23,17 @@ async function assignViaForm(page, userId, clientId) {
 
 test.describe('User clients — list', () => {
   test('it lists every client assigned to a user', async ({ page }) => {
+    /* Arrange */
     const user = await createSecondaryUser(page);
     const a = await createClient(page, { client_name: uniq('AssignedOne') });
     const b = await createClient(page, { client_name: uniq('AssignedTwo') });
     await assignViaForm(page, user.id, a.id);
     await assignViaForm(page, user.id, b.id);
 
+    /* Act */
     await page.goto(`/user_clients/user/${user.id}`);
 
+    /* Assert */
     await expect(page.getByRole('link', { name: a.name })).toBeVisible();
     await expect(page.getByRole('link', { name: b.name })).toBeVisible();
   });
@@ -40,38 +41,47 @@ test.describe('User clients — list', () => {
 
 test.describe('User clients — assign', () => {
   test('it assigns a client to a user', async ({ page }) => {
+    /* Arrange */
     const user = await createSecondaryUser(page);
     const client = await createClient(page, { client_name: uniq('FreshlyAssigned') });
 
+    /* Act */
     await assignViaForm(page, user.id, client.id);
 
+    /* Assert */
     await expect(page.getByRole('link', { name: client.name })).toBeVisible();
   });
 
   test('it fails to assign without client_id', async ({ page }) => {
+    /* Arrange */
     const user = await createSecondaryUser(page);
 
+    /* Act */
     const response = await postForm(page, `/user_clients/create/${user.id}`, {
       user_id: String(user.id),
       client_id: '',
       btn_submit: '1',
     });
 
+    /* Assert */
     expect(response.status(), 'invalid assignment re-renders, does not redirect').toBe(200);
     await page.goto(`/user_clients/user/${user.id}`);
     await expect(page.locator('tbody tr')).toHaveCount(0);
   });
 
   test('it fails to assign without user_id', async ({ page }) => {
+    /* Arrange */
     const user = await createSecondaryUser(page);
     const client = await createClient(page, { client_name: uniq('OrphanAssignment') });
 
+    /* Act */
     const response = await postForm(page, `/user_clients/create/${user.id}`, {
       user_id: '',
       client_id: String(client.id),
       btn_submit: '1',
     });
 
+    /* Assert */
     expect(response.status()).toBe(200);
     await page.goto(`/user_clients/user/${user.id}`);
     await expect(page.getByRole('link', { name: client.name })).toHaveCount(0);
@@ -80,12 +90,14 @@ test.describe('User clients — assign', () => {
 
 test.describe('User clients — unassign', () => {
   test('it unassigns a client from a user', async ({ page }) => {
+    /* Arrange */
     const user = await createSecondaryUser(page);
     const doomed = await createClient(page, { client_name: uniq('Unassign') });
     const kept = await createClient(page, { client_name: uniq('KeepAssigned') });
     await assignViaForm(page, user.id, doomed.id);
     await assignViaForm(page, user.id, kept.id);
 
+    /* Act */
     await page.goto(`/user_clients/user/${user.id}`);
     const row = page.locator('tr', { has: page.getByRole('link', { name: doomed.name }) });
     page.once('dialog', (dialog) => dialog.accept());
@@ -94,6 +106,7 @@ test.describe('User clients — unassign', () => {
       row.locator('button[type="submit"]').click(),
     ]);
 
+    /* Assert */
     await expect(page.getByRole('link', { name: doomed.name })).toHaveCount(0);
     await expect(page.getByRole('link', { name: kept.name })).toBeVisible();
   });
@@ -111,6 +124,7 @@ test.describe('User clients — unassign', () => {
 
 test.describe('User clients — access control', () => {
   test('it blocks a non-admin from unassigning a client', async ({ page, browser }) => {
+    /* Arrange */
     const user = await createSecondaryUser(page);
     const client = await createClient(page);
     await assignViaForm(page, user.id, client.id);
@@ -118,8 +132,6 @@ test.describe('User clients — access control', () => {
       .match(/user_clients\/delete\/(\d+)/)?.[1];
     expect(ucid).toBeTruthy();
 
-    // A separate, non-admin session. browser.newContext() does not inherit the
-    // project's baseURL, so set it explicitly.
     const nonAdmin = await browser.newContext({ baseURL: E2E_BASE_URL });
     const naPage = await nonAdmin.newPage();
     await naPage.goto(LOGIN_PATH);
@@ -130,19 +142,21 @@ test.describe('User clients — access control', () => {
       naPage.click('form button[type="submit"]'),
     ]);
 
+    /* Act */
     const response = await naPage.request.post(`/user_clients/delete/${ucid}`, {
       form: {},
       maxRedirects: 0,
     });
-    // User_Controller's role guard fires in the constructor and bounces the
-    // non-admin straight to the login page — the delete action never runs.
+
+    /* Assert: User_Controller's role guard bounces the non-admin to login — the
+     * delete action never runs. */
     expect([301, 302, 303]).toContain(response.status());
     expect(response.headers().location ?? '').toContain('sessions/login');
     await nonAdmin.close();
 
-    // Confirm the row is still there via a fresh admin session. (The guard calls
-    // the raw session_destroy(); under the single-process dev server that also
-    // tears down the storageState admin session, so re-authenticate here.)
+    // The assignment is still there (checked through a fresh admin session; the
+    // guard's raw session_destroy() also tears down the storageState session
+    // under the single-process dev server).
     const admin2 = await browser.newContext({ baseURL: E2E_BASE_URL });
     const ap2 = await admin2.newPage();
     await ap2.goto(LOGIN_PATH);
@@ -162,8 +176,10 @@ test.describe('User clients — guest access', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('it redirects a guest to login and leaks no assignment', async ({ page }) => {
+    /* Arrange + Act */
     const response = await page.goto('/user_clients/user/1');
 
+    /* Assert */
     await expect(page).toHaveURL(/\/sessions\/login/);
     expect(await response.text()).not.toContain('Secret Assigned Client');
   });
