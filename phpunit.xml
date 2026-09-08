@@ -6,7 +6,7 @@
          cacheDirectory=".phpunit.cache"
          executionOrder="depends,defects"
          requireCoverageMetadata="false"
-         beStrictAboutCoverageMetadata="false"
+         beStrictAboutCoverageMetadata="true"
          beStrictAboutTestsThatDoNotTestAnything="true"
          failOnRisky="true"
          failOnWarning="true">

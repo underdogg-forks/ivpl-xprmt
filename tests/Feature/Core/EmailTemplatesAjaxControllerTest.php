@@ -6,6 +6,8 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
+#[CoversClass(\Ajax::class)]
+
 class EmailTemplatesAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

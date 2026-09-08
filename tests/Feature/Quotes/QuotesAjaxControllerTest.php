@@ -14,6 +14,7 @@ use Tests\AbstractTestCase;
  * quote_date_created, invoice_group_id. Absorbs the AJAX half of QuotesTest.
  */
 #[Group('quotes')]
+#[CoversClass(\Ajax::class)]
 class QuotesAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
