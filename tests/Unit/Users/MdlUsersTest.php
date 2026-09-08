@@ -9,6 +9,36 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(\Mdl_Users::class)]
 class MdlUsersTest extends TestCase
 {
+    /**
+     * Mdl_Users is a CodeIgniter model guarded by `defined('BASEPATH')` and
+     * extends the Response_Model → Form_Validation_Model → MY_Model → CI_Model
+     * chain. The phpunit bootstrap defines BASEPATH but does not eagerly load
+     * every model class, so pull in the ancestry (definitions only, no
+     * constructors run) before the pure-static assertions below.
+     */
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+
+        if (class_exists(\Mdl_Users::class, false)) {
+            return;
+        }
+
+        $root = dirname(__DIR__, 3);
+
+        $files = [
+            $root . '/vendor/pocketarc/codeigniter/system/core/Model.php',
+            $root . '/application/core/MY_Model.php',
+            $root . '/application/core/Form_Validation_Model.php',
+            $root . '/application/core/Response_Model.php',
+            $root . '/application/modules/users/models/Mdl_users.php',
+        ];
+
+        foreach ($files as $file) {
+            require_once $file;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // is_primary_administrator()
     // -------------------------------------------------------------------------
