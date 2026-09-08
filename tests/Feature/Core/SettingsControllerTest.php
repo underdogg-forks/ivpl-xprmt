@@ -14,6 +14,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Issue1551SettingsRemoveLogoTest and Settings/SettingsRemoveLogoRegressionTest.
  */
 #[Group('settings')]
+#[CoversClass(\Settings::class)]
 class SettingsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

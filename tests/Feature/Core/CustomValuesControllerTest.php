@@ -19,6 +19,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Absorbs Issue1694CustomValuesDeleteCsrfTest.
  */
 #[Group('custom_values')]
+#[CoversClass(\Custom_Values::class)]
 class CustomValuesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

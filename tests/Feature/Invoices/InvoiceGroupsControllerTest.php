@@ -16,6 +16,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * against that. Absorbs Issue1694InvoiceGroupsDeleteCsrfTest.
  */
 #[Group('invoice_groups')]
+#[CoversClass(\Invoice_Groups::class)]
 class InvoiceGroupsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;
