@@ -151,6 +151,11 @@ trait InteractsWithDatabase
         $whereParts = [];
         $params     = [];
         foreach ($where as $key => $value) {
+            if ($value === null) {
+                $whereParts[] = $this->qi($key) . ' IS NULL';
+
+                continue;
+            }
             $whereParts[] = $this->qi($key) . ' = :' . $key;
             $params[$key] = $value;
         }
