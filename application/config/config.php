@@ -435,10 +435,10 @@ $config['encryption_key']    = env('ENCRYPTION_KEY');
 | except for 'cookie_prefix' and 'cookie_httponly', which are ignored here.
 |
 */
-$config['sess_driver']             = env('SESS_DRIVER', 'files');
-$config['sess_table_name']         = env('SESS_TABLE_NAME', 'ip_sessions');
-$config['sess_cookie_name']        = env('SESS_COOKIE_NAME', 'ip_session');
-$config['sess_expiration']         = env('SESS_EXPIRATION', 864000);
+$config['sess_driver']      = env('SESS_DRIVER', 'files');
+$config['sess_table_name']  = env('SESS_TABLE_NAME', 'ip_sessions');
+$config['sess_cookie_name'] = env('SESS_COOKIE_NAME', 'ip_session');
+$config['sess_expiration']  = env('SESS_EXPIRATION', 864000);
 // env() returns a set-but-empty ipconfig value ('SESS_SAVE_PATH=') as "" instead
 // of applying the default. resolve_session_save_path() (bootstrap/session_path.php,
 // loaded from the single kernel boot path) collapses an empty, whitespace-only or
