@@ -5,6 +5,8 @@ namespace Tests\Feature\Payments;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
+#[CoversClass(\Ajax::class)]
+
 class PaymentsAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

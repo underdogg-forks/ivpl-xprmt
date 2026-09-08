@@ -12,6 +12,7 @@ use Tests\AbstractTestCase;
  * happy paths and IDOR-adjacent edge cases.
  */
 #[\PHPUnit\Framework\Attributes\Group('invoices')]
+#[CoversClass(\Ajax::class)]
 class InvoicesAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
