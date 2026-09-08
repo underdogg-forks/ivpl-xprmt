@@ -9,6 +9,7 @@ use Tests\AbstractTestCase;
 /**
  * Smoke test for the CronControllerTest module via CI3 HTTP harness.
  */
+#[CoversClass(\Cron::class)]
 class CronControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

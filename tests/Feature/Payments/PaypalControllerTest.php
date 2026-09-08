@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  *
  * Tests payment-related routes accessible to authenticated admins.
  */
+#[CoversClass(\Paypal::class)]
 class PaypalControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

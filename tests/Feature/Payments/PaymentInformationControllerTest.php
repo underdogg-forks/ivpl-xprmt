@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  *
  * Tests HTTP endpoints for the payments list.
  */
+#[CoversClass(\Payment_Information::class)]
 class PaymentInformationControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

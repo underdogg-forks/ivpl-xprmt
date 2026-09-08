@@ -10,6 +10,7 @@ use Tests\AbstractTestCase;
  *
  * Tests the settings page (which includes version info).
  */
+#[CoversClass(\Versions::class)]
 class VersionsControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

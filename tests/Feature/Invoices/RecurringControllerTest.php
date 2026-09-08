@@ -19,6 +19,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Issue1694RecurringInvoiceDeleteCsrfTest.
  */
 #[Group('invoices')]
+#[CoversClass(\Recurring::class)]
 class RecurringControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;
