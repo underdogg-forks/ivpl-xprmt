@@ -16,6 +16,7 @@ use Tests\AbstractTestCase;
  * ClientsControllerTest without ever creating this file.
  */
 #[Group('clients')]
+#[CoversClass(\Ajax::class)]
 class ClientsAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

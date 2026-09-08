@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  * is route-exercising + real filtering behavior + SQL-injection safety,
  * rather than required-field validation.
  */
+#[CoversClass(\Ajax::class)]
 class FilterAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
 #[\PHPUnit\Framework\Attributes\Group('tasks')]
+#[CoversClass(\Ajax::class)]
 class TasksAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

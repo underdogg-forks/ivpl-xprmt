@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  *
  * Tests AJAX requests for settings operations.
  */
+#[CoversClass(\Ajax::class)]
 class CoreAjaxControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
