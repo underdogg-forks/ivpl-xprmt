@@ -15,6 +15,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * lookups) lives in EmailTemplatesAjaxControllerTest.
  */
 #[Group('email_templates')]
+#[CoversClass(\Email_Templates::class)]
 class EmailTemplatesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

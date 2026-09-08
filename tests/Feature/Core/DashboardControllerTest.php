@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  */
 #[Group('feature')]
 #[Group('dashboard')]
+#[CoversClass(\Dashboard::class)]
 class DashboardControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

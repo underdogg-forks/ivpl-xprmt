@@ -14,6 +14,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Absorbs Issue1694FamiliesDeleteCsrfTest.
  */
 #[Group('families')]
+#[CoversClass(\Families::class)]
 class FamiliesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

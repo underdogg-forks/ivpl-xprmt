@@ -15,6 +15,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * TaskDeletionValidationFeatureTest's orphan-on-delete assertion.
  */
 #[Group('projects')]
+#[CoversClass(\Projects::class)]
 class ProjectsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

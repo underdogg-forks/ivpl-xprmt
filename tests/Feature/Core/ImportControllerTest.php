@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  *
  * Tests the import page for authenticated admins.
  */
+#[CoversClass(\Import::class)]
 class ImportControllerTest extends AbstractTestCase
 {
     private string $importDir;

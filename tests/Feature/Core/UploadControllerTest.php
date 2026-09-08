@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  *
  * Tests the import/upload page for authenticated admins.
  */
+#[CoversClass(\Upload::class)]
 class UploadControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

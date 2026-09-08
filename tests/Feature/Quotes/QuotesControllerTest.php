@@ -15,6 +15,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * non-AJAX half of QuotesTest and Issue1694QuotesDeleteCsrfTest.
  */
 #[Group('quotes')]
+#[CoversClass(\Quotes::class)]
 class QuotesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

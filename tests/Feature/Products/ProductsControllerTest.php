@@ -15,6 +15,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * UnitsControllerTest / FamiliesControllerTest.
  */
 #[Group('products')]
+#[CoversClass(\Products::class)]
 class ProductsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

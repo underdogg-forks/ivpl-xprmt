@@ -15,6 +15,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Absorbs CustomFieldsServiceTest and Issue1694CustomFieldsDeleteCsrfTest.
  */
 #[Group('custom_fields')]
+#[CoversClass(\Custom_Fields::class)]
 class CustomFieldsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

@@ -19,6 +19,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Issue1694InvoiceTaxRateDeleteCsrfTest.
  */
 #[Group('invoices')]
+#[CoversClass(\Invoices::class)]
 class InvoicesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

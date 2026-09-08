@@ -15,6 +15,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * preferences) live in ClientsAjaxControllerTest.
  */
 #[Group('clients')]
+#[CoversClass(\Clients::class)]
 class ClientsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

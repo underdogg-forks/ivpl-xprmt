@@ -14,6 +14,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Absorbs Issue1694PaymentMethodsDeleteCsrfTest.
  */
 #[Group('payment_methods')]
+#[CoversClass(\Payment_Methods::class)]
 class PaymentMethodsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

@@ -14,6 +14,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Absorbs the former TaxRatesServiceTest and Issue1694TaxRatesDeleteCsrfTest.
  */
 #[Group('tax_rates')]
+#[CoversClass(\Tax_Rates::class)]
 class TaxRatesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;
