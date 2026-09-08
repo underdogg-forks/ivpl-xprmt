@@ -247,6 +247,37 @@ class PaymentsFeatureTest extends AbstractTestCase
     }
 
     // -------------------------------------------------------------------------
+    // payment_external_id field (nullable: only gateway payments have values)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_creates_manual_payment_with_null_external_id(): void
+    {
+        /* Manual payments (no gateway) have NULL external_id; duplicates allowed */
+        $clientId  = $this->seedClient(['client_name' => 'Manual Payment Client']);
+        $invoiceId = $this->seedInvoice($clientId, [], [
+            'invoice_total'   => '75.00',
+            'invoice_balance' => '75.00',
+        ]);
+
+        $response = $this->post('/payments/form', [
+            'invoice_id'        => $invoiceId,
+            'payment_method_id' => '1',
+            'payment_amount'    => '75.00',
+            'payment_date'      => date('Y-m-d'),
+            'payment_note'      => 'Manual payment',
+            'btn_submit'        => '1',
+        ]);
+
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseHas('ip_payments', [
+            'invoice_id'          => $invoiceId,
+            'payment_amount'      => '75.00',
+            'payment_external_id' => null,
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
     // Guest redirect — always last
     // -------------------------------------------------------------------------
 
