@@ -10,6 +10,7 @@ use Tests\AbstractTestCase;
  * url_key must be exactly 32 alphanumeric characters and belong to a
  * guest_visible() invoice or quote before any file access is attempted.
  */
+#[CoversClass(\Get::class)]
 class GuestGetControllerTest extends AbstractTestCase
 {
     private string $uploadDir;

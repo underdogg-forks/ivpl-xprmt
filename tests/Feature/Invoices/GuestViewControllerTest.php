@@ -11,6 +11,7 @@ use Tests\AbstractTestCase;
  * the session-scoped quote approve/reject actions (real IDOR surface: a
  * guest must only be able to approve/reject quotes for their own clients).
  */
+#[CoversClass(\View::class)]
 class GuestViewControllerTest extends AbstractTestCase
 {
     // -------------------------------------------------------------------------
