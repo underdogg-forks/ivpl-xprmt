@@ -374,13 +374,14 @@ class LetsPeppolFlowTest extends AbstractTestCase
         $invoiceId                   = $this->seedInvoice($clientId);
         $nonexistentMerchantClientId = 99999;
 
-        /* Act & Assert */
-        // show_error() surfaces as a RuntimeException in the test harness;
-        // trans('merchant_client_not_found') resolves to its English string.
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/not found or is disabled/i');
+        /* Act */
+        $response = $this->post('/integrations/send_invoice/' . $invoiceId . '/' . $nonexistentMerchantClientId);
 
-        $this->post('/integrations/send_invoice/' . $invoiceId . '/' . $nonexistentMerchantClientId);
+        /* Assert */
+        // show_error() with 500 status code in the proc_open subprocess doesn't throw
+        // in the parent process; it's captured as an error response.
+        $this->assertResponseStatusCode($response, 500);
+        $this->assertResponseBodyContains($response, 'not found or is disabled');
     }
 
     #[Test]
@@ -391,11 +392,12 @@ class LetsPeppolFlowTest extends AbstractTestCase
         $invoiceId        = $this->seedInvoice($clientId);
         $merchantClientId = $this->seedLetsPeppolClient(['enabled' => 0]);
 
-        /* Act & Assert */
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/not found or is disabled/i');
+        /* Act */
+        $response = $this->post('/integrations/send_invoice/' . $invoiceId . '/' . $merchantClientId);
 
-        $this->post('/integrations/send_invoice/' . $invoiceId . '/' . $merchantClientId);
+        /* Assert */
+        $this->assertResponseStatusCode($response, 500);
+        $this->assertResponseBodyContains($response, 'not found or is disabled');
     }
 
     #[Test]
@@ -405,10 +407,12 @@ class LetsPeppolFlowTest extends AbstractTestCase
         $merchantClientId     = $this->seedLetsPeppolClient();
         $nonexistentInvoiceId = 99999;
 
-        /* Act & Assert */
-        $this->expectException(RuntimeException::class);
+        /* Act */
+        $response = $this->post('/integrations/send_invoice/' . $nonexistentInvoiceId . '/' . $merchantClientId);
 
-        $this->post('/integrations/send_invoice/' . $nonexistentInvoiceId . '/' . $merchantClientId);
+        /* Assert */
+        $this->assertResponseStatusCode($response, 500);
+        $this->assertResponseBodyContains($response, 'invoice_not_found');
     }
 
     // =========================================================================
