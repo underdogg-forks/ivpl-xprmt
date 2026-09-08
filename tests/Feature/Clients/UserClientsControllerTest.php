@@ -20,6 +20,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * UserClientsServiceTest and Issue1694UserClientsDeleteCsrfTest.
  */
 #[Group('user_clients')]
+#[CoversClass(\User_Clients::class)]
 class UserClientsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

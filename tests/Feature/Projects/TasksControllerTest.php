@@ -18,6 +18,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * in ProjectsControllerTest::it_orphans_rather_than_deletes_the_tasks_of_a_deleted_project.
  */
 #[Group('tasks')]
+#[CoversClass(\Tasks::class)]
 class TasksControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

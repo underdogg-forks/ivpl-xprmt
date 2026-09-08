@@ -9,6 +9,7 @@ use Tests\AbstractTestCase;
 /**
  * SetupController Feature Tests.
  */
+#[CoversClass(\Setup::class)]
 class SetupControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

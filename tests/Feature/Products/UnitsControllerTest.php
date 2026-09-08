@@ -14,6 +14,7 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * Absorbs Issue1694UnitsDeleteCsrfTest.
  */
 #[Group('units')]
+#[CoversClass(\Units::class)]
 class UnitsControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;

@@ -16,6 +16,7 @@ use Tests\Integration\Support\HttpResponse;
  * rows, and that generating a report never writes to the tables it reads.
  */
 #[Group('reports')]
+#[CoversClass(\Reports::class)]
 class ReportsControllerTest extends AbstractTestCase
 {
     protected function setUp(): void

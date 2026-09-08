@@ -13,6 +13,7 @@ use Tests\AbstractTestCase;
  * Issue1497SmtpSenderTest (the from-address defaulting regression).
  */
 #[Group('mailer')]
+#[CoversClass(\Mailer::class)]
 class MailerControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
