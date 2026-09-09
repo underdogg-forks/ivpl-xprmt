@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6c5f69071c334a288b4265d8303db0c3",
+    "content-hash": "f13ce7b055fa3f132ee6c8d772dc642b",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1411,7 +1411,7 @@
         },
         {
             "name": "josemmo/facturae-php",
-            "version": "v1.8.5",
+            "version": "dev-master",
             "source": {
                 "type": "git",
                 "url": "https://github.com/josemmo/Facturae-PHP.git",
@@ -1435,6 +1435,7 @@
                 "ext-openssl": "For signing and timestamping both invoices and SOAP requests",
                 "lib-libxml": "For parsing SOAP XML responses for FACe and FACeB2B"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -1462,7 +1463,7 @@
             ],
             "support": {
                 "issues": "https://github.com/josemmo/Facturae-PHP/issues",
-                "source": "https://github.com/josemmo/Facturae-PHP/tree/v1.8.5"
+                "source": "https://github.com/josemmo/Facturae-PHP/tree/master"
             },
             "funding": [
                 {
@@ -6082,6 +6083,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "josemmo/facturae-php": 20,
         "s2software/fatturapa": 20
     },
     "prefer-stable": false,
