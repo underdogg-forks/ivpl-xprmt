@@ -161,6 +161,17 @@ jobs:
         # env() then returns null, the parent connects as ''@'localhost', and
         # every DB-backed test markTestSkipped()s — a green build hiding ~180
         # tests that never ran. Unset them so ipconfig.php is the source of truth.
+        #
+        # phpunit.xml excludes the `slow` and `flaky` groups from this default
+        # run; the next step runs them so CI coverage stays complete.
         run: |
           env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
             vendor/bin/phpunit ${{ github.event.inputs.fail_fast == 'true' && '--stop-on-failure' || '' }}
+
+      - name: Run PHPUnit (slow / flaky groups)
+        # A CLI --group overrides phpunit.xml's <groups> exclusion, so this runs
+        # exactly the tests the default pass skipped. Nothing is permanently
+        # masked. No-op (exit 0) while nothing is tagged.
+        run: |
+          env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
+            vendor/bin/phpunit --group slow,flaky ${{ github.event.inputs.fail_fast == 'true' && '--stop-on-failure' || '' }}
