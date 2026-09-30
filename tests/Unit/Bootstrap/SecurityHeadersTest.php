@@ -97,6 +97,17 @@ class SecurityHeadersTest extends TestCase
     }
 
     #[Test]
+    public function the_base_controllers_take_their_headers_from_the_same_function(): void
+    {
+        foreach (['Base_Controller', 'Guest_Controller'] as $class) {
+            $source = (string) file_get_contents(ROOT_PATH . '/application/core/' . $class . '.php');
+
+            self::assertStringContainsString('ip_security_headers(', $source, $class . ' must use the shared header function');
+            self::assertStringNotContainsString("frame-ancestors 'self'", $source, $class . ' must not hard-code a CSP that could override a configured DENY');
+        }
+    }
+
+    #[Test]
     public function the_nginx_config_does_not_relax_session_cookies_to_samesite_none(): void
     {
         $conf = (string) file_get_contents(ROOT_PATH . '/resources/docker/nginx/invoiceplane.conf');

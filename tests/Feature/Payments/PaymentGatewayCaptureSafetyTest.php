@@ -99,6 +99,30 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
         ];
     }
 
+    // -------------------------------------------------------------------------
+    // PayPal: only a COMPLETED capture is settled money (GHSA-6fv-2f29-rc6g, PR #1724)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function captureStatuses(): array
+    {
+        return [
+            'COMPLETED records a payment'       => ['COMPLETED', true],
+            'lowercase completed is normalised' => ['completed', true],
+            'PENDING is not settled'            => ['PENDING', false],
+            'lowercase pending is normalised'   => ['pending', false],
+            'mixed case Pending'                => ['Pending', false],
+            'DECLINED'                          => ['DECLINED', false],
+            'FAILED'                            => ['FAILED', false],
+            'REFUNDED'                          => ['REFUNDED', false],
+            'PARTIALLY_REFUNDED'                => ['PARTIALLY_REFUNDED', false],
+            'unknown future status'             => ['ON_HOLD', false],
+            'empty status'                      => ['', false],
+        ];
+    }
+
     /**
      * @param array<string, mixed> $invoiceOverrides
      * @param array<string, mixed> $amountOverrides
@@ -219,6 +243,107 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
         self::assertNotNull($row);
         self::assertSame(0, (int) $row['merchant_response_successful']);
         self::assertStringContainsString('NOT recorded locally', (string) $row['merchant_response']);
+    }
+
+    #[Test]
+    #[DataProvider('captureStatuses')]
+    public function only_a_completed_capture_records_a_payment(string $status, bool $recorded): void
+    {
+        /* Arrange */
+        $this->configurePaypal();
+        $invoiceId = $this->seedPayableInvoice();
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
+            $this->captureResponseWithStatus($invoiceId, '50.00', 'CAP-STATUS', $status),
+        ], $this->captureFile());
+
+        /* Act */
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-STATUS');
+
+        /* Assert */
+        self::assertLessThan(500, $response->statusCode(), 'an unexpected status must never produce a server error');
+        self::assertStringNotContainsString('Undefined', $response->stderr());
+
+        if ($recorded) {
+            $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'CAP-STATUS']);
+        } else {
+            $this->assertDatabaseMissing('ip_payments', ['invoice_id' => $invoiceId]);
+            self::assertEqualsWithDelta(50.00, (float) $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId])['invoice_balance'], 0.001, 'the invoice balance must be untouched');
+        }
+    }
+
+    #[Test]
+    public function a_pending_capture_writes_one_audit_row_and_no_php_warning(): void
+    {
+        /* Arrange: upstream's PENDING branch read variables that only exist in the COMPLETED branch. */
+        $this->configurePaypal();
+        $invoiceId = $this->seedPayableInvoice();
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
+            $this->captureResponseWithStatus($invoiceId, '50.00', 'CAP-PEND-AUDIT', 'PENDING'),
+        ], $this->captureFile());
+
+        /* Act */
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-PEND');
+
+        /* Assert */
+        self::assertStringNotContainsString('Undefined', $response->stderr());
+        $this->assertDatabaseCount('ip_merchant_responses', 1, ['invoice_id' => $invoiceId]);
+        $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
+        self::assertSame('PENDING - awaiting settlement', $row['merchant_response']);
+        self::assertSame('Resource ID:PAYPAL-ORDER-RESOURCE', $row['merchant_response_reference']);
+    }
+
+    #[Test]
+    public function a_pending_capture_without_an_invoice_id_is_refused_quietly(): void
+    {
+        /* Arrange */
+        $this->configurePaypal();
+        $invoiceId = $this->seedPayableInvoice();
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
+            ['status' => 200, 'body' => json_encode(['id' => 'X', 'purchase_units' => [['payments' => ['captures' => [['status' => 'PENDING', 'id' => 'CAP-NOINV']]]]]])],
+        ], $this->captureFile());
+
+        /* Act */
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-NOINV2');
+
+        /* Assert: nothing recorded, nothing to attach an audit row to, no crash */
+        self::assertLessThan(500, $response->statusCode());
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-NOINV']);
+        $this->assertDatabaseCount('ip_merchant_responses', 0, []);
+    }
+
+    #[Test]
+    public function a_capture_that_settles_later_is_recorded_exactly_once(): void
+    {
+        /* Arrange: first response PENDING, a later retry reports COMPLETED for the same capture id. */
+        $this->configurePaypal();
+        $invoiceId = $this->seedPayableInvoice();
+
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
+            $this->captureResponseWithStatus($invoiceId, '50.00', 'CAP-LATER', 'PENDING'),
+        ], $this->captureFile());
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LATER');
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-LATER']);
+
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
+            $this->captureResponseWithStatus($invoiceId, '50.00', 'CAP-LATER', 'COMPLETED'),
+        ], $this->captureFile());
+
+        /* Act */
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LATER');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LATER');
+
+        /* Assert */
+        $this->assertDatabaseCount('ip_payments', 1, ['payment_external_id' => 'CAP-LATER']);
     }
 
     // -------------------------------------------------------------------------
@@ -364,6 +489,22 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
             'id'             => 'ORDER-DETAILS',
             'status'         => 'APPROVED',
             'purchase_units' => [['invoice_id' => (string) $invoiceId, 'amount' => ['value' => $amount, 'currency_code' => $currency]]],
+        ])];
+    }
+
+    /**
+     * @return array{status: int, body: string}
+     */
+    private function captureResponseWithStatus(int $invoiceId, string $amount, string $captureId, string $status): array
+    {
+        return ['status' => 200, 'body' => json_encode([
+            'id'             => 'PAYPAL-ORDER-RESOURCE',
+            'purchase_units' => [['payments' => ['captures' => [[
+                'status'     => $status,
+                'invoice_id' => (string) $invoiceId,
+                'id'         => $captureId,
+                'amount'     => ['value' => $amount, 'currency_code' => 'EUR'],
+            ]]]]],
         ])];
     }
 

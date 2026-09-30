@@ -305,9 +305,9 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_records_a_pending_capture_as_a_payment_with_a_pending_note(): void
+    public function it_does_not_record_a_pending_capture_as_a_payment(): void
     {
-        /* Arrange */
+        /* Arrange: GHSA-6fv-2f29-rc6g — a PENDING capture has not settled; PayPal can still fail or reverse it. */
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_paypal_currency', 'setting_value' => 'EUR']);
         $invoiceId          = $this->seedPayableInvoice();
         $paymentCountBefore = $this->databaseCount('ip_payments');
@@ -321,23 +321,18 @@ class PaypalFlowTest extends AbstractTestCase
         /* Act */
         $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-2');
 
-        /* Assert: Business Logic (A) */
-        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'CAP-PENDING']);
+        /* Assert: no payment, invoice balance untouched */
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-PENDING']);
+        $this->assertSame($paymentCountBefore, $this->databaseCount('ip_payments'));
+        self::assertEqualsWithDelta(50.00, (float) $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId])['invoice_balance'], 0.001);
 
-        /* Assert: State Isolation (B) */
-        $paymentCountAfter = $this->databaseCount('ip_payments');
-        $this->assertSame($paymentCountBefore + 1, $paymentCountAfter);
-
-        /* Assert: Error Semantics (C) */
+        /* Assert: the pending capture is still audited, flagged as awaiting settlement */
+        $this->assertDatabaseHas('ip_merchant_responses', ['invoice_id' => $invoiceId, 'merchant_response' => 'PENDING - awaiting settlement']);
         self::assertTrue($response->isRedirect() || $response->statusCode() === 200);
 
-        /* Assert: Data Integrity (D) */
-        $payment = $this->databaseFetchOne('ip_payments', ['payment_external_id' => 'CAP-PENDING']);
-        $this->assertSame($invoiceId, (int) $payment['invoice_id']);
-
-        /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-2');
-        self::assertTrue($response2->isRedirect() || $response2->statusCode() === 200);
+        /* Assert: Idempotency — a retry still records nothing */
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-2');
+        $this->assertSame($paymentCountBefore, $this->databaseCount('ip_payments'));
     }
 
     #[Test]

@@ -79,13 +79,12 @@ class Base_Controller extends MX_Controller
 
     protected function setSecurityHeaders(): void
     {
-        $this->output
-            ->set_header('X-Frame-Options: ' . env('X_FRAME_OPTIONS', 'SAMEORIGIN'))
-            ->set_header("Content-Security-Policy: frame-ancestors 'self'; object-src 'none'; base-uri 'self'")
-            ->set_header('Referrer-Policy: strict-origin-when-cross-origin');
+        // One source for these headers (bootstrap/security_headers.php), so a configured X_FRAME_OPTIONS=DENY
+        // cannot be overridden here by a second, hard-coded copy of the policy.
+        require_once FCPATH . '../bootstrap/security_headers.php';
 
-        if (env_bool('ENABLE_X_CONTENT_TYPE_OPTIONS', 'true')) {
-            $this->output->set_header('X-Content-Type-Options: nosniff');
+        foreach (ip_security_headers((string) env('X_FRAME_OPTIONS', 'SAMEORIGIN'), env_bool('ENABLE_X_CONTENT_TYPE_OPTIONS', true)) as $header) {
+            $this->output->set_header($header);
         }
     }
 
