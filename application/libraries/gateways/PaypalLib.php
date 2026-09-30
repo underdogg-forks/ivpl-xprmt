@@ -41,8 +41,6 @@ class PaypalLib
         log_message('debug', 'Paypal library client created');
 
         $this->executor = new PaypalRequestExecutor($this->client);
-
-        $this->authorize();
     }
 
     /**
@@ -130,6 +128,13 @@ class PaypalLib
     protected function buildHeaders(array $options = []): array
     {
         // $options: ['request_id' => string, 'content_type' => string, 'prefer' => string]
+
+        // Authorize lazily: constructing the library (which every request to the PayPal controller
+        // does) must not cost an outbound OAuth request.
+        if ( ! isset($this->bearer_token)) {
+            $this->authorize();
+        }
+
         $headers = [
             'Content-Type'                  => $options['content_type'] ?? 'application/json',
             'Authorization'                 => 'Bearer ' . $this->bearer_token,
