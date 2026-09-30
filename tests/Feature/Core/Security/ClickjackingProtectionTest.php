@@ -57,8 +57,8 @@ class ClickjackingProtectionTest extends AbstractTestCase
     public function it_sends_x_frame_options_on_guest_invoice_page(): void
     {
         /* Arrange */
-        $client = $this->seedClient(['client_name' => 'Test Client']);
-        $invoice = $this->seedInvoice($client);
+        $client = $this->seedClientObject(['client_name' => 'Test Client']);
+        $invoice = $this->seedInvoiceObject($client);
         $this->actingAsGuest();
 
         /* Act */
@@ -75,7 +75,7 @@ class ClickjackingProtectionTest extends AbstractTestCase
     public function it_sends_x_frame_options_on_guest_quote_page(): void
     {
         /* Arrange */
-        $client = $this->seedClient(['client_name' => 'Test Client']);
+        $client = $this->seedClientObject(['client_name' => 'Test Client']);
         $quote = $this->seedQuote($client);
         $this->actingAsGuest();
 
@@ -197,7 +197,7 @@ class ClickjackingProtectionTest extends AbstractTestCase
     public function it_protects_guest_quote_approval_from_clickjacking(): void
     {
         /* Arrange */
-        $client = $this->seedClient(['client_name' => 'Test Client']);
+        $client = $this->seedClientObject(['client_name' => 'Test Client']);
         $quote = $this->seedQuote($client);
         $this->actingAsGuest();
 
@@ -222,7 +222,7 @@ class ClickjackingProtectionTest extends AbstractTestCase
     // Helpers
     // -------------------------------------------------------------------------
 
-    protected function seedClient(array $overrides = []): object
+    protected function seedClientObject(array $overrides = []): object
     {
         $id = $this->databaseInsert('ip_clients', array_merge([
             'client_name'          => 'Seed Client ' . bin2hex(random_bytes(3)),
@@ -234,7 +234,7 @@ class ClickjackingProtectionTest extends AbstractTestCase
         return (object) ['client_id' => $id];
     }
 
-    protected function seedInvoice(object $client, array $overrides = []): object
+    protected function seedInvoiceObject(object $client, array $overrides = []): object
     {
         $id = $this->databaseInsert('ip_invoices', array_merge([
             'client_id'             => $client->client_id,
