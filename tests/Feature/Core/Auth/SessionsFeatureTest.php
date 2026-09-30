@@ -141,25 +141,29 @@ class SessionsFeatureTest extends AbstractTestCase
     #[Test]
     public function it_does_not_reveal_whether_the_email_exists_in_the_reset_response(): void
     {
-        /* Arrange */
-        $ts = time();
+        /* Arrange: one account that really exists and one address that does not. (The previous version of this
+         * test compared two NON-existent addresses, so it could never have detected a leak.) */
+        $existing = 'exists-' . bin2hex(random_bytes(3)) . '@test.local';
+        $unknown  = 'unknown-' . bin2hex(random_bytes(3)) . '@test.local';
+        $this->databaseInsert('ip_users', [
+            'user_name'          => 'Reset Enumeration',
+            'user_password'      => password_hash('Some-password-1', PASSWORD_BCRYPT),
+            'user_psalt'         => bin2hex(random_bytes(10)),
+            'user_email'         => $existing,
+            'user_type'          => 1,
+            'user_active'        => 1,
+            'user_date_created'  => date('Y-m-d H:i:s'),
+            'user_date_modified' => date('Y-m-d H:i:s'),
+        ]);
 
         /* Act */
-        $responseReal = $this->post('/sessions/passwordreset', [
-            'btn_reset' => '1',
-            'email'     => 'nobody_real_' . $ts . '@nonexistent.example',
-        ]);
-        $responseFake = $this->post('/sessions/passwordreset', [
-            'btn_reset' => '1',
-            'email'     => 'nobody_fake_' . $ts . '@nonexistent.example',
-        ]);
+        $responseExisting = $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $existing]);
+        $responseUnknown  = $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $unknown]);
 
-        /* Assert */
-        self::assertSame(
-            $responseReal->statusCode(),
-            $responseFake->statusCode(),
-            'Password reset must return the same HTTP status for existing and nonexistent emails (enumeration guard).'
-        );
+        /* Assert: nothing an unauthenticated caller can observe may differ */
+        self::assertSame($responseExisting->statusCode(), $responseUnknown->statusCode(), 'status must not reveal whether the account exists');
+        self::assertSame($responseExisting->bodyLength(), $responseUnknown->bodyLength(), 'response body must not reveal whether the account exists');
+        self::assertLessThan(500, $responseExisting->statusCode(), 'a real account must not turn a failed mail send into a server error');
     }
 
     #[Test]

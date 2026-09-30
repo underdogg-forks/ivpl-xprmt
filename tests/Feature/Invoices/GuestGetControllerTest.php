@@ -3,6 +3,7 @@
 namespace Tests\Feature\Invoices;
 
 use Get;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
@@ -183,17 +184,39 @@ class GuestGetControllerTest extends AbstractTestCase
         self::assertSame('pdf-bytes', $response->body());
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function traversalSuffixes(): array
+    {
+        return [
+            'dot-dot slashes'            => ['_../../../../etc/passwd'],
+            'encoded slashes'            => ['_..%2f..%2f..%2f..%2fetc%2fpasswd'],
+            'double-encoded'             => ['_..%252f..%252f..%252fetc%252fpasswd'],
+            'encoded dots'               => ['_%2e%2e/%2e%2e/%2e%2e/etc/passwd'],
+            'overlong dots'              => ['_....//....//....//etc/passwd'],
+            'backslashes'                => ['_..\\..\\..\\etc\\passwd'],
+            'absolute path'              => ['_/etc/passwd'],
+            'null byte then extension'   => ['_../../etc/passwd%00.pdf'],
+            'leading slash only'         => ['/../../etc/passwd'],
+            'dot-dot only'               => ['_..'],
+            'very long name'             => ['_' . str_repeat('a', 400)],
+        ];
+    }
+
     #[Test]
-    public function it_rejects_a_path_traversal_attempt_in_the_filename(): void
+    #[DataProvider('traversalSuffixes')]
+    public function it_rejects_a_path_traversal_attempt_in_the_filename(string $suffix): void
     {
         /* Arrange */
         $urlKey = $this->seedVisibleInvoiceUrlKey();
 
         /* Act */
-        $response = $this->get('/guest/get/get_file/' . rawurlencode($urlKey . '_../../../../etc/passwd'));
+        $response = $this->get('/guest/get/get_file/' . str_replace(['\\'], ['%5C'], $urlKey . $suffix));
 
-        /* Assert */
-        self::assertNotSame(200, $response->statusCode());
+        /* Assert: refused outright (not merely "not 200"), never a server error, and never the target file */
+        self::assertContains($response->statusCode(), [400, 403, 404], 'expected a refusal, got ' . $response->statusCode());
+        $this->assertResponseBodyNotContains($response, 'root:');
     }
 
     #[Test]
