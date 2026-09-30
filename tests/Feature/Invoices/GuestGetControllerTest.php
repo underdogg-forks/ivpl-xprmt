@@ -37,6 +37,26 @@ class GuestGetControllerTest extends AbstractTestCase
         parent::tearDown();
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function traversalSuffixes(): array
+    {
+        return [
+            'dot-dot slashes'          => ['_../../../../etc/passwd'],
+            'encoded slashes'          => ['_..%2f..%2f..%2f..%2fetc%2fpasswd'],
+            'double-encoded'           => ['_..%252f..%252f..%252fetc%252fpasswd'],
+            'encoded dots'             => ['_%2e%2e/%2e%2e/%2e%2e/etc/passwd'],
+            'overlong dots'            => ['_....//....//....//etc/passwd'],
+            'backslashes'              => ['_..\\..\\..\\etc\\passwd'],
+            'absolute path'            => ['_/etc/passwd'],
+            'null byte then extension' => ['_../../etc/passwd%00.pdf'],
+            'leading slash only'       => ['/../../etc/passwd'],
+            'dot-dot only'             => ['_..'],
+            'very long name'           => ['_' . str_repeat('a', 400)],
+        ];
+    }
+
     // -------------------------------------------------------------------------
     // show_files
     // -------------------------------------------------------------------------
@@ -182,26 +202,6 @@ class GuestGetControllerTest extends AbstractTestCase
 
         /* Assert */
         self::assertSame('pdf-bytes', $response->body());
-    }
-
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function traversalSuffixes(): array
-    {
-        return [
-            'dot-dot slashes'            => ['_../../../../etc/passwd'],
-            'encoded slashes'            => ['_..%2f..%2f..%2f..%2fetc%2fpasswd'],
-            'double-encoded'             => ['_..%252f..%252f..%252fetc%252fpasswd'],
-            'encoded dots'               => ['_%2e%2e/%2e%2e/%2e%2e/etc/passwd'],
-            'overlong dots'              => ['_....//....//....//etc/passwd'],
-            'backslashes'                => ['_..\\..\\..\\etc\\passwd'],
-            'absolute path'              => ['_/etc/passwd'],
-            'null byte then extension'   => ['_../../etc/passwd%00.pdf'],
-            'leading slash only'         => ['/../../etc/passwd'],
-            'dot-dot only'               => ['_..'],
-            'very long name'             => ['_' . str_repeat('a', 400)],
-        ];
     }
 
     #[Test]
