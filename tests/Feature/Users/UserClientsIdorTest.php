@@ -38,6 +38,23 @@ class UserClientsIdorTest extends AbstractTestCase
         $this->clientB    = $this->seedClient(['client_name' => 'Client B']);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function nonIntegerUserIds(): array
+    {
+        return [
+            'fraction that rounds up'   => ['%d.9'],
+            'fraction that rounds down' => ['%d.4'],
+            'exponent notation'         => ['%de0'],
+            'trailing junk'             => ['%dabc'],
+            'leading space'             => [' %d'],
+            'trailing space'            => ['%d '],
+            'negative'                  => ['-%d'],
+            'hex'                       => ['0x%d'],
+        ];
+    }
+
     // -------------------------------------------------------------------------
     // create
     // -------------------------------------------------------------------------
@@ -68,23 +85,6 @@ class UserClientsIdorTest extends AbstractTestCase
         /* Assert */
         $this->assertResponseStatusCode($response, 403);
         $this->assertDatabaseCount('ip_user_clients', 0, []);
-    }
-
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function nonIntegerUserIds(): array
-    {
-        return [
-            'fraction that rounds up'   => ['%d.9'],
-            'fraction that rounds down' => ['%d.4'],
-            'exponent notation'         => ['%de0'],
-            'trailing junk'             => ['%dabc'],
-            'leading space'             => [' %d'],
-            'trailing space'            => ['%d '],
-            'negative'                  => ['-%d'],
-            'hex'                       => ['0x%d'],
-        ];
     }
 
     #[Test]
