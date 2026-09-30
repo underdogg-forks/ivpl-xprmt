@@ -90,9 +90,15 @@ looks green ("0 failures") but actually skipped ~600 tests and proved nothing. R
 in the containers that exist for exactly this purpose (`docker ps` → `ivpldock-workspace-1`,
 `ivpldock-mariadb-1`, …).
 
-The `Makefile` wraps this. **This checkout is mounted at
-`/var/www/projects/invoiceplane/ivplv1` inside the workspace container, but the Makefile
-still defaults `DOCKER_PROJECT_DIR` to `/var/www/projects/exprmt`** — always pass the
+If no containers are running, start the stack with `cd ~/ivpldock && ./starmeup.sh`. It runs
+`docker compose up` in the **foreground**, so run it as a background/detached job and never wrap
+it in a `timeout` — killing it stops every container.
+
+Any checkout under `/var/www/projects/` in the workspace container can be run as a project. **This
+checkout is `/var/www/projects/invoiceplane/exprmt`** (branch `prep/v180`); `.../invoiceplane/ivplv1`
+is a *different* checkout (upstream `develop`) — running against it tests the wrong code. The
+`Makefile` wraps everything below, but it still defaults `DOCKER_PROJECT_DIR` to
+`/var/www/projects/exprmt`, which does not exist in the container — always pass the
 override or `docker-db-prepare`'s `ipconfig.php`-write + `seed-test-db.php` step fails
 (`cd: .../exprmt: No such file or directory`), leaving the schema imported but **unseeded**.
 An unseeded DB is the cause of cascades of `Expected row in [ip_*] not found` /
@@ -102,16 +108,17 @@ An unseeded DB is the cause of cascades of `Expected row in [ip_*] not found` /
 # Full suite: (re)builds invoiceplane_test from the setup SQL migrations, applies
 # schema_fixups.sql, writes ipconfig.php (DB_HOSTNAME=mariadb), seeds the baseline,
 # then runs phpunit as the ivpldock user with DB_* unset.
-make docker-test DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/ivplv1
+make docker-test DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
 
-make docker-test-suite  SUITE=Unit    DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/ivplv1
-make docker-test-filter FILTER=Session DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/ivplv1
-make docker-phpstan     DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/ivplv1
-make docker-lint-php    DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/ivplv1
+make docker-test-suite  SUITE=Unit    DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
+make docker-test-filter FILTER=Session DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
+make docker-phpstan     DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
+make docker-lint-php    DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
+make docker-pint         DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
 
 # Ad-hoc: run a targeted slice against an already-prepared DB
 docker exec -e XDEBUG_MODE=off --user=ivpldock ivpldock-workspace-1 bash -lc \
-  'cd /var/www/projects/invoiceplane/ivplv1 && \
+  'cd /var/www/projects/invoiceplane/exprmt && \
    env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
    vendor/bin/phpunit tests/Feature/Core/SessionsFeatureTest.php'
 ```
