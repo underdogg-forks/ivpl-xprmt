@@ -73,9 +73,7 @@ class Mdl_Sessions extends CI_Model
                     return false;
                 }
 
-                if ( ! function_exists('session_credential_fingerprint')) {
-                    $this->load->helper('ip_security');
-                }
+                $this->load->helper('ip_security');
 
                 $session_data = [
                     'user_credential'   => session_credential_fingerprint((string) $user->user_password),

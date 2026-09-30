@@ -70,15 +70,14 @@ class User_Controller extends Base_Controller
         }
 
         // A password change or reset ends every session created with the old password.
-        if ( ! function_exists('session_credential_fingerprint')) {
-            $this->load->helper('ip_security');
-        }
-        $fingerprint = session_credential_fingerprint((string) $current->user_password);
-        $session_fp  = (string) $this->session->userdata('user_credential');
-        if ($session_fp === '') {
+        $this->load->helper('ip_security');
+        $fingerprint         = session_credential_fingerprint((string) $current->user_password);
+        $session_fingerprint = (string) $this->session->userdata('user_credential');
+
+        if ($session_fingerprint === '') {
             // Session created before fingerprints existed: bind it to the current password once.
             $this->session->set_userdata('user_credential', $fingerprint);
-        } elseif ( ! hash_equals($fingerprint, $session_fp)) {
+        } elseif ( ! hash_equals($fingerprint, $session_fingerprint)) {
             session_destroy();
             redirect('sessions/login');
 
