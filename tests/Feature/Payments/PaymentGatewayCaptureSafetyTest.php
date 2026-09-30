@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use Cryptor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -36,7 +37,7 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
         require_once ROOT_PATH . '/application/libraries/Cryptor.php';
         $this->databaseInsertOrIgnore('ip_settings', [
             'setting_key'   => 'gateway_stripe_apiKey',
-            'setting_value' => \Cryptor::Encrypt('sk_test_fake_key', (string) env('ENCRYPTION_KEY')),
+            'setting_value' => Cryptor::Encrypt('sk_test_fake_key', (string) env('ENCRYPTION_KEY')),
         ]);
     }
 
@@ -67,6 +68,34 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
             'order in a different currency'       => [[], [], '50.00', 'USD'],
             'order amount off by one cent'        => [[], [], '50.01', 'EUR'],
             'order amount zero'                   => [[], [], '0.00', 'EUR'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function malformedOrderIds(): array
+    {
+        return [
+            'path traversal' => ['..%2F..%2Fv1%2Fidentity'],
+            'with a space'   => ['ORDER%20ONE'],
+            'query string'   => ['ORDER%3Fx%3D1'],
+            'html'           => ['%3Cscript%3E'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function malformedSessionIds(): array
+    {
+        return [
+            'not a checkout session' => ['pi_123456789'],
+            'too short'              => ['cs_1'],
+            'empty prefix only'      => ['cs_'],
+            'illegal characters'     => ['cs_test_%3Cscript%3E'],
+            'path traversal'         => ['cs_..%2F..%2Fx1234'],
+            'far too long'           => ['cs_' . str_repeat('a', 300)],
         ];
     }
 
@@ -228,19 +257,6 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
         self::assertSame('', (string) @file_get_contents($file), 'a malformed id must not reach PayPal (no OAuth, no order lookup)');
     }
 
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function malformedOrderIds(): array
-    {
-        return [
-            'path traversal'     => ['..%2F..%2Fv1%2Fidentity'],
-            'with a space'       => ['ORDER%20ONE'],
-            'query string'       => ['ORDER%3Fx%3D1'],
-            'html'               => ['%3Cscript%3E'],
-        ];
-    }
-
     // -------------------------------------------------------------------------
     // Stripe: an invalid session id must not crash the callback or cost an API call
     // -------------------------------------------------------------------------
@@ -261,21 +277,6 @@ class PaymentGatewayCaptureSafetyTest extends AbstractTestCase
         self::assertTrue($response->isRedirect(), 'expected a redirect, got ' . $response->statusCode());
         self::assertSame('', (string) @file_get_contents($file), 'a malformed id must not cost a Stripe API call');
         $this->assertSame($merchantRowsBefore, $this->databaseCount('ip_merchant_responses'));
-    }
-
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function malformedSessionIds(): array
-    {
-        return [
-            'not a checkout session' => ['pi_123456789'],
-            'too short'              => ['cs_1'],
-            'empty prefix only'      => ['cs_'],
-            'illegal characters'     => ['cs_test_%3Cscript%3E'],
-            'path traversal'         => ['cs_..%2F..%2Fx1234'],
-            'far too long'           => ['cs_' . str_repeat('a', 300)],
-        ];
     }
 
     #[Test]

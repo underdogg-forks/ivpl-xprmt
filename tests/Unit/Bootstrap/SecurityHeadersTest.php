@@ -18,6 +18,24 @@ class SecurityHeadersTest extends TestCase
         require_once ROOT_PATH . '/bootstrap/security_headers.php';
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function frameOptionInputs(): array
+    {
+        return [
+            'lowercase deny'           => ['deny', 'DENY'],
+            'padded deny'              => ["  Deny \t", 'DENY'],
+            'lowercase sameorigin'     => ['sameorigin', 'SAMEORIGIN'],
+            'allowall is not a value'  => ['ALLOWALL', 'SAMEORIGIN'],
+            'allow-from is obsolete'   => ['ALLOW-FROM https://evil.example', 'SAMEORIGIN'],
+            'empty string'             => ['', 'SAMEORIGIN'],
+            'whitespace only'          => ['   ', 'SAMEORIGIN'],
+            'header injection attempt' => ["DENY\r\nSet-Cookie: pwned=1", 'SAMEORIGIN'],
+            'csp injection attempt'    => ['DENY; frame-ancestors *', 'SAMEORIGIN'],
+        ];
+    }
+
     #[Test]
     public function it_defaults_to_sameorigin_framing_with_a_matching_csp(): void
     {
@@ -36,24 +54,6 @@ class SecurityHeadersTest extends TestCase
 
         self::assertContains('X-Frame-Options: DENY', $headers);
         self::assertContains("Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'", $headers);
-    }
-
-    /**
-     * @return array<string, array{string, string}>
-     */
-    public static function frameOptionInputs(): array
-    {
-        return [
-            'lowercase deny'             => ['deny', 'DENY'],
-            'padded deny'                => ["  Deny \t", 'DENY'],
-            'lowercase sameorigin'       => ['sameorigin', 'SAMEORIGIN'],
-            'allowall is not a value'    => ['ALLOWALL', 'SAMEORIGIN'],
-            'allow-from is obsolete'     => ['ALLOW-FROM https://evil.example', 'SAMEORIGIN'],
-            'empty string'               => ['', 'SAMEORIGIN'],
-            'whitespace only'            => ['   ', 'SAMEORIGIN'],
-            'header injection attempt'   => ["DENY\r\nSet-Cookie: pwned=1", 'SAMEORIGIN'],
-            'csp injection attempt'      => ["DENY; frame-ancestors *", 'SAMEORIGIN'],
-        ];
     }
 
     #[Test]

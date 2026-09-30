@@ -30,21 +30,21 @@ class GatewaySecurityTest extends TestCase
 
         // _core_asset() (called by paypal.php) reads the current_version setting and the real
         // site_url() delegates to the config object.
-        $GLOBALS['unitCiInstance'] = new class {
+        $GLOBALS['unitCiInstance'] = new class () {
             public object $mdl_settings;
 
             public object $config;
 
             public function __construct()
             {
-                $this->mdl_settings = new class {
+                $this->mdl_settings = new class () {
                     public function setting(string $key): string
                     {
                         return '';
                     }
                 };
 
-                $this->config = new class {
+                $this->config = new class () {
                     public function site_url($uri = '', $protocol = null): string
                     {
                         return 'http://localhost/index.php/' . (is_array($uri) ? implode('/', $uri) : $uri);
@@ -98,7 +98,7 @@ class GatewaySecurityTest extends TestCase
             $this->assertSame(
                 $hostile,
                 $this->jsLiteral($html, $key),
-                "PayPalConfig.$key must decode back to the exact stored value, proving it cannot break out of the string"
+                "PayPalConfig.{$key} must decode back to the exact stored value, proving it cannot break out of the string"
             );
         }
 
@@ -179,7 +179,7 @@ class GatewaySecurityTest extends TestCase
 
     private function jsLiteral(string $html, string $key): mixed
     {
-        $this->assertSame(1, preg_match('/' . preg_quote($key, '/') . ': (".*"),\R/', $html, $m), "PayPalConfig.$key must be emitted as a JSON string literal");
+        $this->assertSame(1, preg_match('/' . preg_quote($key, '/') . ': (".*"),\R/', $html, $m), "PayPalConfig.{$key} must be emitted as a JSON string literal");
 
         return json_decode($m[1]);
     }
@@ -189,12 +189,12 @@ class GatewaySecurityTest extends TestCase
      */
     private function render(string $view, array $vars): string
     {
-        $context = new class {
+        $context = new class () {
             public object $security;
 
             public function __construct()
             {
-                $this->security = new class {
+                $this->security = new class () {
                     public function get_csrf_token_name(): string
                     {
                         return 'ip_csrf';

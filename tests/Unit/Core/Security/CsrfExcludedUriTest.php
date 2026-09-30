@@ -39,6 +39,25 @@ class CsrfExcludedUriTest extends TestCase
         unset($GLOBALS['unitCiInstance'], $GLOBALS['unitCiConfig']);
     }
 
+    /**
+     * @return array<string, array{string, list<string>, bool}>
+     */
+    public static function exclusionCases(): array
+    {
+        return [
+            'exact match'                    => ['api/webhook', ['api/webhook'], true],
+            'wildcard match'                 => ['api/v1/pay', ['api/.*'], true],
+            'match is case-insensitive'      => ['API/Webhook', ['api/webhook'], true],
+            'pattern is anchored at start'   => ['x/api/webhook', ['api/webhook'], false],
+            'pattern is anchored at end'     => ['api/webhook/extra', ['api/webhook'], false],
+            'second pattern matches'         => ['hooks/stripe', ['api/.*', 'hooks/.*'], true],
+            'no pattern matches'             => ['invoices/index', ['api/.*', 'hooks/.*'], false],
+            'empty exclusion list'           => ['api/webhook', [], false],
+            'empty uri never matches a path' => ['', ['api/.*'], false],
+            'malformed regex does not match' => ['api/webhook', ['api/(unclosed'], false],
+        ];
+    }
+
     #[Test]
     public function it_trusts_a_consumed_token_on_a_post_to_a_normal_uri(): void
     {
@@ -104,25 +123,6 @@ class CsrfExcludedUriTest extends TestCase
     }
 
     /**
-     * @return array<string, array{string, list<string>, bool}>
-     */
-    public static function exclusionCases(): array
-    {
-        return [
-            'exact match'                    => ['api/webhook', ['api/webhook'], true],
-            'wildcard match'                 => ['api/v1/pay', ['api/.*'], true],
-            'match is case-insensitive'      => ['API/Webhook', ['api/webhook'], true],
-            'pattern is anchored at start'   => ['x/api/webhook', ['api/webhook'], false],
-            'pattern is anchored at end'     => ['api/webhook/extra', ['api/webhook'], false],
-            'second pattern matches'         => ['hooks/stripe', ['api/.*', 'hooks/.*'], true],
-            'no pattern matches'             => ['invoices/index', ['api/.*', 'hooks/.*'], false],
-            'empty exclusion list'           => ['api/webhook', [], false],
-            'empty uri never matches a path' => ['', ['api/.*'], false],
-            'malformed regex does not match' => ['api/webhook', ['api/(unclosed'], false],
-        ];
-    }
-
-    /**
      * @param list<string> $excluded
      */
     #[Test]
@@ -151,10 +151,10 @@ class CsrfExcludedUriTest extends TestCase
         $_SERVER['REQUEST_METHOD'] = $method;
 
         $GLOBALS['unitCiConfig'] = [
-            'csrf_protection'    => $protection,
-            'csrf_token_name'    => '_ip_csrf',
-            'csrf_cookie_name'   => 'ip_csrf_cookie',
-            'csrf_exclude_uris'  => $excluded,
+            'csrf_protection'   => $protection,
+            'csrf_token_name'   => '_ip_csrf',
+            'csrf_cookie_name'  => 'ip_csrf_cookie',
+            'csrf_exclude_uris' => $excluded,
         ];
 
         $GLOBALS['unitCiInstance'] = new class ($uri, $post, $cookies) {

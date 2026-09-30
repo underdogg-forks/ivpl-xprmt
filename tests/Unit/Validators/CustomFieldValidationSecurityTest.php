@@ -87,6 +87,14 @@ class CustomFieldValidationSecurityTest extends TestCase
     }
 
     /**
+     * The escaping the production helper is expected to apply, computed independently.
+     */
+    private static function expectedEscape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
      * @param list<array{label: string, error_msg: string}> $errors
      */
     private function render(array $errors): string
@@ -98,19 +106,11 @@ class CustomFieldValidationSecurityTest extends TestCase
             escapeshellarg(base64_encode((string) json_encode($errors)))
         );
 
-        $raw = (string) shell_exec($command . ' 2>&1');
+        $raw     = (string) shell_exec($command . ' 2>&1');
         $decoded = json_decode($raw, true);
 
         self::assertIsArray($decoded, 'child process did not return JSON: ' . $raw);
 
         return $decoded['out'];
-    }
-
-    /**
-     * The escaping the production helper is expected to apply, computed independently.
-     */
-    private static function expectedEscape(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
     }
 }

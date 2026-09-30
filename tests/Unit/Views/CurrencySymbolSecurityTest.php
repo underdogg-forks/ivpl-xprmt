@@ -2,9 +2,12 @@
 
 namespace Tests\Unit\Views;
 
+use FilesystemIterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 /**
  * GHSA-rg9r-j4c2-8xr6 / GHSA-gpv9-p6gj-238h: after format_currency() was fixed, fifteen view templates
@@ -31,9 +34,9 @@ class CurrencySymbolSecurityTest extends TestCase
     #[Test]
     public function no_view_or_template_echoes_the_currency_symbol_unescaped(): void
     {
-        $sinks   = 0;
-        $leaks   = [];
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(ROOT_PATH . '/application', \FilesystemIterator::SKIP_DOTS));
+        $sinks    = 0;
+        $leaks    = [];
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(ROOT_PATH . '/application', FilesystemIterator::SKIP_DOTS));
 
         foreach ($iterator as $file) {
             // Only templates render output; controllers merely pass the value along.
@@ -102,13 +105,13 @@ class CurrencySymbolSecurityTest extends TestCase
         require_once ROOT_PATH . '/application/helpers/echo_helper.php';
         require_once ROOT_PATH . '/application/helpers/settings_helper.php';
 
-        $previous = $GLOBALS['unitCiInstance'] ?? null;
-        $GLOBALS['unitCiInstance'] = new class {
+        $previous                  = $GLOBALS['unitCiInstance'] ?? null;
+        $GLOBALS['unitCiInstance'] = new class () {
             public object $mdl_settings;
 
             public function __construct()
             {
-                $this->mdl_settings = new class {
+                $this->mdl_settings = new class () {
                     public function setting(string $key, $default = ''): string
                     {
                         return '<script>alert(1)</script>';

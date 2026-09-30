@@ -42,13 +42,27 @@ class NumberFormattingSecurityTest extends TestCase
     public static function hostileSeparators(): array
     {
         return [
-            'ssrf img tag'            => [self::SSRF_IMG],
-            'script tag'              => ['<script>alert(1)</script>'],
-            'attribute breakout'      => ['" onerror="alert(1)'],
-            'single quote breakout'   => ["' onerror='alert(1)"],
+            'ssrf img tag'               => [self::SSRF_IMG],
+            'script tag'                 => ['<script>alert(1)</script>'],
+            'attribute breakout'         => ['" onerror="alert(1)'],
+            'single quote breakout'      => ["' onerror='alert(1)"],
             'ampersand entity smuggling' => ['&lt;img src=x&gt;'],
-            'css url'                 => ['<div style="background:url(http://attacker.example/x)">'],
-            'svg with xlink'          => ['<svg><image xlink:href="http://attacker.example/x"/></svg>'],
+            'css url'                    => ['<div style="background:url(http://attacker.example/x)">'],
+            'svg with xlink'             => ['<svg><image xlink:href="http://attacker.example/x"/></svg>'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, string, string, string}>
+     */
+    public static function realisticSeparators(): array
+    {
+        return [
+            'us style'         => [',', '.', '1,234,567.50', '1,234.50'],
+            'european style'   => ['.', ',', '1.234.567,50', '1.234,50'],
+            'space + comma'    => [' ', ',', '1 234 567,50', '1 234,50'],
+            'swiss apostrophe' => ["'", '.', '1&#039;234&#039;567.50', '1&#039;234.50'],
+            'no thousands'     => ['', '.', '1234567.50', '1234.50'],
         ];
     }
 
@@ -84,20 +98,6 @@ class NumberFormattingSecurityTest extends TestCase
         $output = format_amount(1234.5);
 
         self::assertSame('1&lt;b&gt;234&lt;i&gt;50', $output);
-    }
-
-    /**
-     * @return array<string, array{string, string, string, string}>
-     */
-    public static function realisticSeparators(): array
-    {
-        return [
-            'us style'        => [',', '.', '1,234,567.50', '1,234.50'],
-            'european style'  => ['.', ',', '1.234.567,50', '1.234,50'],
-            'space + comma'   => [' ', ',', '1 234 567,50', '1 234,50'],
-            'swiss apostrophe' => ["'", '.', '1&#039;234&#039;567.50', '1&#039;234.50'],
-            'no thousands'    => ['', '.', '1234567.50', '1234.50'],
-        ];
     }
 
     #[Test]

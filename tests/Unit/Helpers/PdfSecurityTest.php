@@ -24,14 +24,34 @@ class PdfSecurityTest extends TestCase
     public static function hostileFilenames(): array
     {
         return [
-            'imds img'          => ['<img src="http://169.254.169.254/latest/meta-data/">'],
-            'img no quotes'     => ['<img src=http://internal.example/x>'],
-            'script'            => ['<script>alert(1)</script>'],
+            'imds img'           => ['<img src="http://169.254.169.254/latest/meta-data/">'],
+            'img no quotes'      => ['<img src=http://internal.example/x>'],
+            'script'             => ['<script>alert(1)</script>'],
             'attribute breakout' => ['x" onerror="alert(1)'],
-            'single quotes'     => ["x' onerror='alert(1)"],
-            'link stylesheet'   => ['<link rel=stylesheet href=http://attacker.example/x.css>'],
-            'entity smuggling'  => ['&lt;img src=http://internal.example/x&gt;'],
-            'underscore trick'  => ['<img_src="http://internal.example/x">'],
+            'single quotes'      => ["x' onerror='alert(1)"],
+            'link stylesheet'    => ['<link rel=stylesheet href=http://attacker.example/x.css>'],
+            'entity smuggling'   => ['&lt;img src=http://internal.example/x&gt;'],
+            'underscore trick'   => ['<img_src="http://internal.example/x">'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, list<string>}>
+     */
+    public static function footerPayloads(): array
+    {
+        return [
+            'img'                    => ['<img src="http://169.254.169.254/">', ['<img']],
+            'img uppercase'          => ['<IMG SRC="http://169.254.169.254/">', ['<img', '<IMG']],
+            'img inside allowed tag' => ['<p><img src="http://internal.example/x"></p>', ['<img']],
+            'svg'                    => ['<svg><image href="http://internal.example/x"/></svg>', ['<svg', '<image']],
+            'iframe'                 => ['<iframe src="http://internal.example/x"></iframe>', ['<iframe']],
+            'object'                 => ['<object data="http://internal.example/x"></object>', ['<object']],
+            'link'                   => ['<link rel="stylesheet" href="http://internal.example/x.css">', ['<link']],
+            'style block'            => ['<style>@import url(http://internal.example/x.css);</style>', ['<style', '@import']],
+            'css url attribute'      => ['<span style="background:url(http://internal.example/x)">t</span>', ['url(', 'style=']],
+            'event handler'          => ['<b onmouseover="alert(1)">t</b>', ['onmouseover']],
+            'nul bytes in tag'       => ["<im\x00g src=http://internal.example/x>", ['http://internal.example']],
         ];
     }
 
@@ -69,26 +89,6 @@ class PdfSecurityTest extends TestCase
         self::assertSame([], $rawUses[0], 'every footer that shows the filename must use pdf_footer_filename()');
 
         self::assertSame(2, substr_count($source, 'pdf_footer_filename($filename)'), 'both the invoice and the quote footer must escape the filename');
-    }
-
-    /**
-     * @return array<string, array{string, list<string>}>
-     */
-    public static function footerPayloads(): array
-    {
-        return [
-            'img'                 => ['<img src="http://169.254.169.254/">', ['<img']],
-            'img uppercase'       => ['<IMG SRC="http://169.254.169.254/">', ['<img', '<IMG']],
-            'img inside allowed tag' => ['<p><img src="http://internal.example/x"></p>', ['<img']],
-            'svg'                 => ['<svg><image href="http://internal.example/x"/></svg>', ['<svg', '<image']],
-            'iframe'              => ['<iframe src="http://internal.example/x"></iframe>', ['<iframe']],
-            'object'              => ['<object data="http://internal.example/x"></object>', ['<object']],
-            'link'                => ['<link rel="stylesheet" href="http://internal.example/x.css">', ['<link']],
-            'style block'         => ['<style>@import url(http://internal.example/x.css);</style>', ['<style', '@import']],
-            'css url attribute'   => ['<span style="background:url(http://internal.example/x)">t</span>', ['url(', 'style=']],
-            'event handler'       => ['<b onmouseover="alert(1)">t</b>', ['onmouseover']],
-            'nul bytes in tag'    => ["<im\x00g src=http://internal.example/x>", ['http://internal.example']],
-        ];
     }
 
     /**
