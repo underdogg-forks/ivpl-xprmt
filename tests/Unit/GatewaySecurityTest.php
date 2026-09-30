@@ -15,9 +15,52 @@ class GatewaySecurityTest extends TestCase
 {
     private const VIEW_DIR = __DIR__ . '/../../application/modules/guest/views/gateways/';
 
-    public static function setUpBeforeClass(): void
+    /** @var object|null */
+    private $previousCi;
+
+    protected function setUp(): void
     {
         require_once __DIR__ . '/../Support/view-render-stubs.php';
+        require_once ROOT_PATH . '/application/helpers/echo_helper.php';
+        require_once ROOT_PATH . '/application/helpers/settings_helper.php';
+
+        defined('IP_DEBUG') || define('IP_DEBUG', false);
+
+        $this->previousCi = $GLOBALS['unitCiInstance'] ?? null;
+
+        // _core_asset() (called by paypal.php) reads the current_version setting and the real
+        // site_url() delegates to the config object.
+        $GLOBALS['unitCiInstance'] = new class {
+            public object $mdl_settings;
+
+            public object $config;
+
+            public function __construct()
+            {
+                $this->mdl_settings = new class {
+                    public function setting(string $key): string
+                    {
+                        return '';
+                    }
+                };
+
+                $this->config = new class {
+                    public function site_url($uri = '', $protocol = null): string
+                    {
+                        return 'http://localhost/index.php/' . (is_array($uri) ? implode('/', $uri) : $uri);
+                    }
+                };
+            }
+        };
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->previousCi === null) {
+            unset($GLOBALS['unitCiInstance']);
+        } else {
+            $GLOBALS['unitCiInstance'] = $this->previousCi;
+        }
     }
 
     /**
