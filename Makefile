@@ -21,7 +21,7 @@ PHPSTAN_TMPDIR    ?= .phpstan.cache/tmp
 DOCKER_USER       ?= ivpldock
 CONTAINER_NAME    ?= ivpldock-workspace-1
 MARIADB_CONTAINER ?= mariadb
-DOCKER_PROJECT_DIR ?= /var/www/projects/exprmt
+DOCKER_PROJECT_DIR ?= /var/www/projects/invoiceplane/exprmt
 
 DB_HOSTNAME       ?= mariadb
 DB_PORT           ?= 3306

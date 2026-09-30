@@ -97,9 +97,10 @@ it in a `timeout` — killing it stops every container.
 Any checkout under `/var/www/projects/` in the workspace container can be run as a project. **This
 checkout is `/var/www/projects/invoiceplane/exprmt`** (branch `prep/v180`); `.../invoiceplane/ivplv1`
 is a *different* checkout (upstream `develop`) — running against it tests the wrong code. The
-`Makefile` wraps everything below, but it still defaults `DOCKER_PROJECT_DIR` to
-`/var/www/projects/exprmt`, which does not exist in the container — always pass the
-override or `docker-db-prepare`'s `ipconfig.php`-write + `seed-test-db.php` step fails
+`Makefile` wraps everything below and defaults `DOCKER_PROJECT_DIR` to this checkout's path, so no
+override is needed for `prep/v180`; when running a *different* checkout, pass
+`DOCKER_PROJECT_DIR=/var/www/projects/<path>` explicitly or `docker-db-prepare`'s
+`ipconfig.php`-write + `seed-test-db.php` step fails
 (`cd: .../exprmt: No such file or directory`), leaving the schema imported but **unseeded**.
 An unseeded DB is the cause of cascades of `Expected row in [ip_*] not found` /
 `Table 'invoiceplane_test.ip_settings' doesn't exist` failures — not a code regression.
@@ -108,13 +109,13 @@ An unseeded DB is the cause of cascades of `Expected row in [ip_*] not found` /
 # Full suite: (re)builds invoiceplane_test from the setup SQL migrations, applies
 # schema_fixups.sql, writes ipconfig.php (DB_HOSTNAME=mariadb), seeds the baseline,
 # then runs phpunit as the ivpldock user with DB_* unset.
-make docker-test DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
+make docker-test
 
-make docker-test-suite  SUITE=Unit    DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
-make docker-test-filter FILTER=Session DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
-make docker-phpstan     DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
-make docker-lint-php    DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
-make docker-pint         DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/exprmt
+make docker-test-suite  SUITE=Unit
+make docker-test-filter FILTER=Session
+make docker-phpstan
+make docker-lint-php
+make docker-pint
 
 # Ad-hoc: run a targeted slice against an already-prepared DB
 docker exec -e XDEBUG_MODE=off --user=ivpldock ivpldock-workspace-1 bash -lc \
