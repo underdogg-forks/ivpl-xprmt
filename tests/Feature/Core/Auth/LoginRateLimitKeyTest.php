@@ -64,13 +64,12 @@ class LoginRateLimitKeyTest extends AbstractTestCase
     }
 
     #[Test]
-    public function submitting_another_throttles_key_as_an_email_never_creates_or_changes_a_counter(): void
+    public function submitting_another_throttles_key_as_an_email_never_touches_that_counter(): void
     {
         /* Arrange: one ordinary failed login leaves an account counter and the IP counter. */
         $this->failLogin('probe@test.local');
         $ipKey = $this->findKey('login_ip:');
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $ipKey, 'log_count' => 1]);
-        $rowsBefore = $this->databaseCount('ip_login_log');
 
         $forged = [
             $ipKey,
@@ -80,19 +79,40 @@ class LoginRateLimitKeyTest extends AbstractTestCase
             'login_account:' . hash('sha256', 'probe@test.local'),
         ];
 
-        /* Act: the attack — use each other counter's key as the "email". */
+        /* Act: the attack — use each other counter's key as the "email", twice each. */
         foreach ($forged as $key) {
             $this->failLogin($key);
             $this->failLogin($key);
         }
 
-        /* Assert: nothing was counted, so nothing could be pushed over a threshold. */
-        $this->assertDatabaseHas('ip_login_log', ['login_name' => $ipKey, 'log_count' => 1]);
-        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey('probe@test.local'), 'log_count' => 1]);
-        $this->assertDatabaseCount('ip_login_log', $rowsBefore, []);
+        /* Assert: the IP counter moved by exactly one per request (its own legitimate increment). Before the
+         * fix the attempt that named it as the "email" added a second increment for each request. */
+        $attempts = 1 + count($forged) * 2;
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $ipKey, 'log_count' => $attempts]);
+
+        /* The victim's counters were never created, and the probe's account counter still counts only its own attempt. */
         foreach (array_slice($forged, 1, 3) as $key) {
             $this->assertDatabaseMissing('ip_login_log', ['login_name' => $key]);
         }
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey('probe@test.local'), 'log_count' => 1]);
+
+        /* Each forged string was counted under its own namespaced account key instead. */
+        foreach ($forged as $key) {
+            $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($key), 'log_count' => 2]);
+        }
+    }
+
+    #[Test]
+    public function a_unicode_email_is_counted_like_any_other_address(): void
+    {
+        /* Arrange: internationalised addresses are legitimate and must reach the normal login path. */
+        $email = 'jürgen@bücher.example';
+
+        /* Act */
+        $this->failLogin($email);
+
+        /* Assert */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 1]);
     }
 
     #[Test]
