@@ -3,7 +3,6 @@
 namespace Tests\Feature\Payments;
 
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\AbstractTestCase;
 
 /**
@@ -277,6 +276,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
             $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-1']),
         ]);
 
@@ -314,6 +314,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
             $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-PENDING'], 'PENDING'),
         ]);
 
@@ -350,6 +351,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
             $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-DUP']),
         ]);
 
@@ -386,7 +388,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
-            $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-ALREADY-PAID']),
+            $this->orderResponse($invoiceId, '50.00'),
         ]);
 
         /* Act */
@@ -421,6 +423,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
             $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-BAD-CCY', 'currency' => 'USD']),
         ]);
 
@@ -456,6 +459,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
             $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '10.00', 'capture_id' => 'CAP-SHORT']),
         ]);
 
@@ -485,12 +489,14 @@ class PaypalFlowTest extends AbstractTestCase
     public function it_records_a_declined_capture_as_an_unsuccessful_merchant_response(): void
     {
         /* Arrange */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_paypal_currency', 'setting_value' => 'EUR']);
         $invoiceId                   = $this->seedPayableInvoice();
         $paymentCountBefore          = $this->databaseCount('ip_payments');
         $merchantResponseCountBefore = $this->databaseCount('ip_merchant_responses');
 
         $this->mockPaypal([
             $this->authResponse(),
+            $this->orderResponse($invoiceId, '50.00'),
             ['status' => 200, 'body' => json_encode([
                 'purchase_units' => [[
                     'payments' => [
@@ -529,44 +535,33 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_throws_and_records_nothing_when_the_captured_invoice_is_not_guest_visible(): void
+    public function it_refuses_before_capturing_when_the_invoice_is_not_guest_visible(): void
     {
-        /* Arrange: draft invoice — never guest_visible() */
+        /* Arrange: draft invoice — never guest_visible(). Only auth + order are queued: a capture attempt
+         * would exhaust the mock queue and blow up, so surviving proves nothing was captured. */
         $invoiceId                   = $this->seedPayableInvoice(['invoice_status_id' => 1]);
         $paymentCountBefore          = $this->databaseCount('ip_payments');
         $merchantResponseCountBefore = $this->databaseCount('ip_merchant_responses');
 
         $this->mockPaypal([
             $this->authResponse(),
-            $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-NOT-VISIBLE']),
+            $this->orderResponse($invoiceId, '50.00'),
         ]);
 
         /* Act */
-        try {
-            $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-8');
-            self::fail('Expected an exception for a non-guest-visible invoice.');
-        } catch (RuntimeException $exception) {
-            /* Assert: Error Semantics (C) */
-            self::assertStringContainsString('Invoice not found or not accessible', $exception->getMessage());
-        }
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-8');
 
-        /* Assert: Business Logic (A) */
-        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-NOT-VISIBLE']);
-        $this->assertDatabaseMissing('ip_merchant_responses', ['invoice_id' => $invoiceId]);
+        /* Assert: no uncaught exception / HTTP 500 any more */
+        self::assertLessThan(500, $response->statusCode(), 'GHSA-m2c5: a cancelled/hidden invoice must not produce a server error after money moved');
 
-        /* Assert: State Isolation (B) */
-        $paymentCountAfter          = $this->databaseCount('ip_payments');
-        $merchantResponseCountAfter = $this->databaseCount('ip_merchant_responses');
-        $this->assertSame($paymentCountBefore, $paymentCountAfter);
-        $this->assertSame($merchantResponseCountBefore, $merchantResponseCountAfter);
+        /* Assert: nothing recorded, nothing logged as a success */
+        $this->assertDatabaseMissing('ip_payments', ['invoice_id' => $invoiceId]);
+        $this->assertSame($paymentCountBefore, $this->databaseCount('ip_payments'));
+        $this->assertSame($merchantResponseCountBefore, $this->databaseCount('ip_merchant_responses'));
 
-        /* Assert: Data Integrity (D) */
+        /* Assert: the invoice is untouched */
         $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
         $this->assertSame(1, (int) $invoice['invoice_status_id']);
-
-        /* Assert: Boundary Cases (F) */
-        $draftInvoice = $this->databaseFetchOne('ip_invoices', ['invoice_status_id' => 1]);
-        $this->assertNotNull($draftInvoice);
     }
 
     protected function seedPayableInvoice(array $overrides = [], array $amountOverrides = []): int
@@ -584,6 +579,18 @@ class PaypalFlowTest extends AbstractTestCase
     private function authResponse(): array
     {
         return ['status' => 200, 'body' => json_encode(['access_token' => 'fake-bearer-token'])];
+    }
+
+    private function orderResponse(int $invoiceId, string $amount, string $currency = 'EUR'): array
+    {
+        return ['status' => 200, 'body' => json_encode([
+            'id'             => 'ORDER-DETAILS',
+            'status'         => 'APPROVED',
+            'purchase_units' => [[
+                'invoice_id' => (string) $invoiceId,
+                'amount'     => ['value' => $amount, 'currency_code' => $currency],
+            ]],
+        ])];
     }
 
     private function captureResponse(array $capture, string $status = 'COMPLETED'): array

@@ -126,6 +126,17 @@ class Paypal extends Base_Controller
             show_404();
         }
 
+        // Verify the order against the current invoice BEFORE capturing: once captureOrder() runs the
+        // funds have moved at PayPal and cannot be undone here, so every check that can still fail
+        // locally has to happen first.
+        $preflight_error = $this->_capture_preflight_error((string) $order_id);
+        if ($preflight_error !== null) {
+            $this->session->set_flashdata('alert_error', $preflight_error);
+            $this->session->keep_flashdata('alert_error');
+
+            return;
+        }
+
         $paypal_response = $this->lib_paypal->captureOrder($order_id);
 
         //handle the payment
@@ -158,14 +169,8 @@ class Paypal extends Base_Controller
                     throw new Exception('Missing required PayPal data');
                 }
 
-                // Security: Validate that the invoice is guest-visible before processing payment
-                $verified_invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
-                if ( ! $verified_invoice) {
-                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted payment capture for non-public invoice: ' . sanitize_for_logging($invoice_id));
-                    throw new Exception('Invoice not found or not accessible');
-                }
-
                 $capture_id = (string) $capture_id; // Ensure string type
+                $settled    = false; // set once the capture is recorded locally (or already was)
 
                 // Validate and sanitize the capture_id
                 if (mb_strlen($capture_id) > 255) {
@@ -199,6 +204,7 @@ class Paypal extends Base_Controller
                         if ($existing_payment) {
                             // Duplicate payment attempt detected
                             log_message('warning', __CLASS__ . '::' . __FUNCTION__ . ' - Duplicate payment attempt blocked. PayPal capture ID: ' . sanitize_for_logging($capture_id) . ' already exists as payment_id: ' . sanitize_for_logging($existing_payment->payment_id));
+                            $settled = true;
 
                             $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
 
@@ -260,6 +266,7 @@ class Paypal extends Base_Controller
                                         'payment_external_id' => $capture_id,
                                     ]);
 
+                                    $settled = true;
                                     $this->session->set_flashdata('alert_success', sprintf(trans('online_payment_payment_successful'), htmlsc($invoice->invoice_number)));
                                     $this->session->keep_flashdata('alert_success');
                                 }
@@ -270,23 +277,24 @@ class Paypal extends Base_Controller
                     }
                 }
 
+                if ( ! $settled) {
+                    // Funds were captured at PayPal but no payment was recorded (the invoice changed
+                    // after the pre-capture check, or the lock could not be taken). Flag it loudly
+                    // for manual reconciliation instead of logging a success.
+                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - PayPal capture ' . sanitize_for_logging($capture_id) . ' succeeded but was not recorded against invoice ' . sanitize_for_logging($invoice_id) . '; manual reconciliation required');
+                }
+
                 /*
-                 * merchant_response_success will be set to true for both completed and pending,
-                 * so that it will show up as green in the logs.
-                 *
-                 * In the future we could include a "pending" status, and maybe show it
-                 * as blue..??
-                 *
-                 * TODO Add Pending Status
-                 *
-                 * merchant_response is now the actual capture status.
+                 * merchant_response_successful is true only when the capture was recorded locally
+                 * (COMPLETED and PENDING both count, so they show up green in the logs).
+                 * merchant_response is the actual capture status.
                  */
                 $this->db->insert('ip_merchant_responses', [
                     'invoice_id'                   => $invoice_id,
-                    'merchant_response_successful' => true,
+                    'merchant_response_successful' => $settled,
                     'merchant_response_date'       => date('Y-m-d'),
                     'merchant_response_driver'     => 'paypal',
-                    'merchant_response'            => $capture_status,
+                    'merchant_response'            => $settled ? $capture_status : $capture_status . ' (captured at PayPal, NOT recorded locally)',
                     'merchant_response_reference'  => 'Resource ID:' . $paypal_object->id,
                 ]);
             } else {
@@ -371,6 +379,60 @@ class Paypal extends Base_Controller
             'client_secret' => $this->crypt->decode(get_setting('gateway_paypal_clientSecret')),
             'demo'          => get_setting('gateway_paypal_testMode') == 1,
         ], 'lib_paypal');
+    }
+
+    /**
+     * Checks a PayPal order against the current invoice before any funds are captured.
+     *
+     * Returns the user-facing error message when the order must not be captured (order unreadable,
+     * invoice no longer public, already paid, or the order no longer matches the invoice's
+     * currency / balance), or null when it is safe to capture.
+     */
+    private function _capture_preflight_error(string $order_id): ?string
+    {
+        $response = $this->lib_paypal->showOrderDetails($order_id);
+
+        if ( ! $response['status']) {
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Could not read PayPal order before capture; capture skipped');
+
+            return trans('online_payment_payment_failed');
+        }
+
+        $unit       = json_decode($response['response']->getBody())->purchase_units[0] ?? null;
+        $invoice_id = $unit->invoice_id ?? null;
+        $amount     = $unit->amount->value ?? null;
+        $currency   = mb_strtoupper((string) ($unit->amount->currency_code ?? ''));
+
+        if (empty($invoice_id) || $amount === null) {
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - PayPal order is missing invoice or amount; capture skipped');
+
+            return trans('online_payment_payment_failed');
+        }
+
+        $this->load->model('invoices/mdl_invoices');
+        $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
+
+        if ( ! $invoice) {
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Capture skipped: invoice not public or not found: ' . sanitize_for_logging($invoice_id));
+
+            return trans('invoice_not_found');
+        }
+
+        if ($invoice->invoice_balance <= 0) {
+            log_message('warning', __CLASS__ . '::' . __FUNCTION__ . ' - Capture skipped: invoice ' . sanitize_for_logging($invoice->invoice_number) . ' is already fully paid');
+
+            return trans('invoice_already_paid');
+        }
+
+        if ($currency !== mb_strtoupper((string) get_setting('gateway_paypal_currency'))
+            || abs((float) $amount - (float) $invoice->invoice_balance) > 0.005
+        ) {
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Capture skipped: order no longer matches invoice ' . sanitize_for_logging($invoice_id) . '. Order: ' . sanitize_for_logging($amount) . ' ' . sanitize_for_logging($currency) . ', invoice balance: ' . sanitize_for_logging($invoice->invoice_balance));
+
+            return trans('online_payment_payment_failed');
+        }
+
+        return null;
     }
 
     /**

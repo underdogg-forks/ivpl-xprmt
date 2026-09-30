@@ -185,6 +185,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
             'payment_amount'      => '40.00',
             'payment_method_id'   => 1,
             'payment_external_id' => null,
+            'payment_note'        => '',
         ]);
         $this->databaseUpdate('ip_invoice_amounts', [
             'invoice_paid'    => '40.00',
@@ -366,10 +367,19 @@ class GatewayPaymentRaceTest extends AbstractTestCase
             'id' => 'PAYPAL-ORDER-' . $captureId,
         ])];
 
+        // The controller reads the order back and checks it against the invoice before capturing.
+        $order = ['status' => 200, 'body' => json_encode([
+            'id'             => 'ORDER-' . $captureId,
+            'purchase_units' => [[
+                'invoice_id' => (string) $invoiceId,
+                'amount'     => ['value' => $amount, 'currency_code' => 'EUR'],
+            ]],
+        ])];
+
         return [
             'method' => 'POST',
             'uri'    => '/guest/gateways/paypal/paypal_capture_payment/ORDER-' . $captureId,
-            'env'    => ['PAYPAL_MOCK_RESPONSES' => json_encode([$auth, $capture])],
+            'env'    => ['PAYPAL_MOCK_RESPONSES' => json_encode([$auth, $order, $capture])],
         ];
     }
 }
