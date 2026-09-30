@@ -97,6 +97,14 @@ class Stripe extends Base_Controller
      */
     public function callback(string $checkout_session_id)
     {
+        // A Checkout Session id is "cs_" + alphanumerics. Reject anything else before it costs a Stripe API call.
+        if ( ! preg_match('/^cs_[A-Za-z0-9_]{8,250}$/', $checkout_session_id)) {
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected malformed checkout session id: ' . sanitize_for_logging($checkout_session_id));
+            $this->session->set_flashdata('alert_error', trans('online_payment_error'));
+
+            redirect('guest/view/invoices');
+        }
+
         $invoice  = null;
         $paid     = 'error';
         $response = '';
