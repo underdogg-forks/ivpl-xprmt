@@ -105,6 +105,21 @@ class UserClientsIdorTest extends AbstractTestCase
     }
 
     #[Test]
+    public function an_empty_posted_user_id_reaches_validation_instead_of_being_refused(): void
+    {
+        /* Arrange: a form submitted with the user_id field present but blank. Nothing can be saved for a blank
+         * id (validation requires it), so this must not be treated as an attack. */
+        $this->actingAsAdmin($this->attackerId);
+
+        /* Act */
+        $response = $this->post('/user_clients/create/' . $this->attackerId, ['user_id' => '', 'client_id' => (string) $this->clientA]);
+
+        /* Assert: the form is shown again with a validation error, and nothing was stored */
+        $this->assertResponseStatusCode($response, 200);
+        $this->assertDatabaseCount('ip_user_clients', 0, []);
+    }
+
+    #[Test]
     public function a_fractional_user_id_in_the_url_is_refused_too(): void
     {
         /* Arrange */
