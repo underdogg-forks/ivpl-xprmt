@@ -170,6 +170,73 @@ class InvoicesControllerTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'INV-CSRF-KEPT']);
     }
 
+    #[Test]
+    public function it_deletes_a_sent_invoice_with_a_valid_csrf_token_when_deletion_is_enabled(): void
+    {
+        /* Arrange: exactly the reporter's setup in #1694 (ENABLE_INVOICE_DELETION=true, CSRF on). */
+        $this->enableCsrfProtection();
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'true']);
+        $clientId  = $this->seedClient();
+        $invoiceId = $this->seedInvoice($clientId, ['invoice_status_id' => 2, 'invoice_number' => 'INV-1694-GONE']);
+        $keepId    = $this->seedInvoice($clientId, ['invoice_status_id' => 2, 'invoice_number' => 'INV-1694-KEPT']);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/invoices/delete/' . $invoiceId);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'The delete must reach the controller and redirect, not fail CSRF validation.');
+        $this->assertDatabaseMissing('ip_invoices', ['invoice_id' => $invoiceId]);
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $keepId, 'invoice_number' => 'INV-1694-KEPT']);
+    }
+
+    #[Test]
+    public function it_does_not_delete_a_sent_invoice_when_deletion_is_enabled_but_the_csrf_token_is_missing(): void
+    {
+        /* Arrange */
+        $this->enableCsrfProtection();
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'true']);
+        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_status_id' => 2, 'invoice_number' => 'INV-1694-NOTOKEN']);
+
+        /* Act */
+        $response = $this->postWithoutCsrfToken('/invoices/delete/' . $invoiceId);
+
+        /* Assert */
+        self::assertFalse($response->isRedirect(), 'A token-less delete must be stopped by CSRF validation.');
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'INV-1694-NOTOKEN']);
+    }
+
+    #[Test]
+    public function it_does_not_delete_an_invoice_when_the_csrf_token_does_not_match_the_cookie(): void
+    {
+        /* Arrange */
+        $this->enableCsrfProtection();
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'true']);
+        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_status_id' => 2, 'invoice_number' => 'INV-1694-FORGED']);
+
+        /* Act: a forged form carries a token that is not the one in the victim's cookie. */
+        $response = $this->post('/invoices/delete/' . $invoiceId, ['_ip_csrf' => 'attacker-chosen-token'], [], ['ip_csrf_cookie' => 'the-real-cookie-token']);
+
+        /* Assert */
+        self::assertFalse($response->isRedirect(), 'A mismatching token must be rejected.');
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'INV-1694-FORGED']);
+    }
+
+    #[Test]
+    public function it_still_refuses_a_sent_invoice_with_a_valid_csrf_token_while_deletion_is_disabled(): void
+    {
+        /* Arrange */
+        $this->enableCsrfProtection();
+        $this->withEnvironment(['ENABLE_INVOICE_DELETION' => 'false']);
+        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_status_id' => 2, 'invoice_number' => 'INV-1694-LOCKED']);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/invoices/delete/' . $invoiceId);
+
+        /* Assert: CSRF passes, but the business rule (no deleting sent invoices) still holds. */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'INV-1694-LOCKED']);
+    }
+
     // -------------------------------------------------------------------------
     // Invoice tax rates — Invoices::delete_invoice_tax (#1694 regression)
     // -------------------------------------------------------------------------
