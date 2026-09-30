@@ -59,6 +59,8 @@ record *why* and *how*.
 - **Errors are hidden if `CI_ENV` is missing** from `ipconfig.php`. `index.php` used to fall back
   to `development`, which shows PHP errors, stack traces and SQL to visitors.
 
+- **Upgrade note — existing access keys and the cron key keep their old value:** invoice and quote access keys and the recurring-invoice cron key are now generated with a cryptographically secure generator, but keys created by earlier versions are not changed on upgrade (they are part of links and cron jobs that are already in use). To replace the cron key, open *Settings* and use the cron key's regenerate button, then update your scheduled job's URL. Existing invoice and quote links stay valid until the invoice or quote is deleted.
+
 ### Features
 
 - **Automatic payment reminder emails.** Invoices generated from a recurring schedule were

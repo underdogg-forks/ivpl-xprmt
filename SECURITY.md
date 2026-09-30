@@ -15,6 +15,29 @@ the maintainers' discretion.
 | 1.7.0   | :x: (upgrade — contains a critical RCE) |
 | < 1.7   | :x:                |
 
+## Threat Model and Scope
+
+InvoicePlane has three kinds of accounts, and what each may do is deliberate:
+
+| Account | What it may do |
+|---------|----------------|
+| **Primary administrator** (`user_id` 1) | Everything, including creating, editing, deleting and assigning clients to *other* users. |
+| **Administrator** (`user_type` 1) | Manage **all** clients, invoices, quotes, projects, payments and settings of the installation. There is no per-administrator ownership of clients or projects. An administrator may only manage their own account, not other users'. |
+| **Guest** (`user_type` 2) | Read-only client portal, limited to the clients assigned to that user. |
+
+Administrators are trusted to edit settings, templates and client data. Please keep this in mind
+before reporting:
+
+- **Not a vulnerability:** an administrator can see or change data of any client, project or invoice.
+  That is how the product works.
+- **In scope:** anything that lets an unauthenticated visitor, a guest, or a *non-primary*
+  administrator cross a boundary above their role — for example, managing other users, reaching
+  another client's data as a guest, reading files outside the application, executing code, or acting
+  as another user.
+- **Treated as hardening (low severity):** content that only an administrator can store and that
+  only reaches other administrators, where no role boundary is crossed. We still encode output
+  and fix these, but they are unlikely to receive a CVE.
+
 ## Reporting a Vulnerability
 
 **Please report vulnerabilities privately — do not open a public issue, pull request, or forum
