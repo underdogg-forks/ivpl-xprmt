@@ -87,7 +87,7 @@ class Sessions extends Base_Controller
             // Prevent brute force attacks by counting times a token is used. The counter is
             // keyed by the token's digest, not the token: ip_login_log would otherwise hold
             // reset tokens in the clear, defeating the digest stored in ip_users.
-            $login_log_key   = 'password_reset:' . hash_password_reset_token($token);
+            $login_log_key   = 'password_reset_token:' . hash_password_reset_token($token);
             $login_log_check = $this->_login_log_check($login_log_key);
             if ( ! empty($login_log_check) && $login_log_check->log_count > 10) {
                 redirect(get_safe_referer('', 'sessions/passwordreset'));
@@ -180,7 +180,7 @@ class Sessions extends Base_Controller
 
             // Delete failed login attempts from login_log table
             $user = $this->db->where('user_id', $user_id)->get('ip_users')->row();
-            $this->_login_log_reset($user->user_email);
+            $this->_login_log_reset($this->_login_account_log_key($user->user_email));
 
             // Redirect back to the login form
             redirect('sessions/login');
