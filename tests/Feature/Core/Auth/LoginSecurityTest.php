@@ -187,9 +187,10 @@ class LoginSecurityTest extends AbstractTestCase
         // this row would never be written — making this assertion a real regression
         // guard for the auth-bypass fix rather than a redirect-only smoke test.
         $this->assertDatabaseHas('ip_login_log', [
-            'login_name' => $email,
+            'login_name' => 'login_account:' . hash('sha256', mb_strtolower($email)),
             'log_count'  => 1,
         ]);
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $email]);
     }
 
     #[Test]
@@ -225,7 +226,7 @@ class LoginSecurityTest extends AbstractTestCase
         // No failure log for a genuinely successful login — contrast with the
         // inactive-user case above, which always writes one.
         $this->assertDatabaseMissing('ip_login_log', [
-            'login_name' => $email,
+            'login_name' => 'login_account:' . hash('sha256', mb_strtolower($email)),
         ]);
     }
 

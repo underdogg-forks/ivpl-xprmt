@@ -36,6 +36,27 @@ class HttpResponse
         return $this->headers;
     }
 
+    /**
+     * First value of a response header (case-insensitive name), or null when it was not sent.
+     */
+    public function header(string $name): ?string
+    {
+        $prefix = mb_strtolower($name) . ':';
+
+        foreach ($this->headers as $header) {
+            if (mb_strpos(mb_strtolower($header), $prefix) === 0) {
+                return trim(mb_substr($header, mb_strlen($prefix)));
+            }
+        }
+
+        return null;
+    }
+
+    public function hasHeader(string $name): bool
+    {
+        return $this->header($name) !== null;
+    }
+
     public function stderr(): string
     {
         return $this->stderr;

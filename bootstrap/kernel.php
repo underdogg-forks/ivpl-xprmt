@@ -88,18 +88,12 @@ switch (ENVIRONMENT) {
 | access key -- to third-party payment scripts in the Referer header.
 */
 if (PHP_SAPI !== 'cli' && ! headers_sent()) {
-    $ip_frame_ancestors = ['SAMEORIGIN' => "'self'", 'DENY' => "'none'"];
-    $ip_frame_options   = mb_strtoupper(trim((string) env('X_FRAME_OPTIONS', 'SAMEORIGIN')));
-    if ( ! isset($ip_frame_ancestors[$ip_frame_options])) {
-        $ip_frame_options = 'SAMEORIGIN';
+    require_once __DIR__ . '/security_headers.php';
+
+    foreach (ip_security_headers((string) env('X_FRAME_OPTIONS', 'SAMEORIGIN'), env_bool('ENABLE_X_CONTENT_TYPE_OPTIONS', true)) as $ip_security_header) {
+        header($ip_security_header);
     }
-    header('X-Frame-Options: ' . $ip_frame_options);
-    header("Content-Security-Policy: frame-ancestors {$ip_frame_ancestors[$ip_frame_options]}; object-src 'none'; base-uri 'self'");
-    header('Referrer-Policy: strict-origin-when-cross-origin');
-    if (env_bool('ENABLE_X_CONTENT_TYPE_OPTIONS', 'true')) {
-        header('X-Content-Type-Options: nosniff');
-    }
-    unset($ip_frame_options, $ip_frame_ancestors);
+    unset($ip_security_header);
 }
 
 defined('FCPATH') || define('FCPATH', $base . '/public/');
