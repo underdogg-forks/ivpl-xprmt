@@ -105,6 +105,23 @@ class Mdl_User_Clients extends MY_Model
     }
 
     /**
+     * Whether the acting user may read or change the client assignments of $target_user_id:
+     * the primary administrator may manage anyone's, everybody else only their own
+     * (CWE-639 / CWE-862).
+     *
+     * @param int|string|null $target_user_id
+     */
+    public function can_manage_user_clients($target_user_id): bool
+    {
+        $this->load->model('users/mdl_users');
+
+        $acting_user_id = (int) $this->session->userdata('user_id');
+
+        return (int) $target_user_id === $acting_user_id
+            || Mdl_Users::is_primary_administrator($acting_user_id);
+    }
+
+    /**
      * Check if the current user can manage (delete/edit) this user-client authorization mapping.
      *
      * Security: Prevents IDOR vulnerabilities by verifying the user can manage
@@ -123,8 +140,11 @@ class Mdl_User_Clients extends MY_Model
         $user_client_id = (int) $user_client_id;
 
         // Only admin users (type 1) can manage user-client mappings
-        return (bool) ($user_type === 1);
+        if ($user_type === 1) {
+            return true;
+        }
 
         // Non-admin users cannot manage authorization mappings
+        return false;
     }
 }

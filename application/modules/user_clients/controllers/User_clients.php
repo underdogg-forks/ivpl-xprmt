@@ -66,17 +66,22 @@ class User_Clients extends Admin_Controller
             redirect('user_clients/user/' . $user_id);
         }
 
-        // Authorization: only primary admin or the user themselves can manage their clients
-        $current_user_id = (int) $this->session->userdata('user_id');
-        $target_user_id  = (int) $user_id;
-        if ($target_user_id !== $current_user_id && ! $this->mdl_users->is_primary_administrator($current_user_id)) {
+        // Object-level authorization: the URL user and the POSTed user (which the model saves) must both
+        // be accounts the acting user may manage.
+        $posted_user_id = $this->input->post('user_id');
+        if ( ! $this->mdl_user_clients->can_manage_user_clients($user_id)
+            || ($posted_user_id !== null && ! $this->mdl_user_clients->can_manage_user_clients($posted_user_id))
+        ) {
             show_error(trans('access_denied'), 403);
+
             return;
         }
 
-        // Defense-in-depth: POSTed user_id must match the URL user_id
-        if ($this->input->post('user_id') && (int) $this->input->post('user_id') !== $target_user_id) {
+        // user_all_clients grants read access to every client in the system, so a peer administrator
+        // must not be able to set it, not even on their own account.
+        if ($this->input->post('user_all_clients') && ! Mdl_Users::is_primary_administrator($this->session->userdata('user_id'))) {
             show_error(trans('access_denied'), 403);
+
             return;
         }
 
@@ -122,17 +127,19 @@ class User_Clients extends Admin_Controller
             return;
         }
 
+        if ( ! $this->mdl_user_clients->can_user_manage($user_client_id)) {
+            show_error(trans('access_denied'), 403);
+        }
+
         $ref = $this->mdl_user_clients->get_by_id($user_client_id);
 
         if ( ! $ref) {
             show_404();
         }
 
-        // Authorization: only primary admin or the user themselves can manage their clients
-        $current_user_id = (int) $this->session->userdata('user_id');
-        $target_user_id  = (int) $ref->user_id;
-        if ($target_user_id !== $current_user_id && ! $this->mdl_users->is_primary_administrator($current_user_id)) {
+        if ( ! $this->mdl_user_clients->can_manage_user_clients($ref->user_id)) {
             show_error(trans('access_denied'), 403);
+
             return;
         }
 
