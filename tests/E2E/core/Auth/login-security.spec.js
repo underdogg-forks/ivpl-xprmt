@@ -4,12 +4,16 @@
  * Mirrors tests/Feature/Core/LoginSecurityTest.php.
  */
 
+import { createHash } from 'node:crypto';
 import { test, expect } from '../../test.js';
 import { createSecondaryUser } from '../../support/fixtures.js';
 import { dbExec, dbQuery } from '../../support/db.js';
 import { loginAs } from '../../support/auth.js';
 
 test.use({ storageState: { cookies: [], origins: [] } });
+
+// The per-account lockout counter lives under a namespaced key (GHSA-r59m), never under the raw email.
+const accountKey = (email) => `login_account:${createHash('sha256').update(email.toLowerCase()).digest('hex')}`;
 
 const attemptLogin = (page, email, password) =>
   page.request.post('/index.php/sessions/login', {
@@ -72,7 +76,8 @@ test.describe('Login security — account status', () => {
 
     /* Assert: redirected, and a failure row is logged (auth() returned false) */
     expect([301, 302, 303]).toContain(response.status());
-    expect(dbQuery(`SELECT log_count FROM ip_login_log WHERE login_name = '${user.email}'`)).toEqual([{ log_count: 1 }]);
+    expect(dbQuery(`SELECT log_count FROM ip_login_log WHERE login_name = '${accountKey(user.email)}'`)).toEqual([{ log_count: 1 }]);
+    expect(dbQuery(`SELECT log_count FROM ip_login_log WHERE login_name = '${user.email}'`)).toEqual([]);
     await admin.close();
   });
 
@@ -98,7 +103,7 @@ test.describe('Login security — account status', () => {
     await expect(page).toHaveURL(/\/dashboard/);
     const body = await page.content();
     expect(body).not.toMatch(/Fatal error|Uncaught|A PHP Error was encountered|guest_account_denied/i);
-    expect(dbQuery(`SELECT log_count FROM ip_login_log WHERE login_name = '${user.email}'`)).toEqual([]);
+    expect(dbQuery(`SELECT log_count FROM ip_login_log WHERE login_name = '${accountKey(user.email)}'`)).toEqual([]);
     await admin.close();
   });
 });
