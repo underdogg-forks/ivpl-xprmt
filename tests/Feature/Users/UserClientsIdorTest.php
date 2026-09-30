@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Users;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
@@ -63,6 +64,54 @@ class UserClientsIdorTest extends AbstractTestCase
 
         /* Act */
         $response = $this->post('/user_clients/create/' . $this->attackerId, ['user_id' => (string) $this->victimId, 'client_id' => (string) $this->clientA]);
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 403);
+        $this->assertDatabaseCount('ip_user_clients', 0, []);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function nonIntegerUserIds(): array
+    {
+        return [
+            'fraction that rounds up'   => ['%d.9'],
+            'fraction that rounds down' => ['%d.4'],
+            'exponent notation'         => ['%de0'],
+            'trailing junk'             => ['%dabc'],
+            'leading space'             => [' %d'],
+            'trailing space'            => ['%d '],
+            'negative'                  => ['-%d'],
+            'hex'                       => ['0x%d'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('nonIntegerUserIds')]
+    public function a_secondary_admin_cannot_use_a_non_integer_user_id_to_reach_another_user(string $template): void
+    {
+        /* Arrange: "<attacker id>.9" is authorized as the attacker by an (int) cast but is stored by the INT
+         * column as the NEXT user id, which is the victim. */
+        $this->actingAsAdmin($this->attackerId);
+        $forged = sprintf($template, $this->attackerId);
+
+        /* Act */
+        $response = $this->post('/user_clients/create/' . $this->attackerId, ['user_id' => $forged, 'client_id' => (string) $this->clientA]);
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 403);
+        $this->assertDatabaseCount('ip_user_clients', 0, []);
+    }
+
+    #[Test]
+    public function a_fractional_user_id_in_the_url_is_refused_too(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin($this->attackerId);
+
+        /* Act */
+        $response = $this->post('/user_clients/create/' . $this->attackerId . '.9', ['user_id' => (string) $this->attackerId, 'client_id' => (string) $this->clientA]);
 
         /* Assert */
         $this->assertResponseStatusCode($response, 403);
