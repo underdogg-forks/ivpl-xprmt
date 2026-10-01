@@ -11,6 +11,7 @@
 /yarn.lock
 /.pnp.cjs
 /.pnp.loader.mjs
+/.sandbox-tools
 
 # Workflow artifacts
 audit-report.json
