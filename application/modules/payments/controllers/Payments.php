@@ -4,6 +4,8 @@ if ( ! defined('BASEPATH')) {
     exit('No direct script access allowed');
 }
 
+require_once APPPATH . 'libraries/PaymentCallbackLock.php';
+
 /*
  * InvoicePlane
  *
@@ -34,6 +36,27 @@ class Payments extends Admin_Controller
         $this->mdl_payments->paginate(site_url('payments/index'), $page);
         $payments = $this->mdl_payments->result();
 
+        $invoiceIds        = array_filter(array_column($payments, 'invoice_id'));
+        $servicesByInvoice = [];
+
+        if ( ! empty($invoiceIds)) {
+            $results = $this->db
+                ->select('ip_invoices.invoice_id, ip_services.service_name')
+                ->from('ip_invoices')
+                ->join('ip_services', 'ip_services.service_id = ip_invoices.service_id', 'left')
+                ->where_in('ip_invoices.invoice_id', $invoiceIds)
+                ->get()
+                ->result();
+
+            foreach ($results as $row) {
+                $servicesByInvoice[$row->invoice_id] = $row->service_name;
+            }
+        }
+
+        foreach ($payments as $payment) {
+            $payment->service_name = $servicesByInvoice[$payment->invoice_id] ?? null;
+        }
+
         $this->layout->set(
             [
                 'filter_display'     => true,
@@ -55,12 +78,26 @@ class Payments extends Admin_Controller
 
         $this->load->model('custom_fields/mdl_payment_custom');
 
-        if ($this->mdl_payments->run_validation()) {
-            $id = $this->mdl_payments->save($id);
+        // Serialize concurrent payment submissions for the same invoice (CWE-362/367):
+        // without this, two admin sessions can both read the pre-payment balance in
+        // validate_payment_amount() and both pass before either commits, overpaying
+        // the invoice. The lock is released even if save()/validation throws.
+        $invoice_id    = (int) $this->input->post('invoice_id');
+        $lock          = $invoice_id ? new PaymentCallbackLock($this->db) : null;
+        $lock_acquired = $lock === null || $lock->acquire($invoice_id);
 
-            $this->mdl_payment_custom->save_custom($id, $this->input->post('custom'));
+        try {
+            if ( ! $lock_acquired) {
+                $this->session->set_flashdata('alert_error', trans('payment_in_progress_try_again'));
+            } elseif ($this->mdl_payments->run_validation()) {
+                $id = $this->mdl_payments->save($id);
 
-            redirect('payments');
+                $this->mdl_payment_custom->save_custom($id, $this->input->post('custom'));
+
+                redirect('payments');
+            }
+        } finally {
+            $lock?->release();
         }
 
         if ( ! $this->input->post('btn_submit')) {
@@ -92,6 +129,7 @@ class Payments extends Admin_Controller
             'payment_methods/mdl_payment_methods',
             'custom_fields/mdl_custom_fields',
             'custom_values/mdl_custom_values',
+            'services/mdl_services',
         ]);
 
         $open_invoices = $this->mdl_invoices->is_open()->get()->result();
@@ -121,9 +159,13 @@ class Payments extends Admin_Controller
             }
         }
 
+        $serviceIds   = array_filter(array_column($open_invoices, 'service_id'));
+        $servicesById = ! empty($serviceIds) ? $this->mdl_services->get_names_by_ids($serviceIds) : [];
+
         $amounts                 = [];
         $invoice_payment_methods = [];
         foreach ($open_invoices as $open_invoice) {
+            $open_invoice->service_name                                     = $servicesById[$open_invoice->service_id] ?? null;
             $amounts['invoice' . $open_invoice->invoice_id]                 = format_amount($open_invoice->invoice_balance);
             $invoice_payment_methods['invoice' . $open_invoice->invoice_id] = $open_invoice->payment_method;
         }

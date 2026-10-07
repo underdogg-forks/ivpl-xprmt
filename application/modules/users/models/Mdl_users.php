@@ -17,11 +17,24 @@ if ( ! defined('BASEPATH')) {
 class Mdl_Users extends Response_Model
 {
     /**
+     * The bootstrap root account. Only this account may edit its own record;
+     * a peer administrator must not be able to alter any of its attributes
+     * (password, email, role type, active flag, or otherwise).
+     */
+    public const PRIMARY_ADMINISTRATOR_ID = 1;
+
+    /**
      * Fields that must never be written from raw POST data regardless of
      * validation rules. Controllers that legitimately need to set these
      * must build and pass their own $db_array to save().
      */
     private const PROTECTED_FIELDS = ['user_type', 'user_active', 'user_psalt'];
+
+    /**
+     * Identity- and privilege-bearing fields the primary administrator's record
+     * must never receive from a non-root session, regardless of code path.
+     */
+    private const PRIMARY_ADMIN_LOCKED_FIELDS = ['user_type', 'user_active', 'user_psalt', 'user_email', 'user_password'];
 
     public $table = 'ip_users';
 
@@ -30,6 +43,19 @@ class Mdl_Users extends Response_Model
     public $date_created_field = 'user_date_created';
 
     public $date_modified_field = 'user_date_modified';
+
+    /**
+     * Whether the given user id identifies the primary administrator (user_id = 1).
+     *
+     * Accepts int or string ids from routes and sessions; canonicalizes through
+     * (int) so that "1", "01" and "1abc" all resolve to the root account.
+     *
+     * @param int|string|null $user_id
+     */
+    public static function is_primary_administrator($user_id): bool
+    {
+        return $user_id !== null && $user_id !== '' && (int) $user_id === self::PRIMARY_ADMINISTRATOR_ID;
+    }
 
     /**
      * @return array
@@ -90,6 +116,11 @@ class Mdl_Users extends Response_Model
             ],
             'user_company' => [
                 'field' => 'user_company',
+            ],
+            'user_einvoice_identifier' => [
+                'field' => 'user_einvoice_identifier',
+                'label' => trans('user_einvoice_identifier'),
+                'rules' => 'trim',
             ],
             'user_address_1' => [
                 'field' => 'user_address_1',
@@ -204,6 +235,11 @@ class Mdl_Users extends Response_Model
             'user_company' => [
                 'field' => 'user_company',
             ],
+            'user_einvoice_identifier' => [
+                'field' => 'user_einvoice_identifier',
+                'label' => trans('user_einvoice_identifier'),
+                'rules' => 'trim',
+            ],
             'user_address_1' => [
                 'field' => 'user_address_1',
             ],
@@ -278,7 +314,7 @@ class Mdl_Users extends Response_Model
             'user_password' => [
                 'field' => 'user_password',
                 'label' => trans('password'),
-                'rules' => 'required',
+                'rules' => 'required|min_length[8]',
             ],
             'user_passwordv' => [
                 'field' => 'user_passwordv',
@@ -330,6 +366,7 @@ class Mdl_Users extends Response_Model
             'user_password' => $user_password,
         ];
 
+        $this->db->set('user_auth_version', 'user_auth_version + 1', false);
         $this->db->where('user_id', $user_id);
         $this->db->update('ip_users', $db_array);
 
@@ -341,10 +378,24 @@ class Mdl_Users extends Response_Model
      */
     public function save($id = null, $db_array = null)
     {
+        // Defense-in-depth for CWE-639 / CWE-269: the primary administrator's
+        // identity and privilege attributes must never be mutated by a non-root
+        // session, no matter which code path reaches save(). Users::form()
+        // already rejects such requests with a 403; this backstop covers any
+        // other caller that hands us a privilege-bearing $db_array for user_id 1.
+        if (is_array($db_array)
+            && self::is_primary_administrator($id)
+            && ! self::is_primary_administrator($this->session->userdata('user_id'))
+        ) {
+            foreach (self::PRIMARY_ADMIN_LOCKED_FIELDS as $field) {
+                unset($db_array[$field]);
+            }
+        }
+
         $id = parent::save($id, $db_array);
 
         if ($user_clients = $this->session->userdata('user_clients')) {
-            $this->load->model('users/mdl_user_clients');
+            $this->load->model('user_clients/mdl_user_clients');
 
             foreach ($user_clients as $user_client) {
                 $this->mdl_user_clients->save(null, ['user_id' => $id, 'client_id' => $user_client]);

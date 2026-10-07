@@ -4,7 +4,7 @@
 
 _A libre self-hosted web application designed to help you manage invoices, clients, and payments efficiently._
 
-[![Curent version](https://img.shields.io/badge/dynamic/json.svg?label=Current%20Version&url=https%3A%2F%2Fapi.github.com%2Frepos%2FInvoicePlane%2FInvoicePlane%2Freleases%2Flatest&query=%24.name&colorB=%23429ae1)](https://www.invoiceplane.com/)
+[![Current version](https://img.shields.io/badge/dynamic/json.svg?label=Current%20Version&url=https%3A%2F%2Fapi.github.com%2Frepos%2FInvoicePlane%2FInvoicePlane%2Freleases%2Flatest&query=%24.name&colorB=%23429ae1)](https://www.invoiceplane.com/)
 [![Downloads](https://img.shields.io/github/downloads/invoiceplane/invoiceplane/total?colorB=%23429ae1)](https://www.invoiceplane.com/)
 [![Translation](https://img.shields.io/badge/Translations-%40%20Crowdin-429ae1)](https://translations.invoiceplane.com/project/fusioninvoice)
 
@@ -95,7 +95,9 @@ To remove `index.php` from your URLs:
 
 Since version 1.7.2, **custom template names** are added through an **allowlist** in `ipconfig.php` —
 the filesystem is never scanned, which is what keeps the template system safe from remote code
-execution. See [CUSTOM_TEMPLATES.md](.github/docs/CUSTOM_TEMPLATES.md) for the how-to.
+execution. See [CUSTOM_TEMPLATES.md](.github/docs/CUSTOM_TEMPLATES.md) for the how-to, and
+[UPGRADE.md](.github/docs/UPGRADE.md) before upgrading an installation that already uses custom
+templates.
 
 ---
 
@@ -108,6 +110,13 @@ elsewhere, e.g. outside the document root for additional security:
 ```
 SESS_SAVE_PATH=/var/lib/invoiceplane/storage/framework/sessions
 ```
+
+> **Do not leave `SESS_SAVE_PATH` set to an empty value.** An empty `SESS_SAVE_PATH=`
+> line is passed to PHP as an empty `session.save_path`, overriding any value from
+> `php.ini` / `php-fpm.d` / your vhost. Sessions then cannot be written — login fails and
+> the installer stays stuck on `.../setup/language`. Either give it a real absolute path
+> or remove/comment the line entirely so the `sys_get_temp_dir()` fallback applies. On
+> systemd distros avoid `/tmp` (services run with `PrivateTmp=true` and it gets wiped).
 
 If you mount a volume in Docker, include the configured path in your persistent volumes
 (see [Container (Docker) Deployment Instructions](.github/docs/CONTAINER_DEPLOYMENT.md)).

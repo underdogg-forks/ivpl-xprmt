@@ -63,6 +63,10 @@ class Import extends Admin_Controller
             $this->layout->buffer('content', 'import/import_index');
             $this->layout->render();
         } else {
+            if ( ! $this->ensure_valid_post_request('import')) {
+                return;
+            }
+
             $this->load->helper('file');
 
             $import_id = $this->mdl_import->start_import();
@@ -99,6 +103,8 @@ class Import extends Admin_Controller
                             break;
                     }
                 }
+
+                $this->mdl_import->cleanup_import_files();
             }
 
             redirect('import');
