@@ -68,6 +68,10 @@ function amount_sign_errors($items, $discount_amount, $discount_percent, bool $c
         $errors[$discount_prefix . '_discount_percent'] = trans('discount_must_not_be_negative');
     }
 
+    if ($discount_prefix === 'quote' && _submitted_amount($discount_percent) > 100) {
+        $errors['quote_discount_percent'] = trans('discount_percent_must_not_exceed_100');
+    }
+
     return $errors;
 }
 

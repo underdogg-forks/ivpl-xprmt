@@ -21,6 +21,12 @@ class Mdl_Invoice_Amounts extends CI_Model
      */
     public $decimal_places = 2;
 
+    /**
+     * Set when calculate() refused to store a negative total, so a caller that wrote data first
+     * (Invoices/Ajax::save) can roll that back instead of reporting success.
+     */
+    public bool $negative_total_refused = false;
+
     public function __construct()
     {
         $this->decimal_places = (int) get_setting('tax_rate_decimal_places');
@@ -47,8 +53,10 @@ class Mdl_Invoice_Amounts extends CI_Model
      *
      * @param $invoice_id
      * @param $global_discount
+     *
+     * @return bool false when the total was refused (negative for a regular invoice), nothing stored
      */
-    public function calculate($invoice_id, $global_discount)
+    public function calculate($invoice_id, $global_discount): bool
     {
         // Get the basic totals
         $query = $this->db->query('
@@ -81,7 +89,9 @@ class Mdl_Invoice_Amounts extends CI_Model
             $this->load->helper('file_security');
             log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Refused to store a negative total (' . sanitize_for_logging((string) $invoice_total) . ') for the non-credit invoice ' . sanitize_for_logging((string) $invoice_id));
 
-            return;
+            $this->negative_total_refused = true;
+
+            return false;
         }
 
         // Get the amount already paid
@@ -141,6 +151,8 @@ class Mdl_Invoice_Amounts extends CI_Model
                 $this->db->update('ip_invoices');
             }
         }
+
+        return true;
     }
 
     /**
