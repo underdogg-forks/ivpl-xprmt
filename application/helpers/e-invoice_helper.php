@@ -33,13 +33,17 @@ function generate_xml_invoice_file($invoice, $items, string $xml_lib, string $fi
 
     $CI = &get_instance();
 
+    // A request can generate more than one XML document (validation, then PDF
+    // embedding). Use a fresh loader alias so CodeIgniter does not reuse the
+    // previous generator instance and its previous filename.
+    $libraryAlias = 'ublciixml_' . substr(md5($filename), 0, 12);
     $CI->load->library('XMLtemplates/' . $xml_lib . 'Xml', [
         'invoice'  => $invoice,
         'items'    => $items,
         'filename' => $filename,
         'options'  => $options,
-    ], 'ublciixml');
-    $CI->ublciixml->xml();
+    ], $libraryAlias);
+    $CI->{$libraryAlias}->xml();
 
     return UPLOADS_TEMP_FOLDER . $filename . '.xml';
 }
@@ -133,7 +137,7 @@ function get_xml_template_files(): array
  * Set the calculation mode for Quote/Invoice view & many more (tricks)
  * Returns the XML template (UBL/CII) fullname of a given client_e-invoice_version value.
  *
- * @param $xml_Id
+ * @param $xml_id
  *
  * @used in get_einvoice_usage
  *
@@ -182,7 +186,6 @@ function get_admin_active_users($user_id = ''): array
  *
  * @param object $client
  * @param int    $user_id : get result only with it (or all if null)
- * @param bool   $vat     : check vat user field(s) are filled
  *
  * @return object $req_fields
  */
