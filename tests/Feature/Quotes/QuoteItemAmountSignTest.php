@@ -61,6 +61,29 @@ final class QuoteItemAmountSignTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_rejects_a_discount_percent_above_one_hundred_and_keeps_the_quote_unchanged(): void
+    {
+        [$quoteId, $itemId] = $this->quoteWithOneItem();
+
+        $response = $this->saveItems($quoteId, [$this->existingItem($quoteId, $itemId)], ['quote_discount_percent' => '101']);
+
+        $json = json_decode($response->body(), true);
+        self::assertSame(0, $json['success'] ?? null);
+        self::assertSame('The discount percentage cannot exceed 100.', $json['validation_errors']['quote_discount_percent'] ?? null);
+        $this->assertDatabaseHas('ip_quote_amounts', ['quote_id' => $quoteId, 'quote_total' => '300.00']);
+    }
+
+    #[Test]
+    public function it_accepts_a_discount_percent_of_exactly_one_hundred(): void
+    {
+        [$quoteId, $itemId] = $this->quoteWithOneItem();
+
+        $response = $this->saveItems($quoteId, [$this->existingItem($quoteId, $itemId)], ['quote_discount_percent' => '100']);
+
+        self::assertSame(1, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . $response->body());
+    }
+
+    #[Test]
     public function it_still_saves_zero_and_positive_amounts(): void
     {
         [$quoteId, $itemId] = $this->quoteWithOneItem();

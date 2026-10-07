@@ -114,6 +114,27 @@ final class ItemAmountHelperTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_a_quote_discount_percent_above_one_hundred(): void
+    {
+        $errors = amount_sign_errors([], '', '100.01', false, 'quote');
+
+        self::assertSame(['quote_discount_percent'], array_keys($errors));
+        self::assertSame('T:discount_percent_must_not_exceed_100', $errors['quote_discount_percent']);
+    }
+
+    #[Test]
+    public function it_accepts_a_quote_discount_percent_of_exactly_one_hundred(): void
+    {
+        self::assertSame([], amount_sign_errors([], '', '100', false, 'quote'));
+    }
+
+    #[Test]
+    public function it_leaves_the_invoice_discount_percent_cap_to_the_total_guard(): void
+    {
+        self::assertSame([], amount_sign_errors([], '', '150'));
+    }
+
+    #[Test]
     public function it_ignores_a_payload_that_is_not_a_list_of_items(): void
     {
         self::assertSame([], amount_sign_errors(null, '', ''));

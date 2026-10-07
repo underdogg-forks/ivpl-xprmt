@@ -40,6 +40,15 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
         return ['zero' => ['0', '0.00'], 'one unit' => ['1', '1.00']];
     }
 
+    /** @return array<string, array{array<string, string>}> */
+    public static function discountsLargerThanTheInvoice(): array
+    {
+        return [
+            'amount above the subtotal' => [['invoice_discount_amount' => '700']],
+            'percent above one hundred' => [['invoice_discount_percent' => '150']],
+        ];
+    }
+
     // ---- the two reported attacks --------------------------------------------------------------
 
     #[Test]
@@ -102,6 +111,35 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
         self::assertSame('The discount cannot be negative.', $json['validation_errors']['invoice_discount_amount'] ?? null);
         self::assertSame('The discount cannot be negative.', $json['validation_errors']['invoice_discount_percent'] ?? null);
         $this->assertInvoiceTotal($invoiceId, '300.00');
+    }
+
+    #[Test]
+    #[DataProvider('discountsLargerThanTheInvoice')]
+    public function it_rolls_back_the_whole_save_when_the_discounts_would_make_the_total_negative(array $discount): void
+    {
+        [$invoiceId, $itemId] = $this->invoiceWithOneItem();
+
+        $response = $this->saveItems($invoiceId, [$this->existingItem($invoiceId, $itemId, '3', '200')], $discount);
+
+        $json = json_decode($response->body(), true);
+        self::assertSame(0, $json['success'] ?? null, 'Body: ' . $response->body());
+        self::assertSame('The discounts exceed the invoice total, so the total would be negative.', $json['validation_errors']['invoice_total'] ?? null);
+        self::assertSame('150', rtrim(rtrim($this->databaseFetchOne('ip_invoice_items', ['item_id' => $itemId])['item_price'], '0'), '.'), 'the item edit must be rolled back');
+        $header = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
+        self::assertSame('0.00', $header['invoice_discount_amount']);
+        self::assertSame('0.00', $header['invoice_discount_percent']);
+        $this->assertInvoiceTotal($invoiceId, '300.00');
+    }
+
+    #[Test]
+    public function it_accepts_a_discount_that_brings_the_total_to_exactly_zero(): void
+    {
+        [$invoiceId, $itemId] = $this->invoiceWithOneItem();
+
+        $response = $this->saveItems($invoiceId, [$this->existingItem($invoiceId, $itemId)], ['invoice_discount_amount' => '300']);
+
+        self::assertSame(1, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . $response->body());
+        $this->assertInvoiceTotal($invoiceId, '0.00');
     }
 
     // ---- what must keep working ----------------------------------------------------------------

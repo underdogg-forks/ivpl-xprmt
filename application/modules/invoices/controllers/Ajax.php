@@ -82,6 +82,11 @@ class Ajax extends Admin_Controller
                 $this->config->set_item('legacy_calculation', ! empty($this->input->post('legacy_calculation')));
             }
 
+            // Everything below writes; a refused (negative) total must undo it instead of reporting success.
+            $this->load->model('invoices/mdl_invoice_amounts');
+            $this->mdl_invoice_amounts->negative_total_refused = false;
+            $this->db->trans_begin();
+
             foreach ($items as $item) {
                 // Check if an item has either a quantity + price or name or description
                 if ( ! empty($item->item_name)) {
@@ -126,6 +131,7 @@ class Ajax extends Admin_Controller
                         ],
                     ];
 
+                    $this->db->trans_commit();
                     $this->json_encode_ajax($response);
 
                     return;
@@ -150,6 +156,7 @@ class Ajax extends Admin_Controller
                         ],
                     ];
 
+                    $this->db->trans_commit();
                     $this->json_encode_ajax($response);
 
                     return;
@@ -206,9 +213,20 @@ class Ajax extends Admin_Controller
 
             if (config_item('legacy_calculation')) {
                 // Recalculate for discounts
-                $this->load->model('invoices/mdl_invoice_amounts');
                 $this->mdl_invoice_amounts->calculate($invoice_id, $global_discount);
             }
+
+            if ($this->mdl_invoice_amounts->negative_total_refused) {
+                $this->db->trans_rollback();
+                $this->json_encode_ajax([
+                    'success'           => 0,
+                    'validation_errors' => ['invoice_total' => trans('invoice_total_must_not_be_negative')],
+                ]);
+
+                return;
+            }
+
+            $this->db->trans_commit();
 
             $response = [
                 'success' => 1,
