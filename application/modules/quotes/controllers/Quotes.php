@@ -62,6 +62,15 @@ class Quotes extends Admin_Controller
         $this->mdl_quotes->paginate(site_url('quotes/status/' . $status), $page);
         $quotes = $this->mdl_quotes->result();
 
+        $this->load->model('services/mdl_services');
+
+        foreach ($quotes as $quote) {
+            $servicesById        = $this->mdl_services->get_names_by_ids([$quote->service_id]);
+            $quote->service_name = $servicesById[$quote->service_id] ?? null;
+        }
+
+        $services = $this->mdl_services->get()->result_array();
+
         $this->layout->set(
             [
                 'quotes'             => $quotes,
@@ -70,6 +79,7 @@ class Quotes extends Admin_Controller
                 'filter_placeholder' => trans('filter_quotes'),
                 'filter_method'      => 'filter_quotes',
                 'quote_statuses'     => $this->mdl_quotes->statuses(),
+                'services'           => $services,
             ]
         );
 
@@ -92,6 +102,7 @@ class Quotes extends Admin_Controller
                 'custom_values/mdl_custom_values',
                 'custom_fields/mdl_quote_custom',
                 'upload/mdl_uploads',
+                'services/mdl_services',
             ]
         );
 
@@ -142,6 +153,10 @@ class Quotes extends Admin_Controller
             }
         }
 
+        $servicesById        = $this->mdl_services->get_names_by_ids([$quote->service_id]);
+        $quote->service_name = $servicesById[$quote->service_id] ?? null;
+        $services            = $this->mdl_services->get()->result_array();
+
         $items = $this->mdl_quote_items->where('quote_id', $quote_id)->get()->result();
 
         // Get eInvoice library name and user checks
@@ -162,6 +177,7 @@ class Quotes extends Admin_Controller
                 'tax_rates'       => $this->mdl_tax_rates->get()->result(),
                 'quote_tax_rates' => $this->mdl_quote_tax_rates->where('quote_id', $quote_id)->get()->result(),
                 'quote_statuses'  => $this->mdl_quotes->statuses(),
+                'services'        => $services,
                 'custom_fields'   => $custom_fields,
                 'custom_values'   => $custom_values,
                 'custom_js_vars'  => [
@@ -189,7 +205,7 @@ class Quotes extends Admin_Controller
      */
     public function delete($quote_id)
     {
-        if ( ! $this->ensure_valid_post_request('quotes/index')) {
+        if ( ! $this->ensure_valid_post_request('quotes/status/all')) {
             return;
         }
 
@@ -205,7 +221,7 @@ class Quotes extends Admin_Controller
         $this->mdl_quotes->delete($quote_id);
 
         // Redirect to quote index
-        redirect('quotes/index');
+        redirect('quotes/status/all');
     }
 
     /**
@@ -216,9 +232,21 @@ class Quotes extends Admin_Controller
     {
         $this->load->helper(['pdf', 'template']);
 
+        // Security (CSRF): "mark as sent when generating the PDF" mutates quote
+        // state — it assigns a quote number and flips the status to sent. That must
+        // never fire on a forged cross-site GET such as
+        // <img src=".../quotes/generate_pdf/ID">, so it only runs when the request
+        // carries a valid same-origin CSRF token. The PDF itself is a safe read and
+        // always streams, regardless of the token.
         if (get_setting('mark_quotes_sent_pdf') == 1) {
-            $this->mdl_quotes->generate_quote_number_if_applicable($quote_id);
-            $this->mdl_quotes->mark_sent($quote_id);
+            if ( ! function_exists('verify_get_csrf_token')) {
+                $this->load->helper('security');
+            }
+
+            if (verify_get_csrf_token()) {
+                $this->mdl_quotes->generate_quote_number_if_applicable($quote_id);
+                $this->mdl_quotes->mark_sent($quote_id);
+            }
         }
 
         // Security: Validate PDF template to prevent LFI
@@ -252,6 +280,10 @@ class Quotes extends Admin_Controller
 
     public function recalculate_all_quotes()
     {
+        if ( ! $this->ensure_valid_post_request('quotes/index')) {
+            return;
+        }
+
         $this->db->select('quote_id');
         $quote_ids = $this->db->get('ip_quotes')->result();
 

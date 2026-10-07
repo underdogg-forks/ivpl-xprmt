@@ -1,9 +1,14 @@
 {
     "preset": "per",
     "exclude": [
+        "application/logs",
+        "application/modules/clients/views",
         "application/views/**/pdf/",
         "resources",
         "storage"
+    ],
+    "notPath": [
+        "application/modules/clients/views/view.php"
     ],
     "rules": {
         "@PSR12": true,
@@ -59,7 +64,7 @@
         "is_null": true,
         "lambda_not_used_import": true,
         "logical_operators": true,
-        "mb_str_functions": true,
+        "mb_str_functions": false,
         "method_argument_space": {
             "on_multiline": "ensure_fully_multiline"
         },
