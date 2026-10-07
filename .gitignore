@@ -8,17 +8,24 @@
 /vendor
 /.yarn
 /.yarnrc.yml
+/yarn.lock
+/.pnp.cjs
+/.pnp.loader.mjs
 
 # Workflow artifacts
 audit-report.json
 updated-packages.txt
 pint_output.log
+/*-inventory-*.md
+/phpunit-plan-*.md
+/.phpunit.result.cache
 
 # Other files
 .htaccess
 .idea
 .todo
 .sass-cache
+/application/cache/htmlpurifier/
 adminer.php
 /nbproject
 /patches
@@ -31,6 +38,24 @@ yarn-error.log
 /deps-before.txt
 /outdated.txt
 /phpunit.txt
+/.phpunit.result.cache
+
+# Test runtime
+/application/cache/htmlpurifier/
 /stan.txt
 /todo.txt
 /yarnpack.txt
+/.phpunit.cache/
+/.phpstan.cache/
+/uploads/temp/
+/.sandbox-tools/
+
+# Playwright (frontend E2E)
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
+/tests/E2E/.auth/
+/tests/E2E/error-report.md
+package-lock.json
+_scratch/

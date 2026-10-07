@@ -58,7 +58,14 @@ $invoice_idx                    = 1;
                 <td>
                     <a href="<?php echo site_url('clients/view/' . $invoice->client_id); ?>"
                        title="<?php _trans('view_client'); ?>">
-                        <?php _htmlsc(format_client($invoice)); ?>
+                        <?php
+                        _htmlsc(format_client($invoice));
+                if (get_setting('enable_services') == 1 && $invoice->service_name) {
+                    echo '&nbsp;(';
+                    _htmlsc($invoice->service_name);
+                    echo ')';
+                }
+                ?>
                     </a>
                 </td>
 
@@ -88,7 +95,7 @@ $invoice_idx                    = 1;
     }
                 ?>
                             <li>
-                                <a href="<?php echo site_url('invoices/generate_pdf/' . $invoice->invoice_id); ?>"
+                                <a href="<?php echo site_url('invoices/generate_pdf/' . $invoice->invoice_id) . '?' . _csrf_query(); ?>"
                                    target="_blank">
                                     <i class="fa fa-print fa-margin"></i> <?php _trans('download_pdf'); ?>
                                 </a>

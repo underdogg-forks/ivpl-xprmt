@@ -66,15 +66,6 @@ class Upload extends Admin_Controller
         respond_file_message(200, 'upload_file_uploaded_successfully', $fileName);
     }
 
-    public function create_dir($path, $chmod = '0755'): bool
-    {
-        if ( ! is_dir($path) && ! is_link($path)) {
-            return mkdir($path, $chmod);
-        }
-
-        return true;
-    }
-
     public function show_files($url_key = null): void
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -103,7 +94,16 @@ class Upload extends Admin_Controller
 
         $finalPath = $this->targetPath . $url_key . '_' . $filename;
 
-        if (realpath($this->targetPath) === mb_substr(realpath($finalPath), 0, mb_strlen(realpath($this->targetPath))) && ( ! file_exists($finalPath) || @unlink($finalPath))) {
+        // Security: realpath() (used by validate_file_in_directory()) returns false for a
+        // nonexistent path, so an already-deleted file must be handled before that check -
+        // $filename was already rejected above by sanitize_file_name() if it contained any
+        // path separator or traversal sequence, so $finalPath cannot escape $this->targetPath.
+        if ( ! file_exists($finalPath)) {
+            $this->mdl_uploads->delete_file($url_key, $filename);
+            respond_file_message(200, 'upload_file_deleted_successfully', $filename);
+        }
+
+        if (validate_file_in_directory($finalPath, $this->targetPath) && @unlink($finalPath)) {
             $this->mdl_uploads->delete_file($url_key, $filename);
             respond_file_message(200, 'upload_file_deleted_successfully', $filename);
         }
@@ -179,6 +179,22 @@ class Upload extends Admin_Controller
         readfile($fullPath);
     }
 
+    /**
+     * Not public: CI3 routes any public controller method directly via URL
+     * segments (e.g. /upload/upload/create_dir/<path>/<chmod>), which would
+     * let this be called with an attacker-controlled path and permission
+     * bits — an arbitrary mkdir() with no validation, CSRF, or confirmation.
+     * Only ever meant to be called internally from move_uploaded_file().
+     */
+    private function create_dir($path, $chmod = '0755'): bool
+    {
+        if ( ! is_dir($path) && ! is_link($path)) {
+            return mkdir($path, $chmod);
+        }
+
+        return true;
+    }
+
     private function sanitize_file_name(string $filename): string
     {
         // Security: Remove any path components
@@ -197,7 +213,7 @@ class Upload extends Admin_Controller
         }
 
         // Clean filename (same in dropzone script)
-        $sanitizedFileName = preg_replace("/[^\p{L}\p{N}\s\-_'’.]/u", '', mb_trim($filename));
+        $sanitizedFileName = preg_replace("/[^\p{L}\p{N}\s\-_'’.]/u", '', trim($filename));
 
         // Security: Additional check to ensure no path traversal sequences remain
         $sanitizedFileName = str_replace('..', '', $sanitizedFileName);
