@@ -131,7 +131,7 @@ class Ajax extends Admin_Controller
                         ],
                     ];
 
-                    $this->db->trans_commit();
+                    $this->db->trans_rollback();
                     $this->json_encode_ajax($response);
 
                     return;
@@ -156,7 +156,7 @@ class Ajax extends Admin_Controller
                         ],
                     ];
 
-                    $this->db->trans_commit();
+                    $this->db->trans_rollback();
                     $this->json_encode_ajax($response);
 
                     return;
@@ -214,6 +214,14 @@ class Ajax extends Admin_Controller
             if (config_item('legacy_calculation')) {
                 // Recalculate for discounts
                 $this->mdl_invoice_amounts->calculate($invoice_id, $global_discount);
+            }
+
+            if ($this->db->trans_status() === false) {
+                $this->db->trans_rollback();
+                log_message('error', __METHOD__ . ' - a database write failed, the invoice save was rolled back');
+                $this->json_encode_ajax(['success' => 0, 'validation_errors' => ['invoice_id' => trans('invoice_could_not_be_saved')]]);
+
+                return;
             }
 
             if ($this->mdl_invoice_amounts->negative_total_refused) {

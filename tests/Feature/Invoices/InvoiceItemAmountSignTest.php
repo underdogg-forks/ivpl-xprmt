@@ -132,6 +132,32 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_rolls_back_earlier_items_when_a_later_line_has_no_name(): void
+    {
+        [$invoiceId, $itemId] = $this->invoiceWithOneItem();
+
+        $response = $this->saveItems($invoiceId, [$this->existingItem($invoiceId, $itemId, '3', '200'), $this->newItem($invoiceId, '', '1', '10')]);
+
+        $json = json_decode($response->body(), true);
+        self::assertSame(0, $json['success'] ?? null, 'Body: ' . $response->body());
+        self::assertArrayHasKey('item_name', $json['validation_errors'] ?? []);
+        $this->assertItemUntouched($invoiceId, $itemId);
+    }
+
+    #[Test]
+    public function it_rolls_back_the_items_when_the_invoice_number_is_invalid(): void
+    {
+        [$invoiceId, $itemId] = $this->invoiceWithOneItem();
+
+        $response = $this->saveItems($invoiceId, [$this->existingItem($invoiceId, $itemId, '3', '200')], ['invoice_number' => 'bad<number>']);
+
+        $json = json_decode($response->body(), true);
+        self::assertSame(0, $json['success'] ?? null, 'Body: ' . $response->body());
+        self::assertArrayHasKey('invoice_number', $json['validation_errors'] ?? []);
+        $this->assertItemUntouched($invoiceId, $itemId);
+    }
+
+    #[Test]
     public function it_accepts_a_discount_that_brings_the_total_to_exactly_zero(): void
     {
         [$invoiceId, $itemId] = $this->invoiceWithOneItem();
@@ -401,6 +427,14 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
     private function existingItem(int $invoiceId, int $itemId, string $quantity = '2', string $price = '150'): array
     {
         return ['item_id' => (string) $itemId] + $this->newItem($invoiceId, 'Widget', $quantity, $price);
+    }
+
+    private function assertItemUntouched(int $invoiceId, int $itemId): void
+    {
+        $item = $this->databaseFetchOne('ip_invoice_items', ['item_id' => $itemId]);
+        self::assertSame(150.0, (float) $item['item_price'], 'the item edit must be rolled back');
+        self::assertSame(2.0, (float) $item['item_quantity']);
+        $this->assertInvoiceTotal($invoiceId, '300.00');
     }
 
     private function assertInvoiceTotal(int $invoiceId, string $total): void

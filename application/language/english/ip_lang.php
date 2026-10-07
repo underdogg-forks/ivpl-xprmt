@@ -517,6 +517,7 @@ $lang = [
     'item_discount_must_not_be_negative'            => 'The item discount cannot be negative.',
     'discount_must_not_be_negative'                 => 'The discount cannot be negative.',
     'discount_percent_must_not_exceed_100'          => 'The discount percentage cannot exceed 100.',
+    'invoice_could_not_be_saved'                    => 'The invoice could not be saved. Nothing was changed.',
     'invoice_total_must_not_be_negative'            => 'The discounts exceed the invoice total, so the total would be negative.',
     'item_not_on_document'                          => 'One of the submitted items does not belong to this document.',
     'quarter'                                       => 'Quarter',
