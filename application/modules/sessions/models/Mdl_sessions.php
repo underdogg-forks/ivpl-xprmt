@@ -73,13 +73,19 @@ class Mdl_Sessions extends CI_Model
                     return false;
                 }
 
+                if ( ! function_exists('session_credential_fingerprint')) {
+                    $this->load->helper('ip_security');
+                }
+
                 $session_data = [
-                    'user_type'     => $user->user_type,
-                    'user_id'       => $user->user_id,
-                    'user_name'     => $user->user_name,
-                    'user_email'    => $user->user_email,
-                    'user_company'  => $user->user_company,
-                    'user_language' => $user->user_language ?? 'system',
+                    'user_credential'   => session_credential_fingerprint((string) $user->user_password),
+                    'user_type'         => $user->user_type,
+                    'user_id'           => $user->user_id,
+                    'user_name'         => $user->user_name,
+                    'user_email'        => $user->user_email,
+                    'user_company'      => $user->user_company,
+                    'user_language'     => $user->user_language ?? 'system',
+                    'user_auth_version' => $user->user_auth_version ?? 1,
                 ];
 
                 // Regenerate session ID on login to prevent session fixation attacks.
@@ -91,5 +97,60 @@ class Mdl_Sessions extends CI_Model
         }
 
         return false;
+    }
+
+    /**
+     * Destroy all active sessions for a given user_id. This forces immediate
+     * session invalidation when a user's role or active status is changed,
+     * revoking any stale authenticated sessions.
+     *
+     * This implementation supports only the files session driver (the default
+     * for CodeIgniter 3 and InvoicePlane). Other drivers (database, Redis,
+     * memcached) would require direct backend access and are not invalidated.
+     * The primary per-request re-validation in User_Controller provides the
+     * main defense; this method is an optimization for the files driver.
+     *
+     * @param string|int $user_id
+     */
+    public function invalidate_user_sessions($user_id): void
+    {
+        if ( ! function_exists('sanitize_for_logging')) {
+            $this->load->helper('file_security');
+        }
+
+        $session_path = $this->session->sess_save_path;
+
+        if ( ! is_dir($session_path)) {
+            return;
+        }
+
+        try {
+            $files = scandir($session_path);
+            if ($files === false) {
+                return;
+            }
+
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+
+                $file_path = $session_path . DIRECTORY_SEPARATOR . $file;
+
+                if ( ! is_file($file_path)) {
+                    continue;
+                }
+
+                // Session files are written with session.serialize_handler=php ("key|serialized;"),
+                // which unserialize() cannot parse, so read the user_id entry directly.
+                $raw = (string) @file_get_contents($file_path);
+                if (preg_match('/(?:^|[;}])user_id\|(?:s:\d+:"(\d+)"|i:(\d+));/', $raw, $m)
+                    && ($m[1] !== '' ? $m[1] : ($m[2] ?? '')) === (string) (int) $user_id) {
+                    @unlink($file_path);
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Session invalidation failed for user ' . sanitize_for_logging((int) $user_id));
+        }
     }
 }

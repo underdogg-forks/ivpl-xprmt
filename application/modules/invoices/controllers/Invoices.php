@@ -60,6 +60,17 @@ class Invoices extends Admin_Controller
         $this->mdl_invoices->paginate(site_url('invoices/status/' . $status), $page);
         $invoices = $this->mdl_invoices->result();
 
+        $serviceIds = array_unique(array_filter(array_column($invoices, 'service_id')));
+
+        $this->load->model('services/mdl_services');
+
+        foreach ($invoices as $invoice) {
+            $servicesById          = $this->mdl_services->get_names_by_ids([$invoice->service_id]);
+            $invoice->service_name = $servicesById[$invoice->service_id] ?? null;
+        }
+
+        $services = $this->mdl_services->get()->result_array();
+
         $this->layout->set(
             [
                 'invoices'           => $invoices,
@@ -68,6 +79,7 @@ class Invoices extends Admin_Controller
                 'filter_placeholder' => trans('filter_invoices'),
                 'filter_method'      => 'filter_invoices',
                 'invoice_statuses'   => $this->mdl_invoices->statuses(),
+                'services'           => $services,
             ]
         );
 
@@ -130,6 +142,9 @@ class Invoices extends Admin_Controller
                 'custom_fields/mdl_invoice_custom',
                 'units/mdl_units',
                 'upload/mdl_uploads',
+                'services/mdl_services',
+                'integrations/Merchant_clients_model',
+                'integrations/Merchant_responses_model',
             ]
         );
         $this->load->helper(['custom_values', 'dropzone', 'e-invoice']);
@@ -180,6 +195,11 @@ class Invoices extends Admin_Controller
             }
         }
 
+        $servicesById          = $this->mdl_services->get_names_by_ids([$invoice->service_id]);
+        $invoice->service_name = $servicesById[$invoice->service_id] ?? null;
+
+        $services = $this->mdl_services->get()->result_array();
+
         // Check whether there are payment custom fields
         $payment_cf       = $this->mdl_custom_fields->by_table('ip_payment_custom')->get();
         $payment_cf_exist = ($payment_cf->num_rows() > 0) ? 'yes' : 'no';
@@ -190,6 +210,25 @@ class Invoices extends Admin_Controller
         // Activate 'Change_user' if admin users > 1  (get the sum of user type = 1 & active)
         $change_user = $this->db->from('ip_users')->where(['user_type' => 1, 'user_active' => 1])->select_sum('user_type')->get()->row();
         $change_user = $change_user->user_type > 1;
+
+        // eInvoice provider send/status: enabled providers to offer for sending,
+        // plus the last outbound response (if any) to show its current status.
+        $enabled_merchant_clients = $this->Merchant_clients_model->get_enabled_clients();
+
+        $last_response     = $this->Merchant_responses_model->get_last_response_by_invoice((int) $invoice_id);
+        $einvoice_provider = null;
+        $einvoice_status   = null;
+        if ( ! empty($last_response) && ! empty($last_response['merchant_client_id'])) {
+            $einvoice_provider = $this->Merchant_clients_model->get_by_id((int) $last_response['merchant_client_id']);
+            $einvoice_status   = [
+                'status'      => $last_response['status'] ?? null,
+                'external_id' => $last_response['merchant_response_reference'] ?? null,
+                'message'     => $last_response['merchant_response'] ?? null,
+                'updated_at'  => $last_response['created_at'] ?? null,
+            ];
+        }
+
+        $send_history = $this->Merchant_responses_model->get_outbound_by_invoice((int) $invoice_id);
 
         $this->layout->set(
             [
@@ -202,6 +241,7 @@ class Invoices extends Admin_Controller
                 'invoice_tax_rates' => $this->mdl_invoice_tax_rates->where('invoice_id', $invoice_id)->get()->result(),
                 'units'             => $this->mdl_units->get()->result(),
                 'payment_methods'   => $this->mdl_payment_methods->get()->result(),
+                'services'          => $services,
                 'custom_fields'     => $custom_fields,
                 'custom_values'     => $custom_values,
                 'custom_js_vars'    => [
@@ -209,9 +249,13 @@ class Invoices extends Admin_Controller
                     'currency_symbol_placement' => get_setting('currency_symbol_placement'),
                     'decimal_point'             => get_setting('decimal_point'),
                 ],
-                'invoice_statuses'   => $this->mdl_invoices->statuses(),
-                'payment_cf_exist'   => $payment_cf_exist,
-                'legacy_calculation' => config_item('legacy_calculation'),
+                'invoice_statuses'         => $this->mdl_invoices->statuses(),
+                'payment_cf_exist'         => $payment_cf_exist,
+                'legacy_calculation'       => config_item('legacy_calculation'),
+                'enabled_merchant_clients' => $enabled_merchant_clients,
+                'einvoice_provider'        => $einvoice_provider,
+                'einvoice_status'          => $einvoice_status,
+                'send_history'             => $send_history,
             ]
         );
 
@@ -229,7 +273,7 @@ class Invoices extends Admin_Controller
 
     public function delete($invoice_id): void
     {
-        if ( ! $this->ensure_valid_post_request('invoices/index')) {
+        if ( ! $this->ensure_valid_post_request('invoices/status/all')) {
             return;
         }
 
@@ -257,7 +301,7 @@ class Invoices extends Admin_Controller
         }
 
         // Redirect to invoice index
-        redirect('invoices/index');
+        redirect('invoices/status/all');
     }
 
     /**
@@ -268,9 +312,21 @@ class Invoices extends Admin_Controller
     {
         $this->load->helper(['pdf', 'template']);
 
+        // Security (CSRF): "mark as sent when generating the PDF" mutates invoice
+        // state — it assigns an official invoice number and flips the status to
+        // sent (optionally locking it read-only). That must never fire on a forged
+        // cross-site GET such as <img src=".../invoices/generate_pdf/ID">, so it
+        // only runs when the request carries a valid same-origin CSRF token. The
+        // PDF itself is a safe read and always streams, regardless of the token.
         if (get_setting('mark_invoices_sent_pdf') == 1) {
-            $this->mdl_invoices->generate_invoice_number_if_applicable($invoice_id);
-            $this->mdl_invoices->mark_sent($invoice_id);
+            if ( ! function_exists('verify_get_csrf_token')) {
+                $this->load->helper('security');
+            }
+
+            if (verify_get_csrf_token()) {
+                $this->mdl_invoices->generate_invoice_number_if_applicable($invoice_id);
+                $this->mdl_invoices->mark_sent($invoice_id);
+            }
         }
 
         // Security: Validate PDF template to prevent LFI
@@ -359,6 +415,10 @@ class Invoices extends Admin_Controller
 
     public function recalculate_all_invoices(): void
     {
+        if ( ! $this->ensure_valid_post_request('invoices/index')) {
+            return;
+        }
+
         $this->db->select('invoice_id');
         $invoice_ids = $this->db->get('ip_invoices')->result();
 

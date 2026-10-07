@@ -34,6 +34,12 @@ function mailer_configured(): bool
  * @param        $to
  * @param        $subject
  * @param string $body
+ * @param bool   $attach_pdf       Render and attach the invoice PDF. Defaults to true so
+ *                                 existing callers are unaffected; pass the
+ *                                 email_pdf_attachment setting to skip the render entirely
+ *                                 when the attachment would be dropped anyway. phpmail_send()
+ *                                 re-checks that setting, so passing true never forces an
+ *                                 attachment the admin has turned off.
  *
  * @return bool
  */
@@ -46,7 +52,8 @@ function email_invoice(
     $body,
     $cc = null,
     $bcc = null,
-    $attachments = null
+    $attachments = null,
+    bool $attach_pdf = true
 ) {
     $CI = & get_instance();
 
@@ -59,10 +66,17 @@ function email_invoice(
 
     $db_invoice = $CI->mdl_invoices->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
 
-    if ($db_invoice->sumex_id == null) {
-        $invoice = generate_invoice_pdf($invoice_id, false, $invoice_template);
-    } else {
-        $invoice = generate_invoice_sumex($invoice_id, false, $invoice_template, true);
+    // Generating the PDF is the expensive part of sending (a full mPDF render plus a
+    // file written into the archive folder), and phpmail_send() discards it when
+    // email_pdf_attachment is off. Callers that already know it will be discarded pass
+    // $attach_pdf = false so the render is skipped rather than thrown away.
+    $invoice = null;
+    if ($attach_pdf) {
+        if ($db_invoice->sumex_id == null) {
+            $invoice = generate_invoice_pdf($invoice_id, false, $invoice_template);
+        } else {
+            $invoice = generate_invoice_sumex($invoice_id, false, $invoice_template, true);
+        }
     }
 
     // Need Specific eInvoice filename?
@@ -72,7 +86,12 @@ function email_invoice(
         $_SERVER['CIIname'] = parse_template($db_invoice, $_SERVER['CIIname']);
     }
 
-    $message = parse_template($db_invoice, $body);
+    // $escape_values = true: the substituted fields (client_name, custom field
+    // values, etc.) are untrusted and this body is sent as HTML (phpmail_send()
+    // always calls isHTML()) — escape them so they can't inject markup into the
+    // admin-composed template. $body itself is untouched, only the {{{...}}}
+    // substitutions are escaped.
+    $message = parse_template($db_invoice, $body, true);
     $subject = parse_template($db_invoice, $subject);
     $cc      = parse_template($db_invoice, $cc);
     $bcc     = parse_template($db_invoice, $bcc);
@@ -137,7 +156,10 @@ function email_quote(
 
     $db_quote = $CI->mdl_quotes->where('ip_quotes.quote_id', $quote_id)->get()->row();
 
-    $message = parse_template($db_quote, $body);
+    // See the matching comment in email_invoice() above: this body is sent as
+    // HTML, so the substituted values (untrusted) are escaped; $body itself
+    // (the admin-composed template) is untouched.
+    $message = parse_template($db_quote, $body, true);
     $subject = parse_template($db_quote, $subject);
     $cc      = parse_template($db_quote, $cc);
     $bcc     = parse_template($db_quote, $bcc);
@@ -177,9 +199,6 @@ function email_quote(
  */
 function email_quote_status(string $quote_id, $status)
 {
-    ini_set('display_errors', 'on');
-    error_reporting(E_ALL);
-
     if ( ! mailer_configured()) {
         return false;
     }
@@ -191,19 +210,25 @@ function email_quote_status(string $quote_id, $status)
     $index    = env('REMOVE_INDEXPHP', true) ? '' : 'index.php';
     $base_url = base_url('/' . $index . '/quotes/view/' . $quote_id);
 
+    // This email is sent as HTML (phpmailer_helper.php sets isHTML()); the client name is
+    // user-controlled (set by an admin, but reflected via a guest-triggered action here), so
+    // it must be escaped before landing in the subject/body just like the link.
+    $client_name = htmlspecialchars((string) $quote->client_name, ENT_QUOTES, 'UTF-8');
+    $safe_url    = htmlspecialchars($base_url, ENT_QUOTES, 'UTF-8');
+
     $user_email = $quote->user_email;
     $subject    = sprintf(
         trans('quote_status_email_subject'),
-        $quote->client_name,
+        $client_name,
         mb_strtolower(lang($status)),
         $quote->quote_number
     );
     $body = sprintf(
         nl2br(trans('quote_status_email_body')),
-        $quote->client_name,
+        $client_name,
         mb_strtolower(lang($status)),
         $quote->quote_number,
-        '<a href="' . $base_url . '">' . $base_url . '</a>'
+        '<a href="' . $safe_url . '">' . $safe_url . '</a>'
     );
 
     return phpmail_send($user_email, $user_email, $subject, $body);

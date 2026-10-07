@@ -91,6 +91,7 @@ if ($invoice->invoice_status_id == 1 && ! $invoice->creditinvoice_parent_id) {
                     invoice_id: <?php echo $invoice_id; ?>,
                     invoice_number: $('#invoice_number').val(),
                     invoice_date_created: $('#invoice_date_created').val(),
+                    invoice_time_created: '<?php echo date('H:i:s'); ?>',
                     invoice_date_due: $('#invoice_date_due').val(),
                     invoice_status_id: $('#invoice_status_id').val(),
                     invoice_password: $('#invoice_password').val(),
@@ -100,6 +101,7 @@ if ($invoice->invoice_status_id == 1 && ! $invoice->creditinvoice_parent_id) {
                     invoice_terms: $('#invoice_terms').val(),
                     custom: $('input[name^=custom],select[name^=custom]').serializeArray(),
                     payment_method: $('#payment_method').val(),
+                    service_id: $('#service_id').val(),
                 },
                 function (data) {
                     var response = json_parse(data, <?php echo (int) IP_DEBUG; ?>);
@@ -121,7 +123,7 @@ if ($invoice->invoice_status_id == 1 && ! $invoice->creditinvoice_parent_id) {
         });
 
         $('#btn_generate_pdf').click(function () {
-            window.open('<?php echo site_url('invoices/generate_pdf/' . $invoice_id); ?>', '_blank');
+            window.open('<?php echo site_url('invoices/generate_pdf/' . $invoice_id) . '?' . _csrf_query(); ?>', '_blank');
         });
 
         $('#btn_generate_xml').click(function () {
@@ -319,6 +321,7 @@ if ($invoice->invoice_balance != 0) {
 <?php
 // eInvoice & user fields OK: Show download XML Option
 if ($einvoice->user) {
+    $einvoice_provider ??= null;
     ?>
                 <li>
                     <a href="#" id="btn_generate_xml"
@@ -326,6 +329,24 @@ if ($einvoice->user) {
                         <i class="fa fa-file-code-o fa-margin"></i>
                         <?php _trans('download_xml'); ?>
                     </a>
+                </li>
+<?php if ( ! empty($einvoice_provider) && ! empty($einvoice_provider['id'])) : ?>
+                <li>
+                    <form method="post"
+                          action="<?php echo site_url('integrations/status/' . (int) $invoice_id . '/' . (int) $einvoice_provider['id']); ?>">
+                        <?php _csrf_field(); ?>
+                        <button type="submit" class="btn btn-link">
+                            <i class="fa fa-refresh"></i>
+                            <?php _trans('check_status'); ?>
+                        </button>
+                    </form>
+                </li>
+<?php endif; ?>
+                <li>
+                      <a href="<?php echo site_url('integrations/history/' . $invoice_id); ?>">
+                         <i class="fa fa-history"></i>
+                         <?php _trans('view_history'); ?>
+                     </a>
                 </li>
 <?php
 }
@@ -336,7 +357,47 @@ if ($einvoice->user) {
                         <?php _trans('send_email'); ?>
                     </a>
                 </li>
+<?php
+// eInvoice & user fields OK: Show Send via provider
+if ($einvoice->user) {
+    ?>
                 <li class="divider"></li>
+<?php
+    if ( ! empty($enabled_merchant_clients)) {
+        foreach ($enabled_merchant_clients as $mc) {
+            $needs_peppol = in_array($mc['merchant_type'], ['letspeppol', 'superpdp'], true);
+            $has_id       = ! empty($invoice->client_peppol_id);
+            if ($needs_peppol && ! $has_id) {
+                $lst = 'class="disabled" data-toggle="tooltip" title="' . trans('peppol_id_missing') . '"';
+            } else {
+                $lst = 'class="active"';
+            }
+            ?>
+                <li <?php echo $lst; ?>>
+<?php if ($needs_peppol && ! $has_id) : ?>
+                    <a href="javascript:void(0);">
+                        <i class="fa fa-paper-plane fa-margin"></i>
+                        <?php _trans('send_via_integration'); ?> <?php _htmlsc($mc['label']); ?>
+                    </a>
+<?php else : ?>
+                    <form method="post"
+                          action="<?php echo site_url('integrations/send_invoice/' . (int) $invoice_id . '/' . (int) $mc['id']); ?>">
+                        <?php _csrf_field(); ?>
+                        <button type="submit" class="btn btn-link">
+                            <i class="fa fa-paper-plane fa-margin"></i>
+                            <?php _trans('send_via_integration'); ?> <?php _htmlsc($mc['label']); ?>
+                        </button>
+                    </form>
+<?php endif; ?>
+                </li>
+<?php
+        }
+        ?>
+                <li class="divider"></li>
+<?php
+    }
+} // fi: eInvoice & user fields OK (provider)
+?>
                 <li>
                     <a href="#" id="btn_create_recurring"
                        data-invoice-id="<?php echo $invoice_id; ?>">
@@ -421,6 +482,23 @@ if ($invoice->invoice_status_id == 1 && ! $invoice->creditinvoice_parent_id) {
 } // End if
 ?>
                     </h2>
+<?php if (get_setting('enable_services', 0) == 1) : ?>
+                    <div class="form-group">
+                        <label for="service_id"><?php _trans('service'); ?></label>
+                        <select name="service_id" id="service_id" class="form-control input-sm simple-select"
+                                data-minimum-results-for-search="Infinity">
+                            <option value="0"><?php _trans('select_service'); ?></option>
+<?php foreach ($services as $service) : ?>
+<?php if ( ! empty($service['service_name'])) : ?>
+                            <option value="<?php echo html_escape($service['service_id']); ?>"
+                                <?php echo (int) $service['service_id'] === (int) $invoice->service_id ? 'selected' : ''; ?>>
+                                <?php echo html_escape($service['service_name']); ?>
+                            </option>
+<?php endif; ?>
+<?php endforeach; ?>
+                        </select>
+                    </div>
+<?php endif; ?>
                     <br>
                     <div class="client-address">
                         <?php $this->layout->load_view('clients/partial_client_address', ['client' => $invoice]); ?>
@@ -491,7 +569,7 @@ if ($einvoice->name) {
                                     <label for="invoice_number"><?php _trans('invoice'); ?> #</label>
                                     <input type="text" id="invoice_number" class="form-control"
 <?php if ($invoice->invoice_number) : ?>
-                                           value="<?php echo htmlsc($invoice->invoice_number); ?>"
+                                           value="<?php _htmlsc($invoice->invoice_number); ?>"
 <?php else : ?>
                                            placeholder="<?php _trans('not_set'); ?>"
 <?php endif; ?>
@@ -563,7 +641,7 @@ foreach ($payment_methods as $payment_method) {
     ?>
                                         <option <?php check_select($invoice->payment_method, $payment_method->payment_method_id) ?>
                                             value="<?php echo $payment_method->payment_method_id; ?>">
-                                            <?php echo htmlsc($payment_method->payment_method_name); ?>
+                                            <?php _htmlsc($payment_method->payment_method_name); ?>
                                         </option>
 <?php
 } // End foreach
@@ -615,6 +693,54 @@ if ($invoice->invoice_status_id != 1) {
 
                         </div>
                     </div>
+
+<?php if ( ! empty($einvoice_status)) : ?>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <?php _trans('electronic_invoicing'); ?>
+                        </div>
+
+                        <div class="panel-body">
+                            <p>
+                                <strong><?php _trans('status'); ?>:</strong>
+                                <?php echo htmlsc($einvoice_status['status'] ?? trans('not_sent')); ?>
+                            </p>
+
+                            <?php if ( ! empty($einvoice_status['external_id'])) : ?>
+                                <p>
+                                    <strong>External ID:</strong>
+                                    <?php echo htmlsc($einvoice_status['external_id']); ?>
+                                </p>
+                            <?php endif; ?>
+
+                            <?php if ( ! empty($einvoice_status['message'])) : ?>
+                                <p>
+                                    <strong><?php _trans('message'); ?>:</strong>
+                                    <?php echo htmlsc($einvoice_status['message']); ?>
+                                </p>
+                            <?php endif; ?>
+
+                            <?php if ( ! empty($einvoice_status['updated_at'])) : ?>
+                                <p>
+                                    <strong><?php _trans('last_update'); ?>:</strong>
+                                    <?php echo htmlsc($einvoice_status['updated_at']); ?>
+                                </p>
+                            <?php endif; ?>
+
+<?php if ( ! empty($einvoice_provider['id'])) : ?>
+                            <form method="post"
+                                  action="<?php echo site_url('integrations/status/' . (int) $invoice_id . '/' . (int) $einvoice_provider['id']); ?>">
+                                <?php _csrf_field(); ?>
+                                <button type="submit" class="btn btn-default btn-sm">
+                                    <i class="fa fa-refresh"></i>
+                                    <?php _trans('check_status'); ?>
+                                </button>
+                            </form>
+<?php endif; ?>
+                        </div>
+                    </div>
+<?php endif; ?>
+
                 </div>
 
             </div>
@@ -682,6 +808,50 @@ if ($default_custom) {
         </div>
     </div>
 </div>
+
+<?php if ( ! empty($send_history)) : ?>
+<div class="row">
+    <div class="col-xs-12">
+        <div class="panel panel-default">
+            <div class="panel-heading"><?php _trans('send_history'); ?></div>
+            <table class="table table-condensed no-margin">
+                <thead>
+                <tr>
+                    <th><?php _trans('date'); ?></th>
+                    <th><?php _trans('provider'); ?></th>
+                    <th><?php _trans('status'); ?></th>
+                    <th><?php _trans('peppol_participant_id'); ?></th>
+                    <th><?php _trans('external_id'); ?></th>
+                    <th><?php _trans('http_code'); ?></th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($send_history as $row) : ?>
+                    <tr>
+                        <td><?php _htmlsc($row['created_at'] ?? $row['merchant_response_date']); ?></td>
+                        <td><?php _htmlsc($row['merchant_response_driver']); ?></td>
+                        <td>
+                            <?php
+                            $s = $row['status'] ?? '';
+                    $badge     = match(true) {
+                        in_array($s, ['sent', 'accepted', 'delivered'], true) => 'success',
+                        in_array($s, ['error', 'rejected', 'failed'], true)   => 'danger',
+                        default                                               => 'warning',
+                    };
+                    ?>
+                            <span class="label label-<?php echo $badge; ?>"><?php _htmlsc($s); ?></span>
+                        </td>
+                        <td><?php _htmlsc($row['peppol_participant_id'] ?? ''); ?></td>
+                        <td><?php _htmlsc($row['merchant_response_reference']); ?></td>
+                        <td><?php _htmlsc($row['http_code']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php
 _dropzone_script($invoice->invoice_url_key, $invoice->client_id);

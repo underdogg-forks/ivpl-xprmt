@@ -44,7 +44,14 @@ $quote_idx                    = 1;
                 <td>
                     <a href="<?php echo site_url('clients/view/' . $quote->client_id); ?>"
                        title="<?php _trans('view_client'); ?>">
-                        <?php _htmlsc(format_client($quote)); ?>
+                        <?php
+                        _htmlsc(format_client($quote));
+                if (get_setting('enable_services') == 1 && $quote->service_name) {
+                    echo '&nbsp;(';
+                    _htmlsc($quote->service_name);
+                    echo ')';
+                }
+                ?>
                     </a>
                 </td>
                 <td class="amount last">
@@ -63,7 +70,7 @@ $quote_idx                    = 1;
                                 </a>
                             </li>
                             <li>
-                                <a href="<?php echo site_url('quotes/generate_pdf/' . $quote->quote_id); ?>"
+                                <a href="<?php echo site_url('quotes/generate_pdf/' . $quote->quote_id) . '?' . _csrf_query(); ?>"
                                    target="_blank">
                                     <i class="fa fa-print fa-margin"></i> <?php _trans('download_pdf'); ?>
                                 </a>
