@@ -74,6 +74,16 @@ class Mdl_Invoice_Amounts extends CI_Model
             $invoice_total         = $invoice_item_subtotal + $invoice_amounts->invoice_item_tax_total;
         }
 
+        // Defence in depth: only a credit invoice may total less than zero. Persisting a negative
+        // total for a regular invoice would show the customer a bill the company owes them, so keep
+        // the last good amounts and leave a trace instead.
+        if ($invoice_total < 0 && ! $this->is_credit_invoice($invoice_id)) {
+            $this->load->helper('file_security');
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Refused to store a negative total (' . sanitize_for_logging((string) $invoice_total) . ') for the non-credit invoice ' . sanitize_for_logging((string) $invoice_id));
+
+            return;
+        }
+
         // Get the amount already paid
         $query = $this->db->query('
           SELECT SUM(payment_amount) AS invoice_paid
@@ -439,5 +449,18 @@ class Mdl_Invoice_Amounts extends CI_Model
         }
 
         return $return;
+    }
+
+    /**
+     * A credit invoice is marked by its negative sign, or by the parent invoice it credits (which
+     * is recorded before its items are copied, i.e. before any amounts exist to carry the sign).
+     */
+    private function is_credit_invoice($invoice_id): bool
+    {
+        $amounts = $this->db->select('invoice_sign')->where('invoice_id', $invoice_id)->get('ip_invoice_amounts')->row();
+        $invoice = $this->db->select('creditinvoice_parent_id')->where('invoice_id', $invoice_id)->get('ip_invoices')->row();
+
+        return ($amounts !== null && (int) $amounts->invoice_sign < 0)
+            || ($invoice !== null && (int) $invoice->creditinvoice_parent_id > 0);
     }
 }
