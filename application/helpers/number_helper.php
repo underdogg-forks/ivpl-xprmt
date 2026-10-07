@@ -20,11 +20,15 @@ if ( ! defined('BASEPATH')) {
  */
 function format_currency($amount): string
 {
+    // Security: currency_symbol is admin-controlled free text, and this function's
+    // output is echoed unescaped by the public guest invoice/quote templates.
+    // Neutralise HTML here so this single choke-point covers guest, admin and PDF
+    // output (CWE-79).
     $CI                        = & get_instance();
-    $currency_symbol           = $CI->mdl_settings->setting('currency_symbol');
+    $currency_symbol           = htmlsc($CI->mdl_settings->setting('currency_symbol'));
     $currency_symbol_placement = $CI->mdl_settings->setting('currency_symbol_placement');
-    $thousands_separator       = $CI->mdl_settings->setting('thousands_separator');
-    $decimal_point             = $CI->mdl_settings->setting('decimal_point');
+    $thousands_separator       = htmlsc($CI->mdl_settings->setting('thousands_separator'));
+    $decimal_point             = htmlsc($CI->mdl_settings->setting('decimal_point'));
     $decimals                  = $decimal_point ? (int) $CI->mdl_settings->setting('tax_rate_decimal_places') : 0;
     $amount                    = (float) (is_numeric($amount) ? $amount : standardize_amount($amount)); // prevent null format
 
@@ -49,8 +53,8 @@ function format_amount($amount = null)
 {
     if ($amount) {
         $CI                  = & get_instance();
-        $thousands_separator = $CI->mdl_settings->setting('thousands_separator');
-        $decimal_point       = $CI->mdl_settings->setting('decimal_point');
+        $thousands_separator = htmlsc($CI->mdl_settings->setting('thousands_separator'));
+        $decimal_point       = htmlsc($CI->mdl_settings->setting('decimal_point'));
         $decimals            = $decimal_point ? (int) $CI->mdl_settings->setting('tax_rate_decimal_places') : 0;
         $amount              = (float) (is_numeric($amount) ? $amount : standardize_amount($amount));
 
@@ -68,8 +72,8 @@ function format_quantity($amount = null)
 {
     if ($amount) {
         $CI                  = & get_instance();
-        $thousands_separator = $CI->mdl_settings->setting('thousands_separator');
-        $decimal_point       = $CI->mdl_settings->setting('decimal_point');
+        $thousands_separator = htmlsc($CI->mdl_settings->setting('thousands_separator'));
+        $decimal_point       = htmlsc($CI->mdl_settings->setting('decimal_point'));
         $decimals            = $decimal_point ? (int) $CI->mdl_settings->setting('default_item_decimals') : 0;
         $amount              = is_numeric($amount) ? $amount : standardize_amount($amount);
 

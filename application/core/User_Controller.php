@@ -30,5 +30,75 @@ class User_Controller extends Base_Controller
             session_destroy();
             redirect('sessions/login');
         }
+
+        // The session-based check above trusts the snapshot taken at login and
+        // does not notice a role change (e.g. an administrator downgraded to a
+        // guest) or a deactivated account applied by another administrator. To
+        // enforce privilege revocation at the point it is expected to take
+        // effect, re-validate the required role against the authoritative
+        // ip_users record on every request.
+        if ($required_key === 'user_type') {
+            $this->revalidate_user_type((string) $required_val);
+        }
+    }
+
+    /**
+     * Re-read the acting user's role from the database and revoke the session
+     * when it no longer matches the required value or the account is inactive.
+     */
+    private function revalidate_user_type(string $required_val): void
+    {
+        $user_id = $this->session->userdata('user_id');
+
+        $current = null;
+        if ($user_id) {
+            $current = $this->db
+                ->select('user_type, user_active, user_password, user_auth_version')
+                ->where('user_id', $user_id)
+                ->get('ip_users')
+                ->row();
+        }
+
+        if ( ! $current
+            || (int) $current->user_active !== 1
+            || (string) $current->user_type !== $required_val
+        ) {
+            session_destroy();
+            redirect('sessions/login');
+
+            return;
+        }
+
+        // Verify auth_version matches to detect password changes and revoke stale sessions
+        $session_auth_version = (int) $this->session->userdata('user_auth_version');
+        $current_auth_version = (int) $current->user_auth_version;
+        if ($session_auth_version !== $current_auth_version) {
+            session_destroy();
+            redirect('sessions/login');
+
+            return;
+        }
+
+        // A password change or reset ends every session created with the old password.
+        if ( ! function_exists('session_credential_fingerprint')) {
+            $this->load->helper('ip_security');
+        }
+        $fingerprint = session_credential_fingerprint((string) $current->user_password);
+        $session_fp  = (string) $this->session->userdata('user_credential');
+
+        if ($session_fp === '') {
+            // Session created before fingerprints existed: bind it to the current password once.
+            $this->session->set_userdata('user_credential', $fingerprint);
+        } elseif ( ! hash_equals($fingerprint, $session_fp)) {
+            session_destroy();
+            redirect('sessions/login');
+
+            return;
+        }
+
+        // Keep the session role in sync with the authoritative database value.
+        if ((string) $this->session->userdata('user_type') !== (string) $current->user_type) {
+            $this->session->set_userdata('user_type', $current->user_type);
+        }
     }
 }

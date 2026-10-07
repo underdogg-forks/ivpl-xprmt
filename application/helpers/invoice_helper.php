@@ -52,7 +52,7 @@ function invoice_logo_pdf(): string
             return '';
         }
 
-        return '<img src="' . $absolutePath . '/uploads/' . $logo_file . '" id="invoice-logo">';
+        return '<img src="' . html_escape($absolutePath . '/uploads/' . $logo_file) . '" id="invoice-logo">';
     }
 
     return '';
@@ -136,22 +136,26 @@ function invoice_qrcode($invoice_id, $width = 64): string
     ) {
         $invoice = $CI->mdl_invoices->get_by_id($invoice_id);
 
-        if($invoice->client_country === 'HR') {
-            $CI->load->library('PDF417Barcode', [ 'invoice' => $invoice ]);
+        if ($invoice->client_country === 'HR') {
+            $CI->load->library('PDF417Barcode', ['invoice' => $invoice]);
             $pdf417barcode_data_uri = $CI->pdf417barcode->generate();
+
             return '<img src="' . $pdf417barcode_data_uri . '" alt="PDF 417 Barcode" id="invoice-pdf417-barcode">';
         }
 
-        $CI->load->library('QrCode', ['invoice' => $invoice]);
-        $qrcode_data_uri = $CI->qrcode->generate();
-        if ((float)$invoice->invoice_balance) {
-            $CI->load->library('QrCode', ['invoice' => $invoice]);
-            $qrcode_data_uri = $CI->qrcode->generate();
+        if ((float) $invoice->invoice_balance) {
+            // #1450: Use direct instantiation instead of CI->load->library() which caches the object.
+            // When generating multiple invoices in one request (cron, bulk operations),
+            // the cached QrCode instance would reuse the first invoice's data for all subsequent invoices.
+            // Direct instantiation ensures each invoice gets its own QrCode instance with correct data.
+            require_once APPPATH . 'libraries/QrCode.php';
+            $qrcode          = new QrCode(['invoice' => $invoice]);
+            $qrcode_data_uri = $qrcode->generate();
 
-            $numeric_width = (int)$width;
+            $numeric_width = (int) $width;
             $width = '';
             if ($numeric_width > 0) {
-                $width = ' width="' . (string)$numeric_width . '"';
+                $width = ' width="' . (string) $numeric_width . '"';
             }
             return '<img src="' . $qrcode_data_uri . '"' . $width . ' alt="QR Code" id="invoice-qr-code">';
         }
