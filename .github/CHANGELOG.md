@@ -29,7 +29,8 @@ record *why* and *how*.
   1.7.3). That index does not exist on installations still running the released 1.7.2; this fix
   does not add it retroactively — it only closes the admin-side balance race. Reported by
   [@hariprakash6969-create](https://github.com/hariprakash6969-create).
-  [#4](https://github.com/underdogg-forks/ivpl-xprmt/pull/4)
+  [#4](https://github.com/underdogg-forks/ivpl-xprmt/pull/4),
+  [#1756](https://github.com/InvoicePlane/InvoicePlane/pull/1756)
 
 **nginx and Apache served private files** (GHSA-qq8q-gf24-576m) — Reported by [@nirtem](https://github.com/nirtem); Fixed by [@DylanUnderwood](https://github.com/DylanUnderwood).
 
@@ -179,14 +180,31 @@ record *why* and *how*.
   whitespace-only `SESS_SAVE_PATH` to `sys_get_temp_dir()`, exactly matching an unset one; an
   explicit path is unchanged.
 
+- **PayPal `PENDING` capture never wrote its audit row:** the `PENDING` branch added with the fix that stopped recording pending captures as settled payments read `$capture_data` and `$capture_id`, which are only defined inside the `COMPLETED` branch. The invoice id was always empty, so the "pending – awaiting settlement" merchant-response row was never written and PHP raised undefined-variable warnings. The branch now reads the capture itself. No payment is recorded for a pending capture, as before. Thanks to [@santhoshdodo2721](https://github.com/santhoshdodo2721) for responsible disclosure.
+
 ---
 
 ## [1.7.3] - 2026-08-29
 
+### Thank you
+
+Thanks to [@0xMoError-22](https://github.com/0xMoError-22) and
+[@RekhanshRajput](https://github.com/RekhanshRajput) for responsibly disclosing the issues
+resolved in this release.
+
+### Security Vulnerability Summary
+
+| Vulnerability | Severity | Security Advisory (GHSA) | Reported By | Fixed In |
+|---|---|---|---|---|
+| Horizontal privilege escalation via email takeover in `Users::form()` | High | [Incomplete Authorization Remediation in Users::form() Enables Primary Administrator Account Takeover](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-77hm-22wp-96wp) | [@0xMoError-22](https://github.com/0xMoError-22) | [#1689](https://github.com/InvoicePlane/InvoicePlane/pull/1689) |
+| Primary-administrator role downgrade via `user_type` (privilege destruction, CWE-269) | High | Same root cause as [GHSA-77hm-22wp-96wp](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-77hm-22wp-96wp) | [@0xMoError-22](https://github.com/0xMoError-22) | [#1697](https://github.com/InvoicePlane/InvoicePlane/pull/1697) |
+| Negative item quantity or price accepted when saving invoices and quotes | — | [GHSA-jvcw-w8pr-j92c](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-jvcw-w8pr-j92c) | [@RekhanshRajput](https://github.com/RekhanshRajput) | [#1758](https://github.com/InvoicePlane/InvoicePlane/pull/1758) |
+
 ### Security fixes
 
-- **Horizontal privilege escalation via email takeover:** PR #1638 fixed password-change authorization (IDOR), but left the email field unprotected. A secondary administrator (`user_type=1`, `user_id != 1`) could edit the primary administrator's email address through the user form, then use password recovery to take over the account. `Users::form()` now validates that only the primary administrator can edit `user_id=1`, and `user_email` is included in `PRIMARY_ADMIN_LOCKED_FIELDS` (defense-in-depth). Thanks to [@0xMoError-22](https://github.com/0xMoError-22) for the responsible disclosure.
-- **Primary-administrator role downgrade via `user_type` (privilege destruction, CWE-269):** the same missing object-level authorization in `Users::form()` also let a secondary administrator rewrite the primary administrator's `user_type` to `2` (guest / read-only) — destroying the root account's privilege, revoking its sessions, and locking the legitimate owner out. The `user_id=1` isolation guard added for the email fix already closes this vector at the controller. This release hardens it further: the `Mdl_Users::save()` data layer now uses `PRIMARY_ADMIN_LOCKED_FIELDS` to strip privilege- and identity-bearing fields (`user_type`, `user_active`, `user_psalt`, `user_email`, `user_password`) from any write targeting `user_id=1` that does not originate from the primary administrator's own session, and the scattered `user_id == 1` checks in `Users::form()`, `Users::delete()` and `Users::change_password()` are consolidated behind a single `Mdl_Users::is_primary_administrator()` predicate so future mutation paths cannot forget the boundary. Thanks to [@0xMoError-22](https://github.com/0xMoError-22) for the responsible disclosure.
+- [#1689](https://github.com/InvoicePlane/InvoicePlane/pull/1689) — **Horizontal privilege escalation via email takeover:** PR #1638 fixed password-change authorization (IDOR), but left the email field unprotected. A secondary administrator (`user_type=1`, `user_id != 1`) could edit the primary administrator's email address through the user form, then use password recovery to take over the account. `Users::form()` now validates that only the primary administrator can edit `user_id=1`, and `user_email` is included in `PRIMARY_ADMIN_LOCKED_FIELDS` (defense-in-depth). Thanks to [@0xMoError-22](https://github.com/0xMoError-22) for the responsible disclosure.
+- [#1697](https://github.com/InvoicePlane/InvoicePlane/pull/1697) — **Primary-administrator role downgrade via `user_type` (privilege destruction, CWE-269):** the same missing object-level authorization in `Users::form()` also let a secondary administrator rewrite the primary administrator's `user_type` to `2` (guest / read-only) — destroying the root account's privilege, revoking its sessions, and locking the legitimate owner out. The `user_id=1` isolation guard added for the email fix already closes this vector at the controller. This release hardens it further: the `Mdl_Users::save()` data layer now uses `PRIMARY_ADMIN_LOCKED_FIELDS` to strip privilege- and identity-bearing fields (`user_type`, `user_active`, `user_psalt`, `user_email`, `user_password`) from any write targeting `user_id=1` that does not originate from the primary administrator's own session, and the scattered `user_id == 1` checks in `Users::form()`, `Users::delete()` and `Users::change_password()` are consolidated behind a single `Mdl_Users::is_primary_administrator()` predicate so future mutation paths cannot forget the boundary. Thanks to [@0xMoError-22](https://github.com/0xMoError-22) for the responsible disclosure.
+- [#1758](https://github.com/InvoicePlane/InvoicePlane/pull/1758) — **Negative item amounts accepted when saving invoices and quotes (GHSA-jvcw-w8pr-j92c):** `Invoices/Ajax::save()` and `Quotes/Ajax::save()` passed quantity, price and discounts through `standardize_amount()`, which does no sign check, so negative values were stored and summed. A double negative (quantity -3, price -150) inflated a total of 300 to 750, and a hidden negative line (quantity -10, price 50) drove it to -200; the wrong total reached the guest invoice page, the PDF and the e-invoice XML. Quantity, price, item discount and the global discount are now validated before anything is written (credit invoices keep their negative quantities by design), an `item_id` that does not exist or belongs to another document is rejected instead of silently updating nothing, a quote discount above 100% is rejected, and `Mdl_invoice_amounts::calculate()` refuses to store a negative total for a regular invoice. An invoice save is now all-or-nothing: it rolls back the items and header when validation, a database write or the total check fails, where earlier lines used to stay saved. Reported by [@RekhanshRajput](https://github.com/RekhanshRajput).
 
 ### Documentation / configuration
 
