@@ -586,6 +586,54 @@ class StripeFlowTest extends AbstractTestCase
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'pi_not_visible']);
     }
 
+    #[Test]
+    public function it_rejects_a_malformed_checkout_session_id_before_calling_stripe(): void
+    {
+        /* Arrange: a request-capture file that stays empty only if the Stripe SDK is
+         * never invoked. A real Checkout Session id is "cs_" + alphanumerics;
+         * "cs_evil.payload:1" is built from characters CodeIgniter's own URI filter
+         * permits (so it reaches the controller) but that the id regex does not, so
+         * this exercises our guard rather than CI3's router. This id previously
+         * reached Stripe::checkout->sessions->retrieve() and threw, which the old
+         * finally block then mishandled by dereferencing an uninitialized $session
+         * and $invoice (GHSA-r382-4chp-xj3p). */
+        $captureFile = tempnam(sys_get_temp_dir(), 'stripe-request-');
+        self::assertNotFalse($captureFile);
+        $this->captureFiles[] = $captureFile;
+
+        $this->withEnvironment([
+            'STRIPE_MOCK_RESPONSES'       => json_encode([]),
+            'STRIPE_MOCK_REQUEST_CAPTURE' => $captureFile,
+        ]);
+        $merchantCountBefore = $this->databaseCount('ip_merchant_responses');
+        $paymentCountBefore  = $this->databaseCount('ip_payments');
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_evil.payload:1');
+
+        /* Assert: Business Logic (A) — no outbound call to Stripe at all */
+        self::assertSame('', file_get_contents($captureFile), 'A malformed checkout session id must never reach the Stripe SDK.');
+
+        /* Assert: Error Semantics (C) — a clean redirect, never a 500 from a crash */
+        self::assertTrue($response->isRedirect());
+        self::assertSame('Payment system error detected! If this message persists, please contact us.', $response->sessionValue('alert_error'));
+
+        /* Assert: State Isolation (B) — nothing can be attributed to an unresolved invoice */
+        $this->assertSame($merchantCountBefore, $this->databaseCount('ip_merchant_responses'));
+        $this->assertSame($paymentCountBefore, $this->databaseCount('ip_payments'));
+
+        /* Assert: Boundary Cases (F) — a too-short id is rejected the same way */
+        $response2 = $this->get('/guest/gateways/stripe/callback/cs_short');
+        self::assertTrue($response2->isRedirect());
+        self::assertSame('', file_get_contents($captureFile));
+        $this->assertSame($merchantCountBefore, $this->databaseCount('ip_merchant_responses'));
+
+        /* Assert: Idempotency (E) */
+        $response3 = $this->get('/guest/gateways/stripe/callback/cs_evil.payload:1');
+        self::assertTrue($response3->isRedirect());
+        self::assertSame('', file_get_contents($captureFile));
+    }
+
     protected function seedPayableInvoice(array $overrides = [], array $amountOverrides = []): int
     {
         $clientId = $this->seedClient();
