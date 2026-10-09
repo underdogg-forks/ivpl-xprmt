@@ -22,6 +22,7 @@
 #   env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
 #     php .sandbox-tools/punit/vendor/bin/phpunit --bootstrap tests/bootstrap.php
 #   php .sandbox-tools/phpstan.phar analyse --memory-limit=1G
+#   php .sandbox-tools/ppint/vendor/bin/pint
 #
 # (DB_* must stay unset for the phpunit *parent* process — see the "MariaDB test
 # database in the sandbox" gotcha in CLAUDE.md. That's unrelated to this script;
@@ -34,6 +35,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." >/dev/null 2>&1 && pwd)"
 TOOLS="$REPO/.sandbox-tools"
 COMPOSER_HOME="$TOOLS/composer-home"
 PUNIT="$TOOLS/punit"
+PPINT="$TOOLS/ppint"
 
 mkdir -p "$TOOLS" "$COMPOSER_HOME"
 printf '{}\n' > "$COMPOSER_HOME/auth.json"
@@ -81,6 +83,24 @@ else
     echo "==> phpstan.phar already present, skipping"
 fi
 
+# 5. Pint in its own throwaway sibling project, same reason as PUNIT: keeping it
+#    out of $REPO/vendor means this step can't collide with the --no-dev runtime
+#    install from step 1. Unlike phpstan, laravel/pint has no standalone phar
+#    release, so Composer (--prefer-source, same blocked-host dodge) is the only
+#    path. Pinned to the same range composer.json's require-dev declares.
+if [ ! -x "$PPINT/vendor/bin/pint" ]; then
+    echo "==> installing Pint into $PPINT (throwaway, --prefer-source)"
+    mkdir -p "$PPINT"
+    (cd "$PPINT" && timeout 300 composer require --prefer-source --dev "laravel/pint:^1.13.0,<1.17" \
+        --ignore-platform-req=ext-bcmath) || {
+        echo "!! Pint install timed out or failed. Re-run this script — it's idempotent" >&2
+        echo "!! and will resume from here. See CLAUDE.md 'Hard-blocked hosts' if it keeps failing." >&2
+        exit 1
+    }
+else
+    echo "==> Pint already installed at $PPINT, skipping"
+fi
+
 cat <<EOF
 
 ==> Ready. Run tests with:
@@ -89,6 +109,9 @@ cat <<EOF
 
 ==> Run static analysis with:
     php "$TOOLS/phpstan.phar" analyse --memory-limit=1G
+
+==> Run code style checks with:
+    php "$PPINT/vendor/bin/pint"
 
 (Provision the sandbox MariaDB first if you haven't: bash tests/Support/sandbox-mariadb.sh)
 EOF
