@@ -450,10 +450,11 @@ class PaypalFlowTest extends AbstractTestCase
         $invoiceId          = $this->seedPayableInvoice([], ['invoice_balance' => '0.00']);
         $paymentCountBefore = $this->databaseCount('ip_payments');
 
+        // No captureResponse queued: preflight itself rejects the already-paid invoice,
+        // so captureOrder() is never reached.
         $this->mockPaypal([
             $this->authResponse(),
             $this->orderDetailsResponse($invoiceId, '50.00'),
-            $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-ALREADY-PAID']),
         ]);
 
         /* Act */
@@ -486,10 +487,11 @@ class PaypalFlowTest extends AbstractTestCase
         $invoiceId          = $this->seedPayableInvoice();
         $paymentCountBefore = $this->databaseCount('ip_payments');
 
+        // No captureResponse queued: preflight itself rejects the currency mismatch,
+        // so captureOrder() is never reached.
         $this->mockPaypal([
             $this->authResponse(),
             $this->orderDetailsResponse($invoiceId, '50.00', 'USD'),
-            $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-BAD-CCY', 'currency' => 'USD']),
         ]);
 
         /* Act */
@@ -522,10 +524,11 @@ class PaypalFlowTest extends AbstractTestCase
         $invoiceId          = $this->seedPayableInvoice([], ['invoice_balance' => '50.00']);
         $paymentCountBefore = $this->databaseCount('ip_payments');
 
+        // No captureResponse queued: preflight itself rejects the amount mismatch,
+        // so captureOrder() is never reached.
         $this->mockPaypal([
             $this->authResponse(),
             $this->orderDetailsResponse($invoiceId, '10.00'),
-            $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '10.00', 'capture_id' => 'CAP-SHORT']),
         ]);
 
         /* Act */
@@ -548,6 +551,87 @@ class PaypalFlowTest extends AbstractTestCase
         /* Assert: Idempotency (E) */
         $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-6');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-SHORT']);
+    }
+
+    #[Test]
+    public function it_rejects_a_completed_capture_whose_invoice_id_does_not_match_the_preflight_verified_order(): void
+    {
+        /* Arrange: preflight verifies the order against $invoiceId, but the COMPLETED
+         * capture response that follows names a different invoice — defense-in-depth
+         * against trusting the capture response's invoice_id over the one preflight
+         * already verified. */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_paypal_currency', 'setting_value' => 'EUR']);
+        $invoiceId          = $this->seedPayableInvoice();
+        $otherInvoiceId     = $this->seedPayableInvoice();
+        $paymentCountBefore = $this->databaseCount('ip_payments');
+
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderDetailsResponse($invoiceId, '50.00'),
+            $this->captureResponse(['invoice_id' => $otherInvoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-INVOICE-MISMATCH']),
+        ]);
+
+        /* Act */
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-9');
+
+        /* Assert: Business Logic (A) — funds are never recorded against either invoice */
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-INVOICE-MISMATCH']);
+        $this->assertDatabaseHas('ip_merchant_responses', ['invoice_id' => $otherInvoiceId, 'merchant_response_successful' => 0]);
+
+        /* Assert: State Isolation (B) */
+        $paymentCountAfter = $this->databaseCount('ip_payments');
+        $this->assertSame($paymentCountBefore, $paymentCountAfter);
+
+        /* Assert: Error Semantics (C) */
+        self::assertSame('Payment failed. Please try again.', $response->sessionValue('alert_error'));
+
+        /* Assert: Data Integrity (D) — neither invoice's balance moved */
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_balance' => '50.00']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $otherInvoiceId, 'invoice_balance' => '50.00']);
+
+        /* Assert: Idempotency (E) */
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-9');
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-INVOICE-MISMATCH']);
+    }
+
+    #[Test]
+    public function it_rejects_a_completed_capture_whose_currency_diverges_from_the_preflight_verified_order(): void
+    {
+        /* Arrange: preflight verifies the order in EUR, but the COMPLETED capture response
+         * that actually comes back from captureOrder() names a different currency — the
+         * independent post-capture currency check (predating preflight) is still the one
+         * that catches this, since preflight only ever reads the order once, before capture. */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_paypal_currency', 'setting_value' => 'EUR']);
+        $invoiceId          = $this->seedPayableInvoice();
+        $paymentCountBefore = $this->databaseCount('ip_payments');
+
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderDetailsResponse($invoiceId, '50.00', 'EUR'),
+            $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-POST-CAPTURE-CCY', 'currency' => 'USD']),
+        ]);
+
+        /* Act */
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-10');
+
+        /* Assert: Business Logic (A) */
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-POST-CAPTURE-CCY']);
+        $this->assertDatabaseHas('ip_merchant_responses', ['invoice_id' => $invoiceId, 'merchant_response_successful' => 0]);
+
+        /* Assert: State Isolation (B) */
+        $paymentCountAfter = $this->databaseCount('ip_payments');
+        $this->assertSame($paymentCountBefore, $paymentCountAfter);
+
+        /* Assert: Error Semantics (C) */
+        self::assertSame('Payment failed. Please try again.', $response->sessionValue('alert_error'));
+
+        /* Assert: Data Integrity (D) */
+        $amounts = $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId]);
+        $this->assertSame('50.00', $amounts['invoice_balance']);
+
+        /* Assert: Idempotency (E) */
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-10');
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-POST-CAPTURE-CCY']);
     }
 
     #[Test]
