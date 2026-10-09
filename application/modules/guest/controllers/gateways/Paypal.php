@@ -284,7 +284,6 @@ class Paypal extends Base_Controller
                             $payment_lock->release();
                         }
                     }
-
                 }
 
                 if ( ! $settled) {

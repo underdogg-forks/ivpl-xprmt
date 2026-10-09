@@ -3,8 +3,8 @@
 namespace Tests\Feature\Payments;
 
 use PDO;
-use RuntimeException;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\AbstractTestCase;
 
 /**
@@ -52,9 +52,9 @@ class AdminPaymentAmountRaceTest extends AbstractTestCase
         /* Arrange: a 500.00 invoice, and a second connection holding the exact
          * named lock PaymentCallbackLock uses, simulating a concurrent admin
          * session that is mid-save on the same invoice. */
-        $invoiceId   = $this->seedPayableInvoice(500.00);
-        $lockName    = 'ip:payment:invoice:' . $invoiceId;
-        $lockHolder  = $this->openSecondaryConnection();
+        $invoiceId  = $this->seedPayableInvoice(500.00);
+        $lockName   = 'ip:payment:invoice:' . $invoiceId;
+        $lockHolder = $this->openSecondaryConnection();
 
         $acquired = $lockHolder->prepare('SELECT GET_LOCK(?, ?) AS acquired');
         $acquired->execute([$lockName, 5]);
