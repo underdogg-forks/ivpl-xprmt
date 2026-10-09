@@ -253,7 +253,16 @@ class SecurityHelperTest extends TestCase
                     }
                 };
                 $this->load = new class () {
-                    public function helper(string $helper): void {}
+                    // Mirrors CodeIgniter's real loader instead of no-op'ing: get_safe_referer()
+                    // calls $CI->load->helper('file_security') to reach sanitize_for_logging(),
+                    // and a no-op here let that call silently do nothing — this test then only
+                    // passed because some other test file, run earlier in the same process,
+                    // had already require_once'd file_security_helper.php for a different
+                    // reason. Run this file alone and the function is undefined.
+                    public function helper(string $helper): void
+                    {
+                        require_once APPPATH . "helpers/{$helper}_helper.php";
+                    }
                 };
             }
         };
