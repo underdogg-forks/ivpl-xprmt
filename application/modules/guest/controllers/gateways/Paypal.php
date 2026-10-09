@@ -128,7 +128,8 @@ class Paypal extends Base_Controller
         // Verify the order against the current invoice BEFORE capturing: once captureOrder() runs the
         // funds have moved at PayPal and cannot be undone here, so every check that can still fail
         // locally has to happen first.
-        $preflight_error = $this->_capture_preflight_error($order_id);
+        $validated_invoice_id = null;
+        $preflight_error      = $this->_capture_preflight_error($order_id, $validated_invoice_id);
         if ($preflight_error !== null) {
             $this->session->set_flashdata('alert_error', $preflight_error);
             $this->session->keep_flashdata('alert_error');
@@ -179,100 +180,111 @@ class Paypal extends Base_Controller
                     throw new Exception('Invalid capture ID length');
                 }
 
-                //record the payment
-                $this->load->model('payments/mdl_payments');
-
-                // Serialize concurrent captures for this invoice (CWE-362/367 TOCTOU):
-                // without this, two captures racing on the same invoice can both pass
-                // the balance check below before either commits its payment. The loser
-                // waits here, then re-reads the now up-to-date balance once it gets the
-                // lock, so it correctly falls into the "already paid" branch instead of
-                // also recording a payment.
-                $payment_lock = new PaymentCallbackLock($this->db);
-
-                if ( ! $payment_lock->acquire((int) $invoice_id)) {
-                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Unable to acquire payment lock for invoice: ' . sanitize_for_logging($invoice_id));
+                // Defense-in-depth: the capture response's invoice_id must still be the
+                // one the preflight check verified moments ago. PayPal controls both values
+                // normally, but nothing downstream should ever trust the capture response's
+                // invoice_id over the preflight-verified one without this check.
+                if ((string) $invoice_id !== $validated_invoice_id) {
+                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Capture invoice_id (' . sanitize_for_logging($invoice_id) . ') does not match the preflight-verified invoice_id (' . sanitize_for_logging($validated_invoice_id) . '); payment not recorded');
                     $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
                     $this->session->keep_flashdata('alert_error');
                 } else {
-                    try {
-                        // Check if this capture_id has already been processed (deduplication check)
-                        $existing_payment = $this->db
-                            ->where('payment_external_id', $capture_id)
-                            ->get('ip_payments')
-                            ->row();
+                    //record the payment
+                    $this->load->model('payments/mdl_payments');
 
-                        if ($existing_payment) {
-                            // Duplicate payment attempt detected
-                            log_message('warning', __CLASS__ . '::' . __FUNCTION__ . ' - Duplicate payment attempt blocked. PayPal capture ID: ' . sanitize_for_logging($capture_id) . ' already exists as payment_id: ' . sanitize_for_logging($existing_payment->payment_id));
-                            $settled = true;
+                    // Serialize concurrent captures for this invoice (CWE-362/367 TOCTOU):
+                    // without this, two captures racing on the same invoice can both pass
+                    // the balance check below before either commits its payment. The loser
+                    // waits here, then re-reads the now up-to-date balance once it gets the
+                    // lock, so it correctly falls into the "already paid" branch instead of
+                    // also recording a payment.
+                    $payment_lock = new PaymentCallbackLock($this->db);
 
-                            $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
+                    if ( ! $payment_lock->acquire((int) $invoice_id)) {
+                        log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Unable to acquire payment lock for invoice: ' . sanitize_for_logging($invoice_id));
+                        $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
+                        $this->session->keep_flashdata('alert_error');
+                    } else {
+                        try {
+                            // Check if this capture_id has already been processed (deduplication check)
+                            $existing_payment = $this->db
+                                ->where('payment_external_id', $capture_id)
+                                ->get('ip_payments')
+                                ->row();
 
-                            // Security: Verify the invoice exists and is guest-visible
-                            if ( ! $invoice) {
-                                log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Invoice no longer guest-visible during duplicate payment check: ' . sanitize_for_logging($invoice_id));
-                                $this->session->set_flashdata('alert_error', trans('invoice_not_found'));
-                                $this->session->keep_flashdata('alert_error');
-                            } else {
-                                $this->session->set_flashdata('alert_info', trans('online_payment_already_processed'));
-                                $this->session->keep_flashdata('alert_info');
-                            }
-                        } else {
-                            // Check if invoice is already fully paid — read fresh now
-                            // that concurrent captures for this invoice are serialized.
-                            $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
+                            if ($existing_payment) {
+                                // Duplicate payment attempt detected
+                                log_message('warning', __CLASS__ . '::' . __FUNCTION__ . ' - Duplicate payment attempt blocked. PayPal capture ID: ' . sanitize_for_logging($capture_id) . ' already exists as payment_id: ' . sanitize_for_logging($existing_payment->payment_id));
+                                $settled = true;
 
-                            // Security: Verify the invoice exists and is guest-visible
-                            if ( ! $invoice) {
-                                log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Invoice no longer guest-visible during payment capture: ' . sanitize_for_logging($invoice_id));
-                                $this->session->set_flashdata('alert_error', trans('invoice_not_found'));
-                                $this->session->keep_flashdata('alert_error');
-                            } elseif ($invoice->invoice_balance <= 0) {
-                                log_message('warning', __CLASS__ . '::' . __FUNCTION__ . ' - Payment rejected. Invoice ' . sanitize_for_logging($invoice->invoice_number) . ' already fully paid. Balance: ' . sanitize_for_logging($invoice->invoice_balance));
-                                $this->session->set_flashdata('alert_info', trans('invoice_already_paid'));
-                                $this->session->keep_flashdata('alert_info');
-                            } else {
-                                // Validate currency and amount before recording payment
-                                $expected_currency = mb_strtoupper((string) get_setting('gateway_paypal_currency'));
-                                $capture_currency  = mb_strtoupper((string) ($capture_data->amount->currency_code ?? ''));
+                                $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
 
-                                if ($capture_currency !== $expected_currency) {
-                                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: currency mismatch for invoice ' . sanitize_for_logging($invoice_id) . '. Expected: ' . $expected_currency . ', received: ' . $capture_currency);
-                                    $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
-                                    $this->session->keep_flashdata('alert_error');
-                                } elseif ((float) $amount + 0.0001 < (float) $invoice->invoice_balance) {
-                                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: amount mismatch for invoice ' . sanitize_for_logging($invoice_id) . '. Expected: ' . sanitize_for_logging($invoice->invoice_balance) . ', received: ' . sanitize_for_logging($amount));
-                                    $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
-                                    $this->session->keep_flashdata('alert_error');
-                                } elseif ((float) $amount - 0.0001 > (float) $invoice->invoice_balance) {
-                                    // The order was created against a balance that has since
-                                    // shrunk (e.g. a payment recorded through another channel
-                                    // landed first). Recording the full stale capture would
-                                    // drive invoice_balance negative; refuse it for manual
-                                    // reconciliation instead of silently over-crediting.
-                                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: amount exceeds current balance for invoice ' . sanitize_for_logging($invoice_id) . '. Balance: ' . sanitize_for_logging($invoice->invoice_balance) . ', received: ' . sanitize_for_logging($amount));
-                                    $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
+                                // Security: Verify the invoice exists and is guest-visible
+                                if ( ! $invoice) {
+                                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Invoice no longer guest-visible during duplicate payment check: ' . sanitize_for_logging($invoice_id));
+                                    $this->session->set_flashdata('alert_error', trans('invoice_not_found'));
                                     $this->session->keep_flashdata('alert_error');
                                 } else {
-                                    $this->mdl_payments->save(null, [
-                                        'invoice_id'          => $invoice_id,
-                                        'payment_date'        => date('Y-m-d'),
-                                        'payment_amount'      => $amount,
-                                        'payment_method_id'   => get_setting('gateway_paypal_payment_method'),
-                                        'payment_note'        => '',
-                                        'payment_external_id' => $capture_id,
-                                    ]);
+                                    $this->session->set_flashdata('alert_info', trans('online_payment_already_processed'));
+                                    $this->session->keep_flashdata('alert_info');
+                                }
+                            } else {
+                                // Check if invoice is already fully paid — read fresh now
+                                // that concurrent captures for this invoice are serialized.
+                                $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
 
-                                    $settled = true;
-                                    $this->session->set_flashdata('alert_success', sprintf(trans('online_payment_payment_successful'), htmlsc($invoice->invoice_number)));
-                                    $this->session->keep_flashdata('alert_success');
+                                // Security: Verify the invoice exists and is guest-visible
+                                if ( ! $invoice) {
+                                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Invoice no longer guest-visible during payment capture: ' . sanitize_for_logging($invoice_id));
+                                    $this->session->set_flashdata('alert_error', trans('invoice_not_found'));
+                                    $this->session->keep_flashdata('alert_error');
+                                } elseif ($invoice->invoice_balance <= 0) {
+                                    log_message('warning', __CLASS__ . '::' . __FUNCTION__ . ' - Payment rejected. Invoice ' . sanitize_for_logging($invoice->invoice_number) . ' already fully paid. Balance: ' . sanitize_for_logging($invoice->invoice_balance));
+                                    $this->session->set_flashdata('alert_info', trans('invoice_already_paid'));
+                                    $this->session->keep_flashdata('alert_info');
+                                } else {
+                                    // Validate currency and amount before recording payment
+                                    $expected_currency = mb_strtoupper((string) get_setting('gateway_paypal_currency'));
+                                    $capture_currency  = mb_strtoupper((string) ($capture_data->amount->currency_code ?? ''));
+
+                                    if ($capture_currency !== $expected_currency) {
+                                        log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: currency mismatch for invoice ' . sanitize_for_logging($invoice_id) . '. Expected: ' . $expected_currency . ', received: ' . $capture_currency);
+                                        $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
+                                        $this->session->keep_flashdata('alert_error');
+                                    } elseif ((float) $amount + 0.0001 < (float) $invoice->invoice_balance) {
+                                        log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: amount mismatch for invoice ' . sanitize_for_logging($invoice_id) . '. Expected: ' . sanitize_for_logging($invoice->invoice_balance) . ', received: ' . sanitize_for_logging($amount));
+                                        $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
+                                        $this->session->keep_flashdata('alert_error');
+                                    } elseif ((float) $amount - 0.0001 > (float) $invoice->invoice_balance) {
+                                        // The order was created against a balance that has since
+                                        // shrunk (e.g. a payment recorded through another channel
+                                        // landed first). Recording the full stale capture would
+                                        // drive invoice_balance negative; refuse it for manual
+                                        // reconciliation instead of silently over-crediting.
+                                        log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: amount exceeds current balance for invoice ' . sanitize_for_logging($invoice_id) . '. Balance: ' . sanitize_for_logging($invoice->invoice_balance) . ', received: ' . sanitize_for_logging($amount));
+                                        $this->session->set_flashdata('alert_error', trans('online_payment_payment_failed'));
+                                        $this->session->keep_flashdata('alert_error');
+                                    } else {
+                                        $this->mdl_payments->save(null, [
+                                            'invoice_id'          => $invoice_id,
+                                            'payment_date'        => date('Y-m-d'),
+                                            'payment_amount'      => $amount,
+                                            'payment_method_id'   => get_setting('gateway_paypal_payment_method'),
+                                            'payment_note'        => '',
+                                            'payment_external_id' => $capture_id,
+                                        ]);
+
+                                        $settled = true;
+                                        $this->session->set_flashdata('alert_success', sprintf(trans('online_payment_payment_successful'), htmlsc($invoice->invoice_number)));
+                                        $this->session->keep_flashdata('alert_success');
+                                    }
                                 }
                             }
+                        } finally {
+                            $payment_lock->release();
                         }
-                    } finally {
-                        $payment_lock->release();
                     }
+
                 }
 
                 if ( ! $settled) {
@@ -422,9 +434,11 @@ class Paypal extends Base_Controller
      *
      * Returns the user-facing error message when the order must not be captured (order unreadable,
      * invoice no longer public, already paid, or the order no longer matches the invoice's
-     * currency / balance), or null when it is safe to capture.
+     * currency / balance), or null when it is safe to capture. On success, the
+     * invoice id the order was verified against is written to $validated_invoice_id
+     * so the caller can confirm the capture response still names the same invoice.
      */
-    private function _capture_preflight_error(string $order_id): ?string
+    private function _capture_preflight_error(string $order_id, ?string &$validated_invoice_id = null): ?string
     {
         $response = $this->paypal()->showOrderDetails($order_id);
 
@@ -467,6 +481,8 @@ class Paypal extends Base_Controller
 
             return trans('online_payment_payment_failed');
         }
+
+        $validated_invoice_id = (string) $invoice_id;
 
         return null;
     }

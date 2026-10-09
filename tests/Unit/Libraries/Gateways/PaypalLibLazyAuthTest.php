@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Libraries\Gateways;
 
+use GuzzleHttp\Exception\ClientException;
 use PaypalLib;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -76,5 +77,24 @@ final class PaypalLibLazyAuthTest extends TestCase
 
         self::assertTrue($first['status']);
         self::assertTrue($second['status']);
+    }
+
+    #[Test]
+    public function it_fails_cleanly_instead_of_crashing_when_authorization_is_rejected(): void
+    {
+        // A 401 here makes Guzzle itself throw a ClientException out of authorize().
+        // If that exception were swallowed instead of rethrown, bearer_token would stay
+        // uninitialized and the very next line in buildHeaders() — reading it into the
+        // Authorization header — would throw an uncatchable-by-PaypalRequestExecutor
+        // \Error, crashing the request instead of returning a clean failure.
+        putenv('PAYPAL_MOCK_RESPONSES=' . json_encode([
+            ['status' => 401, 'body' => json_encode(['error' => 'invalid_client'])],
+        ]));
+
+        $lib    = new PaypalLib(['client_id' => 'id', 'client_secret' => 'secret', 'demo' => true]);
+        $result = $lib->showOrderDetails('ORDER-1');
+
+        self::assertFalse($result['status']);
+        self::assertInstanceOf(ClientException::class, $result['error']);
     }
 }
