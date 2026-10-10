@@ -236,6 +236,18 @@ PHPStan runs at level 0 with `phpstan.neon`. CodeIgniter 3 has no autoloader, so
 system function, add its signature to the stubs file instead of baselining `function.notFound`.
 A clean run reports `[OK] No errors`.
 
+**Never pass individual file paths to `phpstan analyse`.** Run it with no path arguments
+(`phpstan analyse` / `.sandbox-tools/phpstan.phar analyse --memory-limit=1G`) so it resolves
+`phpstan.neon`'s configured `paths` and autoload bootstrap. Scoping to specific files bypasses
+that bootstrap — PHPUnit attributes and project-defined functions/classes then look undefined,
+producing errors that are artifacts of the invocation, not real findings. To check only your
+changed files, run the full-project analysis and compare against `phpstan-baseline.neon`,
+or filter the full run's output by path — don't narrow the command's own argument list. The
+same applies on an upstream-only branch without a `tests/` dir: if `phpstan.neon` fails there
+(a config path resolving to a missing directory), that's a config/branch mismatch, not a code
+defect — fall back to `php -l` + Pint instead of trying to work around it with file-scoped
+`analyse` calls.
+
 ## Adding an e-invoicing provider
 
 Providers live in `application/modules/integrations/libraries/providers/` (`FooClient.php`, or
