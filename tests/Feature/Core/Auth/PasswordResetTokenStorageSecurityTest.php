@@ -37,7 +37,7 @@ class PasswordResetTokenStorageSecurityTest extends AbstractTestCase
     public function it_does_not_accept_a_raw_token_stored_in_place_of_its_digest(): void
     {
         /* Arrange: simulate the pre-fix bug — the raw token stored as-is, not its digest. */
-        $userId = $this->seedUserWithResetToken(self::TOKEN, gmdate('Y-m-d H:i:s', time() + 600));
+        $this->seedUserWithResetToken(self::TOKEN, gmdate('Y-m-d H:i:s', time() + 600));
 
         /* Act: visit the reset link with that same value. */
         $response = $this->get('/sessions/passwordreset/' . self::TOKEN);
