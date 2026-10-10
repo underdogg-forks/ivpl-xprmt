@@ -46,18 +46,62 @@ class CurrencySymbolSecurityTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_requires_htmlsc_for_direct_echo_in_views(): void
+    public function it_escapes_currency_symbol_in_a_real_view_sink(): void
     {
-        // All 15 sinks that echo currency_symbol directly in views
-        // should use either:
-        // 1. get_setting('currency_symbol', '', true) with escape flag, OR
-        // 2. htmlsc(get_setting('currency_symbol'))
+        /*
+         * Regression for GHSA-gpv9-p6gj-238h: 15 view sinks echo currency_symbol directly
+         * via htmlsc(get_setting('currency_symbol')). The previous version of this test
+         * called htmlsc() on a local variable instead of any of those 15 files, so it would
+         * stay green even if every one of them were reverted to a raw echo. This renders
+         * one of the actual sinks (shared by both the invoice and quote item-discount
+         * partials) and asserts on its real output.
+         */
 
-        $symbol = '<img src=x>';
+        /* Arrange */
+        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        $GLOBALS['unitCiInstance']->lang = new class () {
+            public function line(string $line): string
+            {
+                return $line;
+            }
+        };
+        $CI                                         = & get_instance();
+        $CI->mdl_settings->_data['currency_symbol'] = '<img src=x onerror=alert(1)>';
 
-        // Using htmlsc - safe
-        $safe = htmlsc($symbol);
-        $this->assertStringContainsString('&lt;img', $safe);
-        $this->assertStringNotContainsString('<img', $safe);
+        /* Act */
+        ob_start();
+        include dirname(__DIR__, 3) . '/application/modules/layout/views/partial/itemlist_table_item_discount_input.php';
+        $html = (string) ob_get_clean();
+
+        /* Assert */
+        $this->assertStringNotContainsString('<img', $html);
+        $this->assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $html);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_preserves_a_benign_currency_symbol_in_a_real_view_sink(): void
+    {
+        /* Arrange */
+        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        $GLOBALS['unitCiInstance']->lang = new class () {
+            public function line(string $line): string
+            {
+                return $line;
+            }
+        };
+        $CI                                         = & get_instance();
+        $CI->mdl_settings->_data['currency_symbol'] = '€';
+
+        /* Act */
+        ob_start();
+        include dirname(__DIR__, 3) . '/application/modules/layout/views/partial/itemlist_table_item_discount_input.php';
+        $html = (string) ob_get_clean();
+
+        /* Assert */
+        $this->assertStringContainsString('€', $html);
     }
 }
