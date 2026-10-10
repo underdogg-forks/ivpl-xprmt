@@ -163,9 +163,42 @@ class LoginRateLimitLegacyKeyMigrationTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 10]);
     }
 
+    #[Test]
+    public function it_refuses_to_migrate_a_forged_email_shaped_like_the_cron_key_counter(): void
+    {
+        /*
+         * Regression for a CodeRabbit finding on PR #30: the namespace-shape guard listed
+         * five of the six namespaces that share ip_login_log.login_name but omitted
+         * cron_key: (Cron::recur()'s per-IP throttle). A login submission forged to equal
+         * that counter's own namespaced key would not be rejected by the guard and could be
+         * migrated or clobbered through this path, letting an attacker reset or hijack
+         * another IP's cron throttle - the same class of forgery GHSA-r59m-wgg6-h4pv covers
+         * for the other five counters.
+         */
+
+        /* Arrange: a real cron_key counter already at 7 attempts, and the attacker's
+         * "email" crafted to literally equal that counter's own namespaced key. */
+        $this->seedLoginLog($this->cronKey(), 7, '-5 minutes');
+        $forged_email = $this->cronKey();
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $forged_email, 'password' => 'irrelevant']);
+
+        /* Assert: the real cron_key counter is untouched (still 7, not renamed away), and
+         * the forged value gets its own fresh namespaced row instead of inheriting count 7. */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->cronKey(), 'log_count' => 7]);
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($forged_email), 'log_count' => 1]);
+    }
+
     private function ipKey(): string
     {
         return 'login_ip:' . hash('sha256', '127.0.0.1');
+    }
+
+    private function cronKey(): string
+    {
+        return 'cron_key:' . hash('sha256', '127.0.0.1');
     }
 
     private function accountKey(string $email): string
