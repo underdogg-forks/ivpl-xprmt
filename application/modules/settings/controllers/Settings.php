@@ -94,6 +94,48 @@ class Settings extends Admin_Controller
                             redirect('settings');
                         }
                     }
+
+                    // Security: these settings are already HTML-escaped at every output sink
+                    // (htmlsc()/get_setting(..., true)), and most are also constrained to a
+                    // <select> in the settings form. This is a second, defense-in-depth layer:
+                    // the POST handler above accepts any key in the submitted settings array
+                    // with no server-side allowlist, so a crafted request (bypassing the <select>
+                    // entirely) could otherwise still persist an unexpected value, consumed later
+                    // by any sink that does NOT escape — e.g. a future change, a reporting view,
+                    // or an export path that was missed.
+                    if ($key === 'decimal_point' || $key === 'thousands_separator') {
+                        $other_key = $key === 'decimal_point' ? 'thousands_separator' : 'decimal_point';
+                        $other     = $settings[$other_key] ?? get_setting($other_key);
+                        if ( ! $this->isValidSeparatorChar($value) || $value === $other) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'currency_symbol') {
+                        if ( ! $this->isValidCurrencySymbol($value)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'date_format') {
+                        if ( ! in_array($value, array_keys(date_formats()), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'number_format') {
+                        if ( ! in_array($value, array_keys($number_formats), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'pdf_watermark') {
+                        if ( ! in_array($value, ['0', '1'], true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'default_language') {
+                        if ( ! in_array($value, get_available_languages(), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'default_country') {
+                        $country_value = is_scalar($value) ? (string) $value : null;
+                        if ($country_value === null || ($country_value !== '' && ! isset(get_country_list(trans('cldr'))[$country_value]))) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    }
+
                     $batch_settings[$key] = $value;
                 }
 
@@ -352,6 +394,37 @@ class Settings extends Admin_Controller
      *
      * @return array settings array, with tax_rate_decimal_places removed if it was processed
      */
+    /**
+     * A single-character separator with no HTML/JS metacharacters. Used for both
+     * decimal_point and thousands_separator, which share the same constraint.
+     */
+    private function isValidSeparatorChar(mixed $value): bool
+    {
+        $value = is_scalar($value) ? (string) $value : '';
+
+        return $value !== '' && mb_strlen($value) === 1 && ! preg_match('/[<>]|javascript:|on\w+\s*=/i', $value);
+    }
+
+    private function isValidCurrencySymbol(mixed $value): bool
+    {
+        $value = is_scalar($value) ? (string) $value : '';
+
+        return mb_strlen($value) <= 4 && ! preg_match('/[<>]|javascript:|on\w+\s*=|script|iframe|svg/i', $value);
+    }
+
+    /**
+     * Logs the rejected attempt, flashes the generic error (never the attacker-controlled
+     * value), and redirects back to the settings form without saving anything from this
+     * request — matching the existing first_day_of_week/logo-filename validation above.
+     */
+    private function rejectInvalidSetting(string $key, mixed $value): void
+    {
+        $safe_value = is_scalar($value) ? sanitize_for_logging((string) $value) : '[non-scalar]';
+        log_message('error', sprintf('Invalid %s value attempted by user %d: %s', $key, (int) $this->session->userdata('user_id'), $safe_value));
+        $this->session->set_flashdata('alert_error', trans('invalid_value_for_field'));
+        redirect('settings');
+    }
+
     private function handleTaxRateDecimalPlaces(array $settings): array
     {
         if ( ! array_key_exists('tax_rate_decimal_places', $settings)) {
