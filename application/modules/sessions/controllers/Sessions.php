@@ -88,7 +88,8 @@ class Sessions extends Base_Controller
             // keyed by the token's digest, not the token: ip_login_log would otherwise hold
             // reset tokens in the clear, defeating the digest stored in ip_users. Namespaced
             // so a submitted token cannot collide with another counter's key.
-            $login_log_key   = $this->_password_reset_token_log_key($token);
+            $login_log_key = $this->_password_reset_token_log_key($token);
+            $this->_migrate_legacy_login_log_key($token, $login_log_key);
             $login_log_check = $this->_login_log_check($login_log_key);
             if ( ! empty($login_log_check) && $login_log_check->log_count > 10) {
                 redirect(get_safe_referer('', 'sessions/passwordreset'));
@@ -390,7 +391,8 @@ class Sessions extends Base_Controller
         // Per-account lockout (email-keyed, namespaced so a submitted email cannot collide with
         // another counter's key in ip_login_log).
         $login_log_key = $this->_login_account_log_key($email_address);
-        $login_log     = $this->_login_log_check($login_log_key);
+        $this->_migrate_legacy_login_log_key($email_address, $login_log_key);
+        $login_log = $this->_login_log_check($login_log_key);
         if (empty($login_log) || $login_log->log_count < 10) {
             if ($this->mdl_sessions->auth($email_address, $password)) {
                 $this->_login_log_reset($login_log_key);
@@ -417,6 +419,47 @@ class Sessions extends Base_Controller
     private function _login_account_log_key(string $email_address): string
     {
         return 'login_account:' . hash('sha256', mb_strtolower($email_address));
+    }
+
+    /**
+     * One-time migration for an ip_login_log row still sitting under a pre-namespacing
+     * key (CWE-694 / GHSA-r59m-wgg6-h4pv): the per-account lockout used to be keyed by the
+     * raw, unhashed email address, and the password-reset token counter by the raw token.
+     * Renaming the row in place preserves log_count and log_create_timestamp, so an
+     * account or token that was actively locked out keeps its remaining lockout time
+     * instead of silently resetting the moment this fix deploys. A legacy row is only
+     * ever renamed once; if a namespaced row already exists too (e.g. a user who logged
+     * in again after the fix, then an old session replayed the legacy key), the legacy
+     * row is dropped instead of overwriting real data.
+     */
+    private function _migrate_legacy_login_log_key(string $legacy_key, string $new_key): void
+    {
+        if ($legacy_key === $new_key) {
+            return;
+        }
+
+        // A value shaped like one of the five namespaced keys can never be a genuine pre-fix
+        // legacy row — it's either a real row belonging to a different counter, or a forged
+        // email/token crafted to equal one. Treating it as "this account's legacy row" would
+        // let an attacker steal or clobber another counter's row through the migration path
+        // itself, reopening the exact CWE-694 forgery this fix closes. Refuse to touch it.
+        if (preg_match('/^(?:login_account|login_ip|password_reset_ip|password_reset_email|password_reset_token):[0-9a-f]{64}$/', $legacy_key)) {
+            return;
+        }
+
+        $legacy_row = $this->db->where('login_name', $legacy_key)->get('ip_login_log')->row();
+
+        if (empty($legacy_row)) {
+            return;
+        }
+
+        $existing_new_row = $this->db->where('login_name', $new_key)->get('ip_login_log')->row();
+
+        if (empty($existing_new_row)) {
+            $this->db->where('login_name', $legacy_key)->update('ip_login_log', ['login_name' => $new_key]);
+        } else {
+            $this->db->where('login_name', $legacy_key)->delete('ip_login_log');
+        }
     }
 
     /**
