@@ -66,6 +66,15 @@ class User_Clients extends Admin_Controller
             redirect('user_clients/user/' . $user_id);
         }
 
+        // A non-integer-shaped id (e.g. "2.9") would authorize against user 2 via the (int) cast
+        // below, but the raw, uncast $user_id is what later reaches $this->db->where('user_id', ...)
+        // and the model's save() — a type-confusion gap between what's authorized and what's written.
+        if ( ! ctype_digit((string) $user_id)) {
+            show_error(trans('access_denied'), 403);
+
+            return;
+        }
+
         // Authorization: only primary admin or the user themselves can manage their clients
         $current_user_id = (int) $this->session->userdata('user_id');
         $target_user_id  = (int) $user_id;
@@ -75,8 +84,11 @@ class User_Clients extends Admin_Controller
             return;
         }
 
-        // Defense-in-depth: POSTed user_id must match the URL user_id
-        if ($this->input->post('user_id') && (int) $this->input->post('user_id') !== $target_user_id) {
+        // Defense-in-depth: POSTed user_id must match the URL user_id, and be the same
+        // integer-shaped value (same type-confusion concern as above).
+        if ($this->input->post('user_id') !== null && $this->input->post('user_id') !== ''
+            && ( ! ctype_digit((string) $this->input->post('user_id')) || (int) $this->input->post('user_id') !== $target_user_id)
+        ) {
             show_error(trans('access_denied'), 403);
 
             return;
