@@ -61,6 +61,29 @@ class IpSecurityHelperTest extends TestCase
     }
 
     #[Test]
+    public function it_hashes_a_password_reset_token_with_sha256(): void
+    {
+        /*
+         * ip_users.user_passwordreset_token must hold a digest, never the raw token: the
+         * emailed reset link carries the plaintext, so a DB backup, or SQL injection
+         * elsewhere, must not yield a usable reset token. Every call site (generation,
+         * both lookup paths in Sessions::passwordreset()) routes through this one helper,
+         * so pinning it here is what catches a regression at any of them.
+         */
+
+        /* Arrange */
+        $token = 'b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f809a1';
+
+        /* Act */
+        $digest = hash_password_reset_token($token);
+
+        /* Assert: a real SHA-256 digest of the token, not the token itself. */
+        self::assertSame(hash('sha256', $token), $digest);
+        self::assertNotSame($token, $digest);
+        self::assertMatchesRegularExpression('/\A[0-9a-f]{64}\z/', $digest);
+    }
+
+    #[Test]
     public function it_generates_a_bcrypt_compatible_salt(): void
     {
         /* Arrange */
