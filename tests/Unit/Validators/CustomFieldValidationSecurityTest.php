@@ -49,6 +49,8 @@ class CustomFieldValidationSecurityTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_escapes_custom_field_labels_in_validation_errors(): void
     {
+        /* Arrange: a custom field's admin-set label is attacker-controlled and rendered
+         * into a validation alert. */
         $errors = [
             [
                 'label'     => '<script src=//evil.com/x.js></script>',
@@ -57,17 +59,18 @@ class CustomFieldValidationSecurityTest extends TestCase
             ],
         ];
 
+        /* Act */
         $result = $this->validator->create_error_text($errors);
 
-        // Should NOT contain unescaped script tag
+        /* Assert */
         $this->assertStringNotContainsString('<script', $result);
-        // Should contain escaped version
         $this->assertStringContainsString('&lt;script', $result);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_escapes_error_messages_in_validation_errors(): void
     {
+        /* Arrange */
         $errors = [
             [
                 'label'     => 'Custom Field',
@@ -76,8 +79,10 @@ class CustomFieldValidationSecurityTest extends TestCase
             ],
         ];
 
+        /* Act */
         $result = $this->validator->create_error_text($errors);
 
+        /* Assert */
         $this->assertStringNotContainsString('<img src=', $result);
         $this->assertStringContainsString('&lt;img', $result);
     }
