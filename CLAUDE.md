@@ -93,11 +93,20 @@ php -r 'require "tests/Support/ClassCoverageInventory.php"; $r = getcwd();
 - Method names `it_<snake_case>` with `#[Test]`; Arrange / Act / Assert sections.
 - A test must be able to fail for the reason it names:
   - no `assertTrue(true)`, and no re-implementation of production logic inside a test;
+  - no `assertTrue(function_exists(...))` / `class_exists(...)` / `method_exists(...)` standing
+    in for a real assertion — that a dependency merely exists says nothing about whether it
+    behaves correctly, and it is specifically checked for by `TestHonestyGuardTest`;
   - "renders without PHP errors" is not an assertion; assert on content or state;
   - a redirect test asserts the destination **and** the state change or a positive control
     (the same request succeeding for an authorised user);
   - security and money logic is mutation-checked: break the production code and confirm the
-    test turns red.
+    test turns red;
+  - when editing an existing test, re-read the whole method afterward, not just the diff —
+    delete or rewrite any comment that still describes the behavior you just replaced. A stale
+    comment claiming the test does less than it now does is worse than no comment at all.
+- Every test method has explicit `/* Arrange */` / `/* Act */` / `/* Assert */` sections (or
+  `/* Arrange: ... */`-style inline documentation on each). A test without them is not valid,
+  full stop — not even for a one-line test.
 - Use the harness instead of inventing helpers: `seedClient`, `seedInvoice`, `databaseInsert`,
   `assertDatabaseHas`, `actingAsAdmin`, `postWithValidCsrfToken`, `withEnvironment`,
   `withServer`, `withFiles` (`tests/AbstractTestCase.php`, `tests/Concerns/`).
