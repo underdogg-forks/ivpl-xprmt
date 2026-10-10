@@ -329,14 +329,14 @@ function encode_for_javascript_string($string)
     $string = (string) $string;
 
     $replacements = [
-        '\\' => '\\\\',
-        '"' => '\"',
-        "'" => "\'",
-        "\r" => '\r',
-        "\n" => '\n',
+        '\\'       => '\\\\',
+        '"'        => '\"',
+        "'"        => "\'",
+        "\r"       => '\r',
+        "\n"       => '\n',
         "\u{2028}" => "\x20",
         "\u{2029}" => "\x20",
-        '/' => '\/',
+        '/'        => '\/',
     ];
 
     return str_replace(array_keys($replacements), array_values($replacements), $string);

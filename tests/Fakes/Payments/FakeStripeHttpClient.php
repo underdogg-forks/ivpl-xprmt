@@ -2,6 +2,7 @@
 
 namespace Tests\Fakes\Payments;
 
+use OutOfBoundsException;
 use Stripe\HttpClient\ClientInterface;
 
 /**
@@ -26,7 +27,14 @@ final class FakeStripeHttpClient implements ClientInterface
             ], JSON_THROW_ON_ERROR));
         }
 
-        $entry = array_shift($this->queue) ?? ['status' => 200, 'body' => '{}'];
+        // Fail loudly, like Guzzle's MockHandler (used by the PayPal fake), instead of
+        // silently returning a fabricated 200 '{}' — a test whose code made one Stripe
+        // call too many (or too few queued responses) must turn red, not pass by accident.
+        if ($this->queue === []) {
+            throw new OutOfBoundsException('Stripe mock queue is empty: an unexpected API call was made.');
+        }
+
+        $entry = array_shift($this->queue);
 
         return [(string) ($entry['body'] ?? '{}'), (int) ($entry['status'] ?? 200), []];
     }

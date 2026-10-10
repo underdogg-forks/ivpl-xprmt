@@ -3,6 +3,7 @@
 namespace Tests\Feature\Core;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Settings;
@@ -39,6 +40,42 @@ class SettingsControllerTest extends AbstractTestCase
             'login traversal'   => ['login_logo', '../bootstrap/kernel.php'],
             'absolute path'     => ['invoice_logo', '/etc/passwd'],
             'windows traversal' => ['login_logo', '..\\..\\ipconfig.php'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    public static function invalidAdminSettingValues(): array
+    {
+        return [
+            'decimal_point xss'          => ['decimal_point', '<script>'],
+            'decimal_point multi-char'   => ['decimal_point', '..'],
+            'decimal_point empty'        => ['decimal_point', ''],
+            'thousands_separator xss'    => ['thousands_separator', '<img src=x onerror=alert(1)>'],
+            'thousands_separator event'  => ['thousands_separator', 'onclick=1'],
+            'currency_symbol xss'        => ['currency_symbol', '<script>alert(1)</script>'],
+            'currency_symbol too long'   => ['currency_symbol', 'ABCDE'],
+            'date_format xss'            => ['date_format', "d/m/Y'];alert(1);//"],
+            'date_format unknown'        => ['date_format', 'not-a-real-format'],
+            'number_format unknown'      => ['number_format', 'not_a_real_format'],
+            'pdf_watermark not boolean'  => ['pdf_watermark', 'true'],
+            'pdf_watermark xss'          => ['pdf_watermark', '<script>alert(1)</script>'],
+            'default_language traversal' => ['default_language', '../../../etc/passwd'],
+            'default_country xss'        => ['default_country', '<script>alert(1)</script>'],
+            'default_country unknown'    => ['default_country', 'zz'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    public static function validAdminSettingValues(): array
+    {
+        return [
+            'currency_symbol'       => ['currency_symbol', '€'],
+            'date_format'           => ['date_format', 'd-m-Y'],
+            'number_format'         => ['number_format', 'number_format_european'],
+            'pdf_watermark on'      => ['pdf_watermark', '1'],
+            'pdf_watermark off'     => ['pdf_watermark', '0'],
+            'default_language'      => ['default_language', 'english'],
+            'default_country empty' => ['default_country', ''],
         ];
     }
 
@@ -342,6 +379,76 @@ class SettingsControllerTest extends AbstractTestCase
         $this->assertResponseRedirectsToRoute($response, 'settings');
         $this->assertDatabaseMissing('ip_settings', ['setting_key' => 'first_day_of_week', 'setting_value' => '7']);
         $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'original-cron-key']);
+    }
+
+    #[Test]
+    #[DataProvider('invalidAdminSettingValues')]
+    public function it_refuses_an_invalid_admin_setting_and_saves_none_of_the_batch(string $key, string $value): void
+    {
+        /*
+         * Regression for upstream #1725 (Phases 1-4): every one of these settings is already
+         * HTML-escaped at its output sinks, but the POST handler itself accepted any key/value
+         * pair in the submitted settings array with no server-side allowlist. This is a second,
+         * defense-in-depth layer: a crafted request bypassing the settings form's <select>/
+         * single-character inputs entirely must still be rejected before anything is persisted.
+         */
+
+        /* Arrange */
+        $this->setSetting('cron_key', 'original-cron-key');
+        $this->setSetting('decimal_point', '.');
+        $this->setSetting('thousands_separator', ',');
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => [$key => $value, 'cron_key' => 'must-not-be-saved'], 'btn_submit' => '1']);
+
+        /* Assert: rejected before the batch write, so even the harmless sibling field is not persisted */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseMissing('ip_settings', ['setting_key' => $key, 'setting_value' => $value]);
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'original-cron-key']);
+    }
+
+    #[Test]
+    public function it_refuses_a_decimal_point_identical_to_the_thousands_separator(): void
+    {
+        /* Arrange: the two separators must remain distinguishable in a formatted amount */
+        $this->setSetting('cron_key', 'original-cron-key');
+        $this->setSetting('thousands_separator', '.');
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => ['decimal_point' => '.', 'cron_key' => 'must-not-be-saved'], 'btn_submit' => '1']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'original-cron-key']);
+    }
+
+    #[Test]
+    #[DataProvider('validAdminSettingValues')]
+    public function it_persists_a_valid_admin_setting(string $key, string $value): void
+    {
+        /* Arrange: $key/$value come from the data provider, each one a value the settings
+         * form itself would submit. */
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => [$key => $value], 'btn_submit' => '1']);
+
+        /* Assert: the new validation does not reject values the form itself would submit */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => $key, 'setting_value' => $value]);
+    }
+
+    #[Test]
+    public function it_persists_a_valid_single_character_decimal_point(): void
+    {
+        /* Arrange */
+        $this->setSetting('thousands_separator', ',');
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => ['decimal_point' => '.'], 'btn_submit' => '1']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'decimal_point', 'setting_value' => '.']);
     }
 
     #[Test]

@@ -93,11 +93,20 @@ php -r 'require "tests/Support/ClassCoverageInventory.php"; $r = getcwd();
 - Method names `it_<snake_case>` with `#[Test]`; Arrange / Act / Assert sections.
 - A test must be able to fail for the reason it names:
   - no `assertTrue(true)`, and no re-implementation of production logic inside a test;
+  - no `assertTrue(function_exists(...))` / `class_exists(...)` / `method_exists(...)` standing
+    in for a real assertion — that a dependency merely exists says nothing about whether it
+    behaves correctly, and it is specifically checked for by `TestHonestyGuardTest`;
   - "renders without PHP errors" is not an assertion; assert on content or state;
   - a redirect test asserts the destination **and** the state change or a positive control
     (the same request succeeding for an authorised user);
   - security and money logic is mutation-checked: break the production code and confirm the
-    test turns red.
+    test turns red;
+  - when editing an existing test, re-read the whole method afterward, not just the diff —
+    delete or rewrite any comment that still describes the behavior you just replaced. A stale
+    comment claiming the test does less than it now does is worse than no comment at all.
+- Every test method has explicit `/* Arrange */` / `/* Act */` / `/* Assert */` sections (or
+  `/* Arrange: ... */`-style inline documentation on each). A test without them is not valid,
+  full stop — not even for a one-line test.
 - Use the harness instead of inventing helpers: `seedClient`, `seedInvoice`, `databaseInsert`,
   `assertDatabaseHas`, `actingAsAdmin`, `postWithValidCsrfToken`, `withEnvironment`,
   `withServer`, `withFiles` (`tests/AbstractTestCase.php`, `tests/Concerns/`).
@@ -226,6 +235,18 @@ PHPStan runs at level 0 with `phpstan.neon`. CodeIgniter 3 has no autoloader, so
 `tests/Support/phpstan-ci-stubs.php` declares the CI system functions. If code calls a new CI
 system function, add its signature to the stubs file instead of baselining `function.notFound`.
 A clean run reports `[OK] No errors`.
+
+**Never pass individual file paths to `phpstan analyse`.** Run it with no path arguments
+(`phpstan analyse` / `.sandbox-tools/phpstan.phar analyse --memory-limit=1G`) so it resolves
+`phpstan.neon`'s configured `paths` and autoload bootstrap. Scoping to specific files bypasses
+that bootstrap — PHPUnit attributes and project-defined functions/classes then look undefined,
+producing errors that are artifacts of the invocation, not real findings. To check only your
+changed files, run the full-project analysis and compare against `phpstan-baseline.neon`,
+or filter the full run's output by path — don't narrow the command's own argument list. The
+same applies on an upstream-only branch without a `tests/` dir: if `phpstan.neon` fails there
+(a config path resolving to a missing directory), that's a config/branch mismatch, not a code
+defect — fall back to `php -l` + Pint instead of trying to work around it with file-scoped
+`analyse` calls.
 
 ## Adding an e-invoicing provider
 

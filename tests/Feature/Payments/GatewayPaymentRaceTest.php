@@ -351,7 +351,17 @@ class GatewayPaymentRaceTest extends AbstractTestCase
      */
     private function paypalCaptureRequest(int $invoiceId, string $captureId, string $amount): array
     {
-        $auth    = ['status' => 200, 'body' => json_encode(['access_token' => 'fake-bearer-token'])];
+        $auth = ['status' => 200, 'body' => json_encode(['access_token' => 'fake-bearer-token'])];
+        // paypal_capture_payment() reads the order back via showOrderDetails() to verify
+        // it against the current invoice BEFORE capturing (GHSA-m2c5-pmxf-qfh5) — this
+        // precedes captureOrder() in the request sequence, so the mock queue needs it too.
+        $orderDetails = ['status' => 200, 'body' => json_encode([
+            'purchase_units' => [[
+                'invoice_id' => $invoiceId,
+                'amount'     => ['value' => $amount, 'currency_code' => 'EUR'],
+            ]],
+            'id' => 'PAYPAL-ORDER-' . $captureId,
+        ])];
         $capture = ['status' => 200, 'body' => json_encode([
             'purchase_units' => [[
                 'payments' => [
@@ -369,7 +379,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
         return [
             'method' => 'POST',
             'uri'    => '/guest/gateways/paypal/paypal_capture_payment/ORDER-' . $captureId,
-            'env'    => ['PAYPAL_MOCK_RESPONSES' => json_encode([$auth, $capture])],
+            'env'    => ['PAYPAL_MOCK_RESPONSES' => json_encode([$auth, $orderDetails, $capture])],
         ];
     }
 }
