@@ -131,6 +131,38 @@ class LoginRateLimitLegacyKeyMigrationTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($forged_email), 'log_count' => 1]);
     }
 
+    #[Test]
+    public function it_preserves_the_stronger_lockout_when_both_a_legacy_and_namespaced_row_already_exist(): void
+    {
+        /*
+         * Regression for a CodeRabbit finding on PR #30: a legacy row and a namespaced row
+         * for the same account can coexist (e.g. a case-variant email — the namespaced key
+         * is case-insensitive, but the legacy lookup is an exact string match, so an earlier
+         * request under a different case created a fresh namespaced row without ever
+         * finding this exact-case legacy one). The original reconciliation unconditionally
+         * kept the namespaced row and discarded the legacy row's count, so an attacker who
+         * was already locked out (count 10) could silently reset their own lockout to
+         * whatever weaker count (1) happened to exist under the namespaced key, purely by
+         * varying the case of the email on a later attempt.
+         */
+
+        /* Arrange: the legacy row already has an active, threshold-reached lockout (10);
+         * a namespaced row for the same account exists too, but far below the threshold. */
+        $email = 'legacy-strong-lockout@test.local';
+        $this->seedLoginUser($email);
+        $this->seedLoginLog($email, 10, '-5 minutes');
+        $this->seedLoginLog($this->accountKey($email), 1, '-1 minute');
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+
+        /* Assert: the stronger lockout (10) must win and still block the correct password —
+         * not be discarded in favor of the weaker namespaced row's count (1). */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $email]);
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 10]);
+    }
+
     private function ipKey(): string
     {
         return 'login_ip:' . hash('sha256', '127.0.0.1');
