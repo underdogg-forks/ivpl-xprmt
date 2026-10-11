@@ -107,4 +107,78 @@ class NumberFormattingSecurityTest extends TestCase
         $this->assertStringNotContainsString('<img src="http://169.254.169.254/">', $result);
         $this->assertStringContainsString('&lt;img', $result);
     }
+
+    /*
+     * Mutation-check on number_helper.php (2026-10-11, scrutinizing PR #1742) found these six
+     * behaviors had zero coverage anywhere in the suite. Not security-relevant to #1742's own
+     * escaping fix, but real correctness gaps in the same functions — closing them here rather
+     * than leaving them open.
+     */
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_defaults_to_zero_decimals_in_format_currency_when_no_decimal_point_is_configured(): void
+    {
+        $CI = & get_instance();
+
+        $CI->mdl_settings->_data['thousands_separator']       = ',';
+        $CI->mdl_settings->_data['currency_symbol']           = '$';
+        $CI->mdl_settings->_data['currency_symbol_placement'] = 'after';
+        // decimal_point left unset: FakeCiSettings::setting() then returns '' (falsy).
+
+        $result = format_currency(1234.5);
+
+        $this->assertSame('1,235$', $result);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_omits_the_separator_for_after_placement_unlike_afterspace(): void
+    {
+        $CI = & get_instance();
+
+        $CI->mdl_settings->_data['thousands_separator']       = ',';
+        $CI->mdl_settings->_data['decimal_point']             = '.';
+        $CI->mdl_settings->_data['currency_symbol']           = '$';
+        $CI->mdl_settings->_data['currency_symbol_placement'] = 'after';
+        $CI->mdl_settings->_data['tax_rate_decimal_places']   = '2';
+
+        $result = format_currency(10);
+
+        $this->assertSame('10.00$', $result, '"after" must not insert the &nbsp; separator "afterspace" uses.');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_returns_null_for_a_falsy_amount_in_format_amount(): void
+    {
+        $this->assertNull(format_amount(0));
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_defaults_to_zero_decimals_in_format_amount_when_no_decimal_point_is_configured(): void
+    {
+        $CI = & get_instance();
+
+        $CI->mdl_settings->_data['thousands_separator'] = ',';
+
+        $result = format_amount(1234.5);
+
+        $this->assertSame('1,235', $result);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_returns_null_for_a_falsy_amount_in_format_quantity(): void
+    {
+        $this->assertNull(format_quantity(0));
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_defaults_to_zero_decimals_in_format_quantity_when_no_decimal_point_is_configured(): void
+    {
+        $CI = & get_instance();
+
+        $CI->mdl_settings->_data['thousands_separator'] = ',';
+
+        $result = format_quantity(1234.5);
+
+        $this->assertSame('1,235', $result);
+    }
 }
