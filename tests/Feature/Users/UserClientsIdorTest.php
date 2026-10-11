@@ -236,6 +236,65 @@ final class UserClientsIdorTest extends AbstractTestCase
         $this->assertDatabaseMissing('ip_user_clients', ['client_id' => $clientId]);
     }
 
+    #[Test]
+    public function it_denies_a_secondary_admin_unassigning_another_users_client_mapping_via_delete_user_client(): void
+    {
+        /*
+         * Regression for Users::delete_user_client(), one of the three endpoints the
+         * GHSA-5rqm-w9p8-gp7w fix guards. Unlike the above User_clients::delete() cases,
+         * this one has no dedicated authorization test anywhere else — the only existing
+         * coverage (CsrfMutationParityTest) acts as the primary admin, which trivially
+         * satisfies is_primary_administrator() and never exercises this guard at all.
+         */
+
+        /* Arrange */
+        $secondaryId = $this->seedAdmin();
+        $victimId    = $this->seedAdmin();
+        $mappingId   = $this->databaseInsert('ip_user_clients', ['user_id' => $victimId, 'client_id' => $this->seedClient()]);
+        $this->actingAsAdmin($secondaryId);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/users/delete_user_client/' . $victimId . '/' . $mappingId);
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 403);
+        $this->assertDatabaseHas('ip_user_clients', ['user_client_id' => $mappingId]);
+    }
+
+    #[Test]
+    public function it_allows_the_primary_admin_to_unassign_another_users_client_mapping_via_delete_user_client(): void
+    {
+        /* Arrange: positive control for the test above — the same request, run by the
+         * primary admin, must still succeed. */
+        $victimId  = $this->seedAdmin();
+        $mappingId = $this->databaseInsert('ip_user_clients', ['user_id' => $victimId, 'client_id' => $this->seedClient()]);
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/users/delete_user_client/' . $victimId . '/' . $mappingId);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'users/form/' . $victimId);
+        $this->assertDatabaseMissing('ip_user_clients', ['user_client_id' => $mappingId]);
+    }
+
+    #[Test]
+    public function it_allows_a_user_to_unassign_their_own_client_mapping_via_delete_user_client(): void
+    {
+        /* Arrange: the fix's own-account carve-out — target_user_id === current_user_id
+         * must be allowed even for a non-primary admin. */
+        $ownerId   = $this->seedAdmin();
+        $mappingId = $this->databaseInsert('ip_user_clients', ['user_id' => $ownerId, 'client_id' => $this->seedClient()]);
+        $this->actingAsAdmin($ownerId);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/users/delete_user_client/' . $ownerId . '/' . $mappingId);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'users/form/' . $ownerId);
+        $this->assertDatabaseMissing('ip_user_clients', ['user_client_id' => $mappingId]);
+    }
+
     private function seedAdmin(): int
     {
         return $this->databaseInsert('ip_users', [

@@ -202,6 +202,26 @@ class UserClientsControllerTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_user_clients', ['user_client_id' => $id]);
     }
 
+    #[Test]
+    public function it_404s_when_deleting_a_nonexistent_mapping_instead_of_erroring(): void
+    {
+        /*
+         * Regression for a mutation-check survivor: delete()'s `if (! $ref) { show_404(); }`
+         * guard had no test at all. Without it, a nonexistent id falls through to
+         * (int) $ref->user_id on the `false` MY_Model::get_by_id() returns for no match —
+         * a PHP Error, not a clean 404.
+         */
+
+        /* Arrange */
+        $nonexistentId = 999999;
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/user_clients/delete/' . $nonexistentId);
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 404);
+    }
+
     // -------------------------------------------------------------------------
     // Guest access — always last
     // -------------------------------------------------------------------------
