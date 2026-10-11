@@ -165,10 +165,88 @@ class LoginSecurityTest extends AbstractTestCase
         /* Act */
         $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
 
-        /* Assert: success clears both counters (only the success branch does that) */
-        self::assertTrue($response->isRedirect(), 'A successful login must redirect. Got: ' . $response->statusCode());
+        /* Assert: redirected all the way to the dashboard — not bounced back to the login
+         * form, which authenticate() returning false (despite a correct password) would
+         * also do while still clearing both counters, since the resets happen before the
+         * return statement either way. */
+        $this->assertResponseRedirectsToRoute($response, 'dashboard');
         $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->accountKey($email)]);
         $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->ipKey()]);
+    }
+
+    #[Test]
+    public function it_denies_login_with_the_correct_password_once_the_account_lockout_threshold_is_reached(): void
+    {
+        /*
+         * Boundary for the account lockout's `< 10` check: at exactly 10 prior failures,
+         * the whole credential-check block is skipped — even a correct password must not
+         * log the user in, and the skipped block means the counter is not incremented
+         * either.
+         */
+
+        /* Arrange */
+        $email = 'lockedaccount@test.local';
+        $this->seedLoginUser($email);
+        $this->seedLoginLog($this->accountKey($email), 10, 'now');
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A locked-out login attempt must redirect. Got: ' . $response->statusCode());
+        self::assertFalse(str_contains($response->redirectUrl(), 'dashboard'), 'A locked-out login must not reach the dashboard.');
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 10]);
+    }
+
+    #[Test]
+    public function it_still_allows_login_with_the_correct_password_at_nine_prior_failures(): void
+    {
+        /* Arrange */
+        $email = 'almostlockedaccount@test.local';
+        $this->seedLoginUser($email);
+        $this->seedLoginLog($this->accountKey($email), 9, 'now');
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'dashboard');
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->accountKey($email)]);
+    }
+
+    #[Test]
+    public function it_refuses_to_authenticate_a_request_whose_method_is_not_post(): void
+    {
+        /*
+         * authenticate()'s own "even called internally, only ever from a POST login"
+         * guard is unreachable through the public routes today — login() already gates
+         * on $this->input->post('btn_login') before calling it, so a real browser can
+         * never make a GET reach this far. It exists for a future caller that might not
+         * re-check the method. The test harness sets $_POST independently of the declared
+         * HTTP method, so this sends exactly that mismatch through the real request
+         * pipeline (not a reflection call) to prove the guard still holds if that ever
+         * changes.
+         */
+
+        /* Arrange */
+        $email = 'methodguard@test.local';
+        $this->seedLoginUser($email);
+
+        /* Act */
+        $response = $this->request('GET', '/sessions/login', [], ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+
+        /* Assert: authenticate() returning false takes login()'s failure branch (sets the
+         * flash error and redirects to sessions/login). A mutant making it return true
+         * would skip straight to the user_type dashboard/guest redirects without ever
+         * setting any session data, matching neither branch and falling through to
+         * re-render the login form instead (a 200, not a redirect) — so asserting the
+         * redirect itself happened is what actually distinguishes the two. */
+        self::assertTrue($response->isRedirect(), 'A GET-method request must still take the login-failure branch. Got: ' . $response->statusCode());
+        self::assertFalse(
+            str_contains($response->redirectUrl(), 'dashboard'),
+            'A GET-method request must never authenticate, even with POST-shaped login data present.'
+        );
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->accountKey($email)]);
     }
 
     // -------------------------------------------------------------------------

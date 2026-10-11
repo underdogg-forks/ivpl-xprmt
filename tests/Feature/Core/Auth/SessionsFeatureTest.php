@@ -173,6 +173,28 @@ class SessionsFeatureTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_redirects_to_the_homepage_for_a_non_alphanumeric_token_reaching_the_controller(): void
+    {
+        /*
+         * Regression for a mutation-check gap: the above test's token ('../etc/passwd')
+         * is also rejected at the routing layer (permitted_uri_chars disallows '/'), so it
+         * never actually proves Sessions::passwordreset()'s own alphanumeric guard fired.
+         * A period IS in permitted_uri_chars, so this token reaches the controller and the
+         * redirect to '/' can only come from the guard itself, not CI's router.
+         */
+
+        /* Arrange */
+        $token = 'abc.123def';
+
+        /* Act */
+        $response = $this->get('/sessions/passwordreset/' . $token);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'index.php');
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => 'password_reset_token:' . hash('sha256', $token)]);
+    }
+
+    #[Test]
     public function it_redirects_to_login_when_an_unknown_valid_format_token_is_used(): void
     {
         /* Arrange: a real account with a pending reset token of its own */
@@ -183,8 +205,14 @@ class SessionsFeatureTest extends AbstractTestCase
         /* Act */
         $response = $this->get('/sessions/passwordreset/' . bin2hex(random_bytes(16)));
 
-        /* Assert: bounced, and the other account's token and password are untouched */
+        /* Assert: bounced, told the same generic "expired" message a real expired token
+         * would get (never reveals that the token simply didn't match anyone), and the
+         * other account's token and password are untouched */
         self::assertTrue($response->isRedirect(), sprintf('An unknown but format-valid reset token must redirect. Got [%d].', $response->statusCode()));
+        self::assertSame(
+            'This password reset link has expired. Please request a new password reset.',
+            $response->sessionValue('alert_error')
+        );
         $after = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
         self::assertSame($before['user_passwordreset_token'], $after['user_passwordreset_token']);
         self::assertSame($before['user_password'], $after['user_password']);
