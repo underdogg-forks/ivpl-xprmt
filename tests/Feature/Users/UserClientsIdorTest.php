@@ -90,21 +90,80 @@ final class UserClientsIdorTest extends AbstractTestCase
     #[Test]
     public function it_allows_the_primary_admin_to_grant_all_clients(): void
     {
+        /* Arrange: a second, unrelated client exists that is never named in the request —
+         * only set_all_clients_user() would assign it, a plain create() call would not. */
+        $targetId        = $this->seedAdmin();
+        $namedClientId   = $this->seedClient();
+        $unnamedClientId = $this->seedClient();
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/user_clients/create/' . $targetId, [
+            'user_id'          => $targetId,
+            'client_id'        => $namedClientId,
+            'user_all_clients' => '1',
+        ]);
+
+        /* Assert: the flag is set AND every client was actually assigned, proving
+         * set_all_clients_user() ran rather than just the ip_users flag update. */
+        $this->assertResponseRedirectsToRoute($response, 'user_clients/user/' . $targetId);
+        $this->assertDatabaseHas('ip_users', ['user_id' => $targetId, 'user_all_clients' => 1]);
+        $this->assertDatabaseHas('ip_user_clients', ['user_id' => $targetId, 'client_id' => $unnamedClientId]);
+    }
+
+    #[Test]
+    public function it_does_not_grant_all_clients_when_only_a_single_client_is_requested(): void
+    {
+        /* Arrange: a second, unrelated client exists. A plain single-client assignment must
+         * never pull it in — only an explicit user_all_clients=1 request may. */
+        $targetId        = $this->seedAdmin();
+        $namedClientId   = $this->seedClient();
+        $unnamedClientId = $this->seedClient();
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/user_clients/create/' . $targetId, [
+            'user_id'   => $targetId,
+            'client_id' => $namedClientId,
+        ]);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'user_clients/user/' . $targetId);
+        $this->assertDatabaseHas('ip_users', ['user_id' => $targetId, 'user_all_clients' => 0]);
+        $this->assertDatabaseHas('ip_user_clients', ['user_id' => $targetId, 'client_id' => $namedClientId]);
+        $this->assertDatabaseMissing('ip_user_clients', ['user_id' => $targetId, 'client_id' => $unnamedClientId]);
+    }
+
+    #[Test]
+    public function it_does_not_clobber_an_unrelated_users_all_clients_flag(): void
+    {
+        /*
+         * Regression for a missing $this->db->where('user_id', ...) before the ip_users
+         * update in create(): without it, CodeIgniter's query builder would run the update
+         * against every row in ip_users, silently resetting every other user's
+         * user_all_clients flag to 0.
+         */
+
         /* Arrange */
+        $bystanderId = $this->seedAdmin();
+        $this->databaseInsert('ip_user_clients', ['user_id' => $bystanderId, 'client_id' => $this->seedClient()]);
+        $this->databaseUpdate('ip_users', ['user_all_clients' => 1], ['user_id' => $bystanderId]);
+
         $targetId = $this->seedAdmin();
         $clientId = $this->seedClient();
         $this->actingAsAdmin(1);
 
         /* Act */
         $response = $this->postWithValidCsrfToken('/user_clients/create/' . $targetId, [
-            'user_id'          => $targetId,
-            'client_id'        => $clientId,
-            'user_all_clients' => '1',
+            'user_id'   => $targetId,
+            'client_id' => $clientId,
         ]);
 
-        /* Assert */
+        /* Assert: the target user's own (non-all-clients) update must not leak onto the
+         * bystander's unrelated row. */
         $this->assertResponseRedirectsToRoute($response, 'user_clients/user/' . $targetId);
-        $this->assertDatabaseHas('ip_users', ['user_id' => $targetId, 'user_all_clients' => 1]);
+        $this->assertDatabaseHas('ip_users', ['user_id' => $targetId, 'user_all_clients' => 0]);
+        $this->assertDatabaseHas('ip_users', ['user_id' => $bystanderId, 'user_all_clients' => 1]);
     }
 
     #[Test]
@@ -129,6 +188,30 @@ final class UserClientsIdorTest extends AbstractTestCase
         ]);
 
         /* Assert: rejected outright, not silently truncated to user 2. */
+        $this->assertResponseStatusCode($response, 403);
+        $this->assertDatabaseMissing('ip_user_clients', ['client_id' => $clientId]);
+    }
+
+    #[Test]
+    public function it_rejects_a_non_integer_shaped_url_id_even_with_no_posted_user_id(): void
+    {
+        /*
+         * The same URL-id guard as above, isolated: omitting the posted user_id field
+         * entirely means the defense-in-depth posted-user_id check (which also rejects
+         * non-integer shapes) never runs, since it is itself gated on the field being
+         * present. The ctype_digit() guard on the URL id must reject this on its own.
+         */
+
+        /* Arrange */
+        $clientId = $this->seedClient();
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/user_clients/create/2.9', [
+            'client_id' => $clientId,
+        ]);
+
+        /* Assert */
         $this->assertResponseStatusCode($response, 403);
         $this->assertDatabaseMissing('ip_user_clients', ['client_id' => $clientId]);
     }

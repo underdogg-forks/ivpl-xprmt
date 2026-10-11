@@ -62,9 +62,11 @@ class UserClientsControllerTest extends AbstractTestCase
     #[Test]
     public function it_assigns_a_client_to_a_user(): void
     {
-        /* Arrange */
-        $userId   = $this->seedSecondaryUser();
-        $clientId = $this->seedClient(['client_name' => 'Freshly Assigned Client']);
+        /* Arrange: a second, unrelated client exists that this request never names — only
+         * an explicit user_all_clients=1 request should ever pull it in. */
+        $userId          = $this->seedSecondaryUser();
+        $clientId        = $this->seedClient(['client_name' => 'Freshly Assigned Client']);
+        $unnamedClientId = $this->seedClient(['client_name' => 'Unrelated Client']);
 
         /* Act */
         $response = $this->post('/user_clients/create/' . $userId, [
@@ -76,6 +78,8 @@ class UserClientsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertTrue($response->isRedirect(), 'A successful assignment redirects to the user client list.');
         $this->assertDatabaseHas('ip_user_clients', ['user_id' => $userId, 'client_id' => $clientId]);
+        $this->assertDatabaseHas('ip_users', ['user_id' => $userId, 'user_all_clients' => 0]);
+        $this->assertDatabaseMissing('ip_user_clients', ['user_id' => $userId, 'client_id' => $unnamedClientId]);
     }
 
     // -------------------------------------------------------------------------
