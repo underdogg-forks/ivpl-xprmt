@@ -40,7 +40,7 @@ in this release.
 | PayPal capture not re-verified against the invoice before funds move; Stripe callback crash on uninitialized state | — | [GHSA-m2c5-pmxf-qfh5](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-m2c5-pmxf-qfh5), [GHSA-r382-4chp-xj3p](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-r382-4chp-xj3p) | [@Ishbarna](https://github.com/Ishbarna) | [#1749](https://github.com/InvoicePlane/InvoicePlane/pull/1749) |
 | Login / password-reset-token rate-limit counter forgery via shared key column (CWE-694) | — | [GHSA-r59m-wgg6-h4pv](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-r59m-wgg6-h4pv) | [@Taxanehh](https://github.com/Taxanehh) | [#1748](https://github.com/InvoicePlane/InvoicePlane/pull/1748) |
 | Missing object-level authorization on user-client assignment endpoints (CWE-639 / CWE-862) | — | [GHSA-5rqm-w9p8-gp7w](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-5rqm-w9p8-gp7w) | [@Shad0w35](https://github.com/Shad0w35), [@dreamer1eh](https://github.com/dreamer1eh) | [#1747](https://github.com/InvoicePlane/InvoicePlane/pull/1747) |
-| Sessions not invalidated after a password change (CWE-613) | — | [GHSA-hg6g-m4fp-7cj3](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hg6g-m4fp-7cj3) | [@iamharshitgupta](https://github.com/iamharshitgupta) | [#1746](https://github.com/InvoicePlane/InvoicePlane/pull/1746) |
+| Sessions not invalidated after a password change (CWE-613) | — | [GHSA-hg6g-m4fp-7cj3](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hg6g-m4fp-7cj3), [GHSA-hw8f-c8c2-g4fj](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hw8f-c8c2-g4fj) | [@iamharshitgupta](https://github.com/iamharshitgupta), [@0x0Axlw](https://github.com/0x0Axlw) | [#1746](https://github.com/InvoicePlane/InvoicePlane/pull/1746) |
 | Stored XSS via custom field label in validation error alerts (CWE-79 / CWE-116) | — | [GHSA-xvpx-fwvm-346g](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-xvpx-fwvm-346g) | [@Shad0w35](https://github.com/Shad0w35) | [#1745](https://github.com/InvoicePlane/InvoicePlane/pull/1745) |
 | Stored XSS via unescaped `currency_symbol` — 15 remaining view sinks (CWE-79 / CWE-116) | — | [GHSA-gpv9-p6gj-238h](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-gpv9-p6gj-238h) | [@Shad0w35](https://github.com/Shad0w35), [@medamineelhatimi](https://github.com/medamineelhatimi) | [#1744](https://github.com/InvoicePlane/InvoicePlane/pull/1744) |
 | Stored XSS in guest payment pages via unescaped payment-gateway settings (CWE-79) | — | [GHSA-mp5h-3jcr-f7hm](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-mp5h-3jcr-f7hm) | [@T0x1cG](https://github.com/T0x1cG) | [#1743](https://github.com/InvoicePlane/InvoicePlane/pull/1743) |
@@ -73,140 +73,15 @@ in this release.
   non-atomic steps. Concurrent payment submissions from distinct authenticated admin sessions
   for the same invoice could each read the same stale balance and pass validation before either
   committed, driving the invoice into an overpaid (negative-balance) state. Both admin payment
-  entry points (`Payments::form()`, `Ajax::add()`) now serialize on the invoice with
-  `PaymentCallbackLock` — the same connection-scoped MySQL advisory lock already used to close
-  the equivalent gateway-callback race — so a losing submission blocks until the winner commits,
-  then re-validates against the now-current balance. **Note on scope:** this is distinct from
-  gateway replay deduplication (the unique index on `ip_payments.payment_external_id`, shipped in
-  1.7.3). That index does not exist on installations still running the released 1.7.2; this fix
-  does not add it retroactively — it only closes the admin-side balance race. Reported by
+  entry points (`Payments::form()`, `Ajax::add()`) now serialize on the invoice with a new
+  `PaymentCallbackLock` library: a connection-scoped MySQL advisory lock, so a losing submission
+  blocks until the winner commits, then re-validates against the now-current balance. **Note on
+  scope:** this is distinct from gateway replay deduplication (the unique index on
+  `ip_payments.payment_external_id`, shipped in 1.7.3). That index does not exist on
+  installations still running the released 1.7.2; this fix does not add it retroactively — it
+  only closes the admin-side balance race. Reported by
   [@hariprakash6969-create](https://github.com/hariprakash6969-create).
-  [#4](https://github.com/underdogg-forks/ivpl-xprmt/pull/4)
-
-**nginx and Apache served private files** (GHSA-qq8q-gf24-576m) — Reported by [@nirtem](https://github.com/nirtem); Fixed by [@DylanUnderwood](https://github.com/DylanUnderwood).
-
-- **nginx and Apache served private files.** The bundled `resources/docker/nginx/invoiceplane.conf` served
-  the whole project directory, and nginx ignores the `.htaccess` files that protect private
-  paths on Apache. Archived invoice PDFs in `uploads/archive` (named after date and invoice
-  number) could be downloaded without logging in. So could customer attachments, import files,
-  `vendor/` scripts (including PHPMailer's `get_oauth_token.php` and mPDF's `data/out.php`),
-  `application/` and the composer files. The config now refuses these paths and runs only
-  `index.php` as PHP. The Apache `htaccess` also blocks `vendor/`, `application/`,
-  `resources/`, dotfiles and project files. **If you run nginx with your own config, add the
-  same deny rules** (see the installation guide).
-- **Security headers on every page.** `X-Frame-Options`, `Content-Security-Policy: frame-ancestors`,
-  `X-Content-Type-Options` and `Referrer-Policy` were sent only on admin pages. The login page,
-  client portal and public invoice/quote/payment pages could be framed (clickjacking of quote
-  approval, for example). Public invoice URLs, which contain the invoice's access key, were
-  also sent to third-party payment scripts in the `Referer` header. `index.php` now sends
-  these headers for every response.
-- **Changing or resetting a password now ends the user's other sessions.** Sessions last up to
-  10 days and survived a password change. The routine meant to delete a user's sessions could
-  not read PHP's session file format, so it never deleted any. Sessions are now tied to the
-  password they were created with and checked on every request. The user who changes their
-  own password stays logged in, and the file-based cleanup routine works.
-- **Password reset tokens are stored as SHA-256 digests**, so reading the users table no longer
-  yields a working reset link. Links requested before upgrading stop working; request a new one.
-- **8-character minimum password length on every path.** Changing a password or resetting it
-  now enforces the same minimum as creating a user. The reset form also no longer runs the new
-  password through the XSS filter, which could silently alter it.
-- **Internal `Layout` controller was reachable by URL** (`/layout/load_view/…`,
-  `/layout/render/…`) without logging in, rendering views and PHP error output. It now returns
-  404 when routed.
-- **Output escaping:**
-  - the client country (which is not restricted to known codes and can come from CSV import)
-    on client, invoice, quote, client-portal and payment pages
-  - the user name link on the client view
-  - the email column of the user list
-  - values echoed back by the setup wizard's database form
-  - the pagination links
-- **The cron endpoints reject an empty cron key.** Previously an empty `cron_key` setting matched
-  a request with no key. This covers both `invoices/cron/recur` and `invoices/cron/reminders`,
-  which share the same key check.
-- **Errors are hidden if `CI_ENV` is missing** from `ipconfig.php`. `index.php` used to fall back
-  to `development`, which shows PHP errors, stack traces and SQL to visitors.
-
-### Features
-
-- **Automatic payment reminder emails.** Invoices generated from a recurring schedule were
-  emailed once and never chased again: nothing went out as the due date approached, and
-  nothing when an invoice went past due. The cron endpoint
-  (`invoices/cron/recur/<cron_key>`) now also sends reminders, so existing crontab entries
-  pick the feature up with no change. Configure it under **Settings > Invoices > Payment
-  reminders**: a comma-separated list of days before the due date (e.g. `7,3,1`), a list of
-  days after (e.g. `1,7,14`), an optional repeat-every-N-days tail, and a cap on total
-  reminders per invoice. Bodies come from ordinary invoice email templates: before-due
-  reminders use the template chosen in the new *Before-due reminder template* setting, and
-  overdue reminders reuse the existing *Overdue Email Template* setting, so no new template
-  types are introduced. Two new tags, `{{{invoice_days_overdue}}}` and
-  `{{{invoice_days_until_due}}}`, are available in any template. Reminders can be suppressed globally, per client, or per
-  invoice, and every one that is sent, skipped or failed is recorded in the new
-  `ip_invoice_reminders` table and listed on the invoice.
-
-  Only invoices that are *sent* or *viewed* with a balance still owing are eligible, so
-  partially paid invoices are chased for the remainder and drafts and settled invoices are
-  left alone. Duplicate sends are prevented by the database rather than by application
-  logic: each reminder slot is claimed with an `INSERT IGNORE` against a unique index on
-  `(invoice_id, reminder_type, reminder_offset)`, so two overlapping cron runs cannot both
-  mail the same reminder. If cron has not run for several days only the most recent missed
-  reminder is sent and the ones it overtook are recorded as skipped, so an outage produces
-  one catch-up email per invoice rather than a burst of stale ones. The feature ships
-  disabled with no offsets configured, so upgrading changes nothing until it is switched on.
-
-### Changes
-
-- **All database tables are now InnoDB.** The schema had been MyISAM since 1.0.0, which has
-  no transactions, no crash recovery and locks whole tables on write. The application
-  already assumed otherwise — `Cron::recur()` wraps recurring invoice creation in
-  `trans_start()`/`trans_complete()`, which under MyISAM silently did nothing, so a failed
-  invoice copy could advance the recurring schedule without ever generating the invoice.
-  New installs are created as InnoDB, and upgrading installs are converted by migration
-  `046_1.7.3.sql`. The conversion reads the live table list rather than assuming a fixed
-  one (`ip_sessions` and `ip_login_log` were created with no `ENGINE` clause and inherit the
-  server default), touches only tables that are actually MyISAM, and is safe to re-run.
-  **Take a database backup before upgrading:** `ALTER TABLE ... ENGINE` rebuilds each table
-  and holds a write lock while it runs.
-
-- **`EMAIL_OVERRIDE_TO` — development mail safety net.** New optional `ipconfig.php`
-  setting. When it holds an address, every outbound email is delivered there instead of
-  to its real recipients: invoices, quotes, quote-status notices, payment receipts,
-  overdue reminders and password resets alike. `phpmail_send()` enforces it for
-  everything it sends, and the password-reset fallback that uses CodeIgniter's own
-  mailer when no mailer is configured applies it too. The intended To/Cc/Bcc appear in a
-  banner at the top of the message and in an `X-InvoicePlane-Intended-Recipients` header,
-  the subject is prefixed `[DEV]`, and `bcc_mails_to_admin` is skipped so no second, unredirected
-  copy escapes. Empty by default, and it must stay empty in production. Intended for
-  development against a copy of production data, where one stray send reaches real
-  clients.
-
-- **PHP 8.2 – 8.5, with current PHP dependencies.** `composer.json` now declares
-  `php >= 8.2` and pins the resolver to 8.2 (`config.platform.php`), so a release built on a
-  newer PHP can no longer pull in a dependency that fatals on 8.2 or 8.3. CI lints and runs
-  the test suite on 8.2, 8.3, 8.4 and 8.5, and the lint also fails on compile-time
-  deprecations. Upgraded: phpmailer 6 → 7, guzzle 7 → 8 (psr7 3), stripe-php 14 → 21,
-  endroid/qr-code 4 → 6 with smhg/sepa-qr-data 1 → 3, phpdotenv 5.7, and the dev tools
-  (phpunit 11, php_codesniffer 4, var-dumper 7). `paragonie/random_compat` is removed.
-  The Stripe client now pins API version `2024-04-10`, the version the embedded checkout
-  was built against; stripe-php 21 would otherwise default to a newer API in which
-  `ui_mode: embedded` is not available.
-
-  **PHP 8.4 is the default.** It is the recommended version for new installs, the version the
-  production container image (`resources/docker/Containerfile`) and release packages are
-  built on, and the default for CI jobs that run a single PHP version. 8.2 remains the
-  minimum, and the setup wizard now checks for it (it still checked for 5.6).
-
-- **Development Docker stack (`docker-compose.yml`).** The `php` image defaults to PHP 8.4
-  (the `PHP_VERSION` build argument selects 8.2 – 8.5) and ships Composer, so
-  `docker compose -f docker-compose.yml exec php composer install` works on a fresh clone. A
-  new `mailpit` service catches outgoing mail and never relays it (UI at
-  `http://localhost:8025`, SMTP for the app at `mailpit:1025`). The stack now has an explicit
-  project name, `invoiceplane-dev`: it used to share a directory-derived name with
-  `compose.yml`, so both stacks resolved the same `invoiceplane-db` volume and whichever
-  started second failed with "Access denied for user 'ipdevdb'". MariaDB is no longer
-  published on the host's port 3306; use phpMyAdmin on 8081. **Existing dev databases:** a
-  stack started before this change stored its data in a `<directory>_invoiceplane-db`
-  volume, which the renamed project does not reuse; dump it first, or copy the volume, if
-  you need that data.
+  [#1756](https://github.com/InvoicePlane/InvoicePlane/pull/1756)
 
 - **PayPal PENDING capture status treated as settled payment (unconfirmed funds):** PayPal can return a `PENDING` status for captures that have not yet settled, indicating that the transaction is in progress but funds have not yet reached the merchant account. The PayPal controller accepted both `COMPLETED` and `PENDING` statuses as valid payment settlement indicators, causing PENDING transactions to be recorded as paid invoices and reducing the customer's outstanding balance before PayPal confirmed settlement. This created reconciliation issues and potential double-charging if a PENDING transaction subsequently failed. **Fix:** only `COMPLETED` captures are now recorded as settled payments through `record_external_payment()`. `PENDING` captures are logged to `merchant_responses` for tracking and audit purposes, but do NOT update the invoice balance or mark the invoice as paid. The customer is notified that their payment is pending settlement, awaiting PayPal webhook confirmation. **Recommendation:** existing deployments should review any invoices paid via PayPal in the last 90 days and verify that PENDING transactions have not been incorrectly marked as settled. Thanks to [@santhoshdodo2721](https://github.com/santhoshdodo2721) for responsible disclosure.
 
@@ -218,11 +93,11 @@ in this release.
 
 - **SQL operator precedence vulnerability in guest invoice listing — ungrouped OR filters escape client scoping** ([GHSA-w5r4-8w63-c5h2](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-w5r4-8w63-c5h2), CWE-639 / CWE-862): The `Mdl_invoices::is_paid()` method uses an ungrouped `filter_or_where()` condition that, when combined with the guest controller's client-scoping `where_in()`, allows the OR to bind more tightly than the AND, leaking invoices from other clients. The SQL evaluates as `WHERE status=4 OR (balance='0.00' AND client_id IN (...))` instead of the intended `WHERE (status=4 OR balance='0.00') AND client_id IN (...)`. Guest users can enumerate invoices from other clients by exploiting the zero-balance or paid-status conditions. The initial fix in [#1715](https://github.com/InvoicePlane/InvoicePlane/pull/1715) wrapped both conditions in `group_start()/group_end()`, but those run immediately against the query builder while `filter_where()`/`filter_or_where()` are deferred by `MY_Model::__call()` and only applied later by `run_filters()` — so the group closed empty and the vulnerability was not actually fixed. [#1717](https://github.com/InvoicePlane/InvoicePlane/pull/1717) corrects this using `filter_group_start()/filter_group_end()`, which defers the grouping into the same queue as the two conditions. **CVSS 5.3** (Medium — Unauthorized Information Disclosure).
 
+- **Sessions not invalidated after a password change (CWE-613):** changing or resetting a password only rewrote the bcrypt hash; `User_Controller` re-validated the account's role and active state on each request but nothing tied a session to the password it was created with, so a session opened with the old (possibly compromised) password stayed authorized until it expired — ten days by default. **Fix:** `Mdl_Sessions::auth()` stores an HMAC fingerprint of the password hash in the session (`session_credential_fingerprint()` in `ip_security_helper.php`), and `User_Controller` compares it with the current hash on every request and destroys the session on mismatch. A user changing their own password keeps their current session; every other session of that account ends on its next request. Sessions that predate this fix are bound to the current password on their first request. Thanks to [@iamharshitgupta](https://github.com/iamharshitgupta) and [@0x0Axlw](https://github.com/0x0Axlw) for responsible disclosure. ([GHSA-hg6g-m4fp-7cj3](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hg6g-m4fp-7cj3), [GHSA-hw8f-c8c2-g4fj](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hw8f-c8c2-g4fj))
+
 - **PayPal capture moved funds before the local invoice checks, and always logged success (CWE-391 / CWE-754 / CWE-841):** `Paypal::paypal_capture_payment()` called `captureOrder()` first and only afterwards checked the invoice (still public, still unpaid, currency, amount, remaining balance). If the invoice changed between order creation and capture — balance raised or lowered, paid another way, cancelled — the customer had already been charged but no payment was recorded, a cancelled invoice ended in an uncaught exception (HTTP 500), and the `ip_merchant_responses` row was written as successful regardless. **Fix:** the order is now read back from PayPal and verified against the current invoice (public, unpaid, same currency, amount equal to the balance) *before* anything is captured; if the check fails nothing is captured and the customer is told to retry. The uncaught post-capture exception is gone, and the merchant response is only logged as successful when the capture was actually recorded — otherwise it is flagged "captured at PayPal, NOT recorded locally" and an error is logged for manual reconciliation. Thanks to [@Ishbarna](https://github.com/Ishbarna) for responsible disclosure. ([GHSA-m2c5-pmxf-qfh5](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-m2c5-pmxf-qfh5))
 
 - **Unauthenticated requests to the payment-gateway controllers trigger outbound API calls; Stripe callback crashes on uninitialized state:** `guest/gateways/stripe/callback/<id>` is reachable without authentication. For any invalid id the Stripe call threw, and the `finally` block then dereferenced `$session` and `$invoice`, which were never assigned, attempted an insert with a NULL `invoice_id` into a NOT NULL column, and ended in an HTTP 500 without the intended redirect — at the cost of one Stripe API call per request. Separately, every request that reached the PayPal controller made a live OAuth token request from the library constructor. **Fix:** the Stripe callback rejects ids that are not a well-formed Checkout Session id before any API call, initialises its state before the `try`, and only writes the merchant response when an invoice was resolved; `PaypalLib` now authorizes lazily, on the first real API call. Thanks to [@Ishbarna](https://github.com/Ishbarna) for responsible disclosure. ([GHSA-r382-4chp-xj3p](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-r382-4chp-xj3p))
-
-- **Login rate-limit counter forgery via the shared `ip_login_log` key column (CWE-694):** five different counters (per-account login lockout, login-IP throttle, password-reset IP and email throttles, cron-key throttle) share `ip_login_log.login_name`. The four throttles use namespaced `<prefix>:<sha256>` keys, but the per-account login lockout — and the password-reset token counter — wrote the raw, unvalidated value the client submitted, so an unauthenticated attacker could submit another counter's key (for example `login_ip:<sha256(ip)>`) as an email address or reset token and deliberately fail, locking out a chosen IP, blocking password recovery for an account, or tripping the cron throttle. **Fix:** both counters now use namespaced keys of the same shape (`login_account:<sha256(lower(email))>` and `password_reset_token:<sha256(token)>`), so submitted input can no longer address another counter. Thanks to [@Taxanehh](https://github.com/Taxanehh) for responsible disclosure. ([GHSA-r59m-wgg6-h4pv](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-r59m-wgg6-h4pv))
 
 ### Bug fixes
 
