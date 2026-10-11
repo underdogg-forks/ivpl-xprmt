@@ -52,6 +52,25 @@ class LoginRateLimitNamespacingTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_rejects_an_empty_email_without_touching_any_login_rate_limit_counter(): void
+    {
+        /*
+         * An empty identity has no account to lock out: counting it would key a real,
+         * namespaced lockout row on 'login_account:' . hash(''), reachable by any
+         * submission that simply omits the field. authenticate() must reject it before
+         * touching either the per-account or per-IP counter at all.
+         */
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => '', 'password' => 'irrelevant']);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->accountKey('')]);
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->ipKey()]);
+    }
+
+    #[Test]
     public function it_clears_the_namespaced_account_lockout_counter_after_a_successful_password_change(): void
     {
         /* Arrange: the account already has failed login attempts recorded under its
