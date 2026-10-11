@@ -117,6 +117,71 @@ class LoginRateLimitNamespacingTest extends AbstractTestCase
         ]);
     }
 
+    #[Test]
+    public function it_locks_out_the_password_reset_token_after_more_than_ten_attempts(): void
+    {
+        /* Arrange: the namespaced token counter already holds 11 attempts — one over the
+         * lockout threshold. */
+        $token    = 'aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00aa00';
+        $tokenKey = 'password_reset_token:' . hash('sha256', $token);
+        $this->seedLoginLog($tokenKey, 11, 'now');
+
+        /* Act */
+        $this->get('/sessions/passwordreset/' . $token);
+
+        /* Assert: the lockout branch redirects away without touching the counter further —
+         * if it were taken as a normal (uncounted) attempt instead, log_count would climb
+         * to 12. */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $tokenKey, 'log_count' => 11]);
+    }
+
+    #[Test]
+    public function it_still_counts_the_attempt_at_exactly_ten_prior_failures(): void
+    {
+        /*
+         * Boundary for the `> 10` lockout check: exactly 10 prior failures must NOT be
+         * locked out yet — the 11th attempt is still counted normally, taking log_count to
+         * 11. (A `>= 10` mutant would incorrectly lock this out and leave it at 10.)
+         */
+
+        /* Arrange */
+        $token    = 'bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00bb00';
+        $tokenKey = 'password_reset_token:' . hash('sha256', $token);
+        $this->seedLoginLog($tokenKey, 10, 'now');
+
+        /* Act */
+        $this->get('/sessions/passwordreset/' . $token);
+
+        /* Assert */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $tokenKey, 'log_count' => 11]);
+    }
+
+    #[Test]
+    public function it_resets_the_namespaced_token_counter_after_a_valid_token_link_is_opened(): void
+    {
+        /*
+         * A valid, unexpired token visited via the emailed link must clear its own
+         * namespaced counter (_login_log_reset() in the token-link branch), not just the
+         * account counter cleared on an actual password change.
+         */
+
+        /* Arrange */
+        $this->seedUserWithResetToken(gmdate('Y-m-d H:i:s', time() + 600));
+        $tokenKey = $this->tokenKey(self::TOKEN);
+        $this->seedLoginLog($tokenKey, 3, 'now');
+
+        /* Act */
+        $this->get('/sessions/passwordreset/' . self::TOKEN);
+
+        /* Assert */
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $tokenKey]);
+    }
+
+    private function tokenKey(string $token): string
+    {
+        return 'password_reset_token:' . hash('sha256', $token);
+    }
+
     private function ipKey(): string
     {
         return 'login_ip:' . hash('sha256', '127.0.0.1');
