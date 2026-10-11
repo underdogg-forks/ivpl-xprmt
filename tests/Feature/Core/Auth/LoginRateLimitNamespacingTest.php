@@ -71,6 +71,28 @@ class LoginRateLimitNamespacingTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_rejects_an_array_valued_email_without_crashing_or_touching_any_counter(): void
+    {
+        /*
+         * A crafted `email[]=a&email[]=b` POST field reaches authenticate() as an array, not
+         * a string. The empty/null guard (=== '' || === null) does not catch an array, so it
+         * fell through to _login_account_log_key(string $email_address), whose type hint
+         * raised an uncaught TypeError instead of a graceful login failure. Reject any
+         * non-string identity up front, same as an empty one.
+         */
+
+        /* Arrange */
+        $countBefore = $this->databaseCount('ip_login_log');
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => ['a', 'b'], 'password' => 'irrelevant']);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect());
+        self::assertSame($countBefore, $this->databaseCount('ip_login_log'));
+    }
+
+    #[Test]
     public function it_clears_the_namespaced_account_lockout_counter_after_a_successful_password_change(): void
     {
         /* Arrange: the account already has failed login attempts recorded under its
