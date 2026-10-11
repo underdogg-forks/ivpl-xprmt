@@ -164,6 +164,40 @@ class LoginRateLimitLegacyKeyMigrationTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_does_not_let_a_weak_legacy_row_overwrite_a_stronger_coexisting_namespaced_lockout(): void
+    {
+        /*
+         * Mutation-check survivor: the sibling case to
+         * it_preserves_the_stronger_lockout_when_both_a_legacy_and_namespaced_row_already_exist
+         * above, with the magnitudes reversed. That test only proves the comparison's "legacy
+         * wins" direction; a mutant that forces the reconciliation to always overwrite with the
+         * legacy row's count regardless of which is actually higher survived because nothing
+         * exercised "legacy loses." If the legacy row were always applied unconditionally, an
+         * attacker with a real active lockout (10, under the namespaced key from normal use)
+         * could reset it to a trivially weak count just by causing a stray weak legacy-shaped
+         * row to exist for the same email (e.g. a one-off failed attempt recorded before this
+         * fix shipped, or any other weak row happening to sit under the exact raw key).
+         */
+
+        /* Arrange: the namespaced row already has an active, threshold-reached lockout (10);
+         * a legacy row for the same account exists too, but far below the threshold. */
+        $email = 'legacy-weak-lockout@test.local';
+        $this->seedLoginUser($email);
+        $this->seedLoginLog($email, 1, '-1 minute');
+        $this->seedLoginLog($this->accountKey($email), 10, '-5 minutes');
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+
+        /* Assert: the stronger lockout (10) must survive untouched — not be overwritten by
+         * the weaker legacy row's count (1) — and the legacy row is still cleaned up either
+         * way. */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $email]);
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 10]);
+    }
+
+    #[Test]
     public function it_refuses_to_migrate_a_forged_email_shaped_like_the_cron_key_counter(): void
     {
         /*
