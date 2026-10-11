@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | Vulnerability | Severity | CVSSv3 | CWE | Security Advisory | Reported By | Fixed In |
 |---|---|---|---|---|---|---|
 | XSS session hijack via `cookie_httponly=false` | High | 7.4 | CWE-1004 | — | Internal audit | #1567 |
-| Clickjacking — `X-Frame-Options` not always sent | Medium | 4.3 | CWE-1021 | [[GHSA-858w-pp5p-wphm](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-858w-pp5p-wphm)] | Internal audit | — |
+| Clickjacking — `X-Frame-Options` not always sent | Medium | 4.3 | CWE-1021 | [[GHSA-858w-pp5p-wphm](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-858w-pp5p-wphm)] | [@sharma19d](https://github.com/sharma19d) | — |
 | Session fixation — `SESS_REGENERATE_DESTROY` defaulted `false` | Medium | 6.8 | CWE-384 | — | Internal audit | #1567 |
 | Unauthenticated session file + upload access via missing nginx deny rules | High | 7.5 | CWE-639 | [[GHSA-qq8q-gf24-576m](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-qq8q-gf24-576m)] | [@nirtem](https://github.com/nirtem) | — |
 | Guest invoice IDOR via ungrouped OR in is_paid() | Moderate | 5.3 | CWE-639 | [[GHSA-w5r4-8w63-c5h2](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-w5r4-8w63-c5h2)] | [@d3do-23](https://github.com/d3do-23) | — |
