@@ -285,6 +285,25 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_still_captures_an_invoice_with_exactly_one_currency_unit_outstanding(): void
+    {
+        /* Arrange: the "already paid" guard is balance <= 0, so a balance of 1.00 is a live debt */
+        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1.00']);
+        $this->mockPaypal([
+            $this->authResponse(),
+            $this->orderDetails($invoiceId, '1.00'),
+            $this->captureResult($invoiceId, '1.00', 'CAP-ONE-UNIT'),
+        ]);
+
+        /* Act */
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-ONE');
+
+        /* Assert */
+        self::assertNotSame('This invoice was already paid.', $response->sessionValue('alert_error'));
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'CAP-ONE-UNIT', 'payment_amount' => '1.00']);
+    }
+
+    #[Test]
     public function it_compares_the_order_currency_case_insensitively(): void
     {
         /* Arrange: gateway setting and PayPal both use lower case */
