@@ -53,4 +53,58 @@ final class SettingsRemoveLogoGetTest extends AbstractTestCase
         self::assertTrue($response->isRedirect());
         $this->assertDatabaseHas('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => '']);
     }
+
+    #[Test]
+    public function it_rejects_an_unknown_logo_type_without_touching_any_setting(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $this->databaseDelete('ip_settings', ['setting_key' => 'invoice_logo']);
+        $this->databaseInsert('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => 'keep-me.png']);
+
+        /* Act: a type outside the allowlist ("invoice", "login") with a valid token */
+        $response = $this->postWithValidCsrfToken('/settings/remove_logo/favicon');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        self::assertSame('Invalid file path. Operation not permitted.', $response->sessionValue('alert_error'));
+        self::assertNull($response->sessionValue('alert_success'));
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => 'keep-me.png']);
+    }
+
+    #[Test]
+    public function it_clears_the_login_logo_setting_for_the_login_type_only(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        foreach (['login_logo' => 'login-stale.png', 'invoice_logo' => 'invoice-stays.png'] as $key => $value) {
+            $this->databaseDelete('ip_settings', ['setting_key' => $key]);
+            $this->databaseInsert('ip_settings', ['setting_key' => $key, 'setting_value' => $value]);
+        }
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/settings/remove_logo/login');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'login_logo', 'setting_value' => '']);
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => 'invoice-stays.png']);
+    }
+
+    #[Test]
+    public function it_reports_success_without_error_when_no_logo_is_configured(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $this->databaseDelete('ip_settings', ['setting_key' => 'invoice_logo']);
+        $this->databaseInsert('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => '']);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/settings/remove_logo/invoice');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        self::assertSame('Invoice logo successfully removed', $response->sessionValue('alert_success'));
+        self::assertNull($response->sessionValue('alert_error'));
+    }
 }
