@@ -109,6 +109,51 @@ class GatewayPaymentRaceTest extends AbstractTestCase
         }
     }
 
+    /**
+     * GHSA-m2c5-pmxf-qfh5: the losing capture in a race has already moved funds at
+     * PayPal (captureOrder() cannot be undone) by the time record_external_payment()'s
+     * atomic balance guard refuses it. The existing race test above only asserts
+     * ">= 1" merchant_response row, which a bug that logs the loser as successful
+     * too (merchant_response_successful unconditionally true, the pre-fix behavior)
+     * would never fail — both rows would exist, just one would lie. This asserts the
+     * actual per-row correctness the advisory is about: exactly one response per
+     * attempted capture, and the loser's is marked unsuccessful for manual
+     * reconciliation, not silently flagged as a success and not an uncaught 500.
+     */
+    #[Test]
+    public function it_logs_the_losing_paypal_capture_as_unsuccessful_not_silently_successful(): void
+    {
+        for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
+            /* Arrange */
+            $invoiceId = $this->seedPayableInvoice(100.00);
+
+            /* Act: two concurrent completed captures, distinct capture ids, each
+             * claiming the full 100.00 balance -- only one can actually be recorded. */
+            $this->fireConcurrently([
+                $this->paypalCaptureRequest($invoiceId, 'CAP_loser_' . $round . '_a', '100.00'),
+                $this->paypalCaptureRequest($invoiceId, 'CAP_loser_' . $round . '_b', '100.00'),
+            ]);
+
+            $this->resetDatabaseConnection();
+
+            /* Assert: Business Logic (A) + Data Integrity (D) — both captures reached
+             * the point of writing a merchant_response row (neither crashed into an
+             * uncaught exception/500), and exactly one of the two is the real,
+             * recorded payment. */
+            $this->assertDatabaseCount('ip_merchant_responses', 2, ['invoice_id' => $invoiceId]);
+            $this->assertDatabaseCount('ip_payments', 1, ['invoice_id' => $invoiceId]);
+
+            /* Assert: Idempotency/Honesty (E) — exactly one response says successful,
+             * exactly one says unsuccessful. Two successes would mean the loser's
+             * captured funds were logged as recorded when they were not (the exact
+             * "merchant log always records successful" bug this advisory reports). */
+            $successCount = $this->databaseCount('ip_merchant_responses', ['invoice_id' => $invoiceId, 'merchant_response_successful' => 1]);
+            $failureCount = $this->databaseCount('ip_merchant_responses', ['invoice_id' => $invoiceId, 'merchant_response_successful' => 0]);
+            self::assertSame(1, $successCount, sprintf('Round %d: expected exactly 1 successful merchant_response row.', $round));
+            self::assertSame(1, $failureCount, sprintf('Round %d: expected exactly 1 unsuccessful merchant_response row for the losing capture.', $round));
+        }
+    }
+
     #[Test]
     public function it_keeps_one_row_when_the_same_stripe_intent_is_replayed_concurrently(): void
     {
