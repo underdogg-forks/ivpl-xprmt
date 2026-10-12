@@ -82,6 +82,21 @@ final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_users', ['user_id' => $userId, 'user_password' => md5('legacy-pass'), 'user_psalt' => '']);
     }
 
+    #[Test]
+    public function it_upgrades_only_the_signing_in_users_hash_not_every_legacy_account(): void
+    {
+        /* Arrange: two legacy md5 accounts; only the first signs in */
+        $first    = $this->seedUser('legacy-one@test.local', ['user_psalt' => '', 'user_password' => md5('pass-one')]);
+        $second   = $this->seedUser('legacy-two@test.local', ['user_psalt' => '', 'user_password' => md5('pass-two')]);
+
+        /* Act */
+        $this->post('/sessions/login', ['btn_login' => '1', 'email' => 'legacy-one@test.local', 'password' => 'pass-one']);
+
+        /* Assert: the other account keeps its md5 hash and its empty salt */
+        $this->assertDatabaseHas('ip_users', ['user_id' => $second, 'user_password' => md5('pass-two'), 'user_psalt' => '']);
+        self::assertNotSame(md5('pass-one'), $this->databaseFetchOne('ip_users', ['user_id' => $first])['user_password']);
+    }
+
     /**
      * @param array<string, mixed> $overrides
      */

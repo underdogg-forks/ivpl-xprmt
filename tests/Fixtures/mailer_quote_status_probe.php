@@ -12,7 +12,7 @@ $ci = new class ($quote) {
     public function __construct($q)
     {
         $this->load = new class { public function helper($h) {} };
-        $this->mdl_settings = new class { public function setting($k) { return $k === 'email_send_method' ? 'phpmail' : null; } };
+        $this->mdl_settings = new class { public function setting($k) { return $k === 'email_send_method' ? (($GLOBALS['argv'][2] ?? 'phpmail') === 'none' ? '' : 'phpmail') : null; } };
         $this->mdl_quotes = new class ($q) {
             public function __construct(private $q) {}
             public function where($a, $b = null) { return $this; }
@@ -23,4 +23,4 @@ $ci = new class ($quote) {
 };
 function &get_instance() { global $ci; return $ci; }
 require dirname(__DIR__, 2) . '/application/helpers/mailer_helper.php';
-email_quote_status('5', 'accepted');
+echo 'RETURN:' . var_export(email_quote_status('5', 'accepted'), true) . "\n";

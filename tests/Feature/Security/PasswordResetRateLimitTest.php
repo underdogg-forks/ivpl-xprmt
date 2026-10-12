@@ -155,6 +155,51 @@ final class PasswordResetRateLimitTest extends AbstractTestCase
         return (int) ((new \DateTimeImmutable($expiry, new \DateTimeZone('UTC')))->getTimestamp() - time());
     }
 
+    #[Test]
+    public function it_still_refuses_an_email_whose_limit_was_reached_thirty_minutes_ago(): void
+    {
+        /* Arrange: inside the one hour window */
+        $email  = 'half-hour-email@test.local';
+        $userId = $this->seedActiveUser($email);
+        $this->seedLog($this->emailKey($email), 3, '-30 minutes');
+
+        /* Act */
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $email]);
+
+        /* Assert */
+        self::assertSame('', $this->tokenOf($userId));
+    }
+
+    #[Test]
+    public function it_still_refuses_an_ip_whose_limit_was_reached_thirty_minutes_ago(): void
+    {
+        /* Arrange: inside the sixty minute window */
+        $email  = 'half-hour-ip@test.local';
+        $userId = $this->seedActiveUser($email);
+        $this->seedLog($this->ipKey(), 5, '-30 minutes');
+
+        /* Act */
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $email]);
+
+        /* Assert */
+        self::assertSame('', $this->tokenOf($userId));
+    }
+
+    #[Test]
+    public function it_lifts_the_ip_limit_just_after_the_sixty_minute_window(): void
+    {
+        /* Arrange: 60.5 minutes old, so a 61 minute window (a mutated constant) would still block it */
+        $email  = 'just-past-ip@test.local';
+        $userId = $this->seedActiveUser($email);
+        $this->seedLog($this->ipKey(), 5, '-3630 seconds');
+
+        /* Act */
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $email]);
+
+        /* Assert */
+        self::assertNotSame('', $this->tokenOf($userId));
+    }
+
     private function emailKey(string $email): string
     {
         return 'password_reset_email:' . hash('sha256', mb_strtolower($email));

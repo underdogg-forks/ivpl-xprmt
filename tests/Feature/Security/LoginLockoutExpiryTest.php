@@ -69,6 +69,37 @@ final class LoginLockoutExpiryTest extends AbstractTestCase
         $this->assertResponseRedirectsToRoute($response, 'dashboard');
     }
 
+    #[Test]
+    public function it_unlocks_just_past_the_twelve_hour_boundary(): void
+    {
+        /* Arrange: 12.5 hours old, so a 13 hour window (a mutated constant) would still hold it locked */
+        $email = 'boundary-lockout@test.local';
+        $this->seedUser($email);
+        $this->seedLog($this->accountKey($email), 10, '-750 minutes');
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'dashboard');
+    }
+
+    #[Test]
+    public function it_restarts_the_failure_count_when_an_expired_lockout_meets_a_wrong_password(): void
+    {
+        /* Arrange */
+        $email = 'expired-then-wrong@test.local';
+        $this->seedUser($email);
+        $this->seedLog($this->accountKey($email), 10, '-13 hours');
+
+        /* Act */
+        $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'wrong-password']);
+
+        /* Assert: the stale counter was cleared by the unlock rule, then this one failure counted. Without the reset the row
+         * would stay at 10, because counting stops at the threshold. */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 1]);
+    }
+
     private function accountKey(string $email): string
     {
         return 'login_account:' . hash('sha256', mb_strtolower($email));
