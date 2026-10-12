@@ -156,14 +156,17 @@ final class PasswordResetExpiryEnforcementTest extends AbstractTestCase
     #[Test]
     public function it_fails_closed_when_the_stored_expiry_is_an_unparseable_zero_date(): void
     {
-        /* Arrange: the only malformed value a DATETIME column can still hold (non-strict
-         * sql_mode). Skipped, not failed, where the database refuses to store it. */
+        /* Arrange: the only malformed value a DATETIME column can still hold. It is only storable
+         * outside strict sql_mode, so lift that for this test's own connection while writing it. */
         $userId = $this->seedUserWithResetToken(gmdate('Y-m-d H:i:s', time() + 600));
 
         try {
+            $this->databaseRunScript("SET SESSION sql_mode = ''");
             $this->databaseUpdate('ip_users', ['user_passwordreset_token_expiry' => '0000-00-00 00:00:00'], ['user_id' => $userId]);
         } catch (\Throwable) {
-            self::markTestSkipped('The test database runs in strict sql_mode and cannot store a zero-date expiry.');
+            self::markTestSkipped('The test database refuses to store a zero-date expiry even with sql_mode lifted.');
+        } finally {
+            $this->databaseRunScript('SET SESSION sql_mode = DEFAULT');
         }
 
         $before = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
