@@ -116,6 +116,128 @@ final class SessionInvalidationTest extends AbstractTestCase
         self::assertNotSame('', $response->body(), 'The acting user must not be logged out by their own password change.');
     }
 
+    #[Test]
+    public function it_rejects_a_session_whose_account_was_deactivated(): void
+    {
+        /* Arrange */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->databaseUpdate('ip_users', ['user_active' => 0], ['user_id' => $userId]);
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $response->body(), 'A deactivated account must not keep access through an old session.');
+    }
+
+    #[Test]
+    public function it_rejects_a_session_whose_account_was_downgraded_from_administrator(): void
+    {
+        /* Arrange */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->databaseUpdate('ip_users', ['user_type' => 2], ['user_id' => $userId]);
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $response->body(), 'A downgraded account must not keep administrator access through an old session.');
+    }
+
+    #[Test]
+    public function it_rejects_a_session_whose_account_row_was_deleted(): void
+    {
+        /* Arrange */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->databaseDelete('ip_users', ['user_id' => $userId]);
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $response->body(), 'A deleted account must not keep access through an old session.');
+    }
+
+    #[Test]
+    public function it_rejects_a_session_that_carries_no_user_id(): void
+    {
+        /* Arrange */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        unset($this->sessionData['user_id']);
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $response->body(), 'A session naming no account must not be authorised.');
+    }
+
+    #[Test]
+    public function it_rejects_a_session_when_only_the_auth_version_changed(): void
+    {
+        /* Arrange: the password hash (so the credential fingerprint) stays identical;
+         * only the auth version is bumped, as a forced "log out everywhere" would do. */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->databaseUpdate('ip_users', ['user_auth_version' => 99], ['user_id' => $userId]);
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $response->body(), 'A stale auth version alone must end the session.');
+    }
+
+    #[Test]
+    public function it_binds_a_session_created_before_fingerprints_existed_to_the_current_password(): void
+    {
+        /* Arrange: an older session with no credential fingerprint at all */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        unset($this->sessionData['user_credential']);
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert: still authorised, and now bound, so a later password change can end it */
+        $this->assertResponseStatusCode($response, 200);
+        self::assertNotSame('', (string) ($response->session()['user_credential'] ?? ''), 'The legacy session must be bound to the current password.');
+
+        $this->sessionData = $response->session();
+        $this->databaseUpdate('ip_users', ['user_password' => password_hash('ChangedAfterBinding1!', PASSWORD_DEFAULT)], ['user_id' => $userId]);
+        $after = $this->get('/supplier_invoices');
+        $this->assertResponseRedirectsToRoute($after, 'sessions/login');
+    }
+
+    #[Test]
+    public function it_rejects_a_session_claiming_a_role_the_account_does_not_hold_in_the_session_snapshot(): void
+    {
+        /* Arrange: the stored account is an administrator, but the session snapshot says guest (2) */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+        $this->sessionData['user_type'] = '2';
+
+        /* Act */
+        $response = $this->get('/supplier_invoices');
+
+        /* Assert: the session snapshot is checked, not just the database */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $response->body(), 'A session whose own role is not administrator must be rejected.');
+    }
+
     private function seedAdmin(): int
     {
         return $this->databaseInsert('ip_users', [
