@@ -80,7 +80,151 @@ final class PaymentCallbackLockTest extends AbstractTestCase
 
         /* Assert: no exception, and a second call is equally safe (idempotent) */
         $lock->release();
-        self::assertTrue(true);
+        $fake = $this->recordingDatabase([]);
+        (new PaymentCallbackLock($fake))->release();
+        self::assertSame([], $fake->queries, 'Releasing a lock that was never acquired must not talk to the database.');
+    }
+
+    #[Test]
+    public function it_asks_for_a_named_per_invoice_lock_with_a_ten_second_default_wait(): void
+    {
+        /* Arrange */
+        $fake = $this->recordingDatabase([['acquired' => 1], ['acquired' => 1]]);
+
+        /* Act */
+        $default  = new PaymentCallbackLock($fake);
+        $explicit = new PaymentCallbackLock($fake);
+        $default->acquire(42);
+        $explicit->acquire(43, 3);
+
+        /* Assert */
+        self::assertSame(['ip:payment:invoice:42', 10], $fake->queries[0][1]);
+        self::assertSame(['ip:payment:invoice:43', 3], $fake->queries[1][1]);
+    }
+
+    #[Test]
+    public function it_returns_false_and_holds_nothing_when_another_connection_owns_the_lock(): void
+    {
+        /* Arrange: GET_LOCK() answers 0 for a timeout */
+        $fake = $this->recordingDatabase([['acquired' => 0]]);
+        $lock = new PaymentCallbackLock($fake);
+
+        /* Act */
+        $acquired = $lock->acquire(7, 0);
+        $lock->release();
+
+        /* Assert: no RELEASE_LOCK for a lock this instance never owned */
+        self::assertFalse($acquired);
+        self::assertCount(1, $fake->queries);
+        self::assertStringContainsString('GET_LOCK', $fake->queries[0][0]);
+    }
+
+    #[Test]
+    public function it_treats_a_null_get_lock_answer_as_a_server_error_not_a_timeout(): void
+    {
+        /* Arrange */
+        $fake = $this->recordingDatabase([['acquired' => null]]);
+        $lock = new PaymentCallbackLock($fake);
+
+        /* Act + Assert */
+        try {
+            $lock->acquire(7);
+            self::fail('A NULL from GET_LOCK() must raise, not return false.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('ip:payment:invoice:7', $e->getMessage());
+        }
+        $lock->release();
+        self::assertCount(1, $fake->queries, 'A failed acquisition owns no lock, so there is nothing to release.');
+    }
+
+    #[Test]
+    public function it_releases_the_lock_when_the_instance_is_destroyed_without_an_explicit_release(): void
+    {
+        /* Arrange */
+        $fake = $this->recordingDatabase([['acquired' => 1]]);
+        $lock = new PaymentCallbackLock($fake);
+        $lock->acquire(9);
+
+        /* Act */
+        unset($lock);
+
+        /* Assert */
+        self::assertCount(2, $fake->queries);
+        self::assertSame('SELECT RELEASE_LOCK(?)', $fake->queries[1][0]);
+        self::assertSame(['ip:payment:invoice:9'], $fake->queries[1][1]);
+    }
+
+    #[Test]
+    public function it_can_acquire_again_after_release_and_releases_each_lock_exactly_once(): void
+    {
+        /* Arrange */
+        $fake = $this->recordingDatabase([['acquired' => 1], ['acquired' => 1]]);
+        $lock = new PaymentCallbackLock($fake);
+
+        /* Act */
+        $lock->acquire(1);
+        $lock->release();
+        $lock->release();
+        $again = $lock->acquire(2);
+
+        /* Assert: the second release() was a no-op, and the instance was reusable (name cleared) */
+        self::assertTrue($again);
+        $sql = array_column($fake->queries, 0);
+        self::assertSame(1, count(array_filter($sql, static fn (string $q): bool => str_contains($q, 'RELEASE_LOCK'))));
+    }
+
+    #[Test]
+    public function it_swallows_a_database_error_while_releasing_and_still_forgets_the_lock(): void
+    {
+        /* Arrange: the connection dies between acquire and release */
+        $fake = $this->recordingDatabase([['acquired' => 1], ['acquired' => 1]], throwOnRelease: true);
+        $lock = new PaymentCallbackLock($fake);
+        $lock->acquire(1);
+
+        /* Act */
+        $lock->release();
+        $again = $lock->acquire(2);
+
+        /* Assert: no exception escaped, and the instance is not stuck "already held" */
+        self::assertTrue($again);
+    }
+
+    /** @param list<array<string, mixed>> $answers one row per GET_LOCK() call */
+    private function recordingDatabase(array $answers, bool $throwOnRelease = false): object
+    {
+        return new class ($answers, $throwOnRelease) {
+            /** @var list<array{0: string, 1: array}> */
+            public array $queries = [];
+
+            public function __construct(private array $answers, private bool $throwOnRelease) {}
+
+            public function query(string $sql, array $binds = []): object
+            {
+                $this->queries[] = [$sql, $binds];
+                if (str_contains($sql, 'RELEASE_LOCK')) {
+                    if ($this->throwOnRelease) {
+                        throw new \RuntimeException('connection lost');
+                    }
+
+                    return new class {
+                        public function row_array(): array
+                        {
+                            return [];
+                        }
+                    };
+                }
+                $row = array_shift($this->answers);
+
+                return new class ($row) {
+                    public function __construct(private ?array $row) {}
+
+                    public function row_array(): array
+                    {
+                        return $this->row ?? [];
+                    }
+                };
+            }
+        };
     }
 
     #[Test]
