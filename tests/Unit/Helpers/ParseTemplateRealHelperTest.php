@@ -49,7 +49,7 @@ final class ParseTemplateRealHelperTest extends TestCase
     public function it_escapes_substituted_values_only_when_asked(): void
     {
         /* Act */
-        $raw     = $this->runParseTemplate(['client_name' => '<b>x</b>'], '{{{client_name}}}');
+        $raw     = $this->runParseTemplate(['client_name' => '<b>x</b>'], '{{{client_name}}}');  // third argument omitted: the default must not escape
         $escaped = $this->runParseTemplate(['client_name' => '<b>x</b>'], '{{{client_name}}}', true);
 
         /* Assert */
@@ -65,18 +65,28 @@ final class ParseTemplateRealHelperTest extends TestCase
         self::assertSame('', $this->runParseTemplate([], ''));
     }
 
-    private function runParseTemplate(array $row, ?string $body, bool $escape = false, bool $exportNull = false): string
+    #[Test]
+    public function it_returns_a_null_template_without_raising_a_deprecation(): void
+    {
+        /* Act: a null Cc/Bcc/from-name template reaches parse_template() on every invoice email; preg_match_all(null) is deprecated */
+        $output = $this->runParseTemplate(['client_name' => 'Alice'], null, null, true);
+
+        /* Assert */
+        self::assertSame('NULL', $output, 'No notice, warning or deprecation may be printed for a null template.');
+    }
+
+    private function runParseTemplate(array $row, ?string $body, ?bool $escape = null, bool $exportNull = false): string
     {
         $script = sprintf(
-            "define('BASEPATH', '/'); require %s; \$r = parse_template((object) json_decode(%s, true), %s, %s); echo %s;",
+            "define('BASEPATH', '/'); require %s; \$r = parse_template((object) json_decode(%s, true), %s%s); echo %s;",
             var_export(dirname(__DIR__, 3) . '/application/helpers/template_helper.php', true),
             var_export(json_encode($row), true),
             var_export($body, true),
-            var_export($escape, true),
+            $escape === null ? '' : ', ' . var_export($escape, true),
             $exportNull ? "\$r === null ? 'NULL' : \$r" : '(string) $r'
         );
 
-        $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -d display_errors=0 -r ' . escapeshellarg($script) . ' 2>&1');
+        $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -d error_reporting=-1 -d display_errors=1 -r ' . escapeshellarg($script) . ' 2>&1');
         return (string) $output;
     }
 }

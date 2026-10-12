@@ -86,6 +86,45 @@ final class CronKeyRateLimitTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->key(), 'log_count' => 1]);
     }
 
+    #[Test]
+    public function it_lifts_the_limit_just_after_the_fifteen_minute_window(): void
+    {
+        /* Arrange: 905 seconds old, so a window of 15 minutes plus a few seconds (a mutated constant) would still block it */
+        $this->seedLog(10, '-905 seconds');
+
+        /* Act */
+        $response = $this->get('/invoices/cron/recur/the-real-key');
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 200);
+    }
+
+    #[Test]
+    public function it_still_blocks_when_the_limit_was_reached_ten_minutes_ago(): void
+    {
+        /* Arrange */
+        $this->seedLog(10, '-10 minutes');
+
+        /* Act */
+        $response = $this->get('/invoices/cron/recur/the-real-key');
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 429);
+    }
+
+    #[Test]
+    public function it_restarts_the_count_for_a_wrong_key_just_after_the_window(): void
+    {
+        /* Arrange */
+        $this->seedLog(10, '-905 seconds');
+
+        /* Act */
+        $this->wrongKeyRequest();
+
+        /* Assert */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->key(), 'log_count' => 1]);
+    }
+
     private function wrongKeyRequest(): void
     {
         try {

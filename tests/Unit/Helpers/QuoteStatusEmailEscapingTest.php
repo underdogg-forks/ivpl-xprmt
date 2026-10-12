@@ -37,9 +37,27 @@ final class QuoteStatusEmailEscapingTest extends TestCase
         self::assertStringContainsString('SUBJECT:Quote for Plain Client was accepted (Q-1)', $output);
     }
 
-    private function probe(string $clientName): string
+    #[Test]
+    public function it_sends_nothing_and_returns_false_when_mail_is_not_configured(): void
     {
-        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 ' . escapeshellarg(dirname(__DIR__, 2) . '/Fixtures/mailer_quote_status_probe.php') . ' ' . escapeshellarg($clientName) . ' 2>&1';
+        /* Act */
+        $output = $this->probe('Plain Client', 'none');
+
+        /* Assert */
+        self::assertStringNotContainsString('SUBJECT:', $output, 'No email may be built when mail is not configured.');
+        self::assertStringContainsString('RETURN:false', $output);
+    }
+
+    #[Test]
+    public function it_reports_success_when_the_email_was_sent(): void
+    {
+        /* Act + Assert */
+        self::assertStringContainsString('RETURN:true', $this->probe('Plain Client'));
+    }
+
+    private function probe(string $clientName, string $mailMode = 'phpmail'): string
+    {
+        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 ' . escapeshellarg(dirname(__DIR__, 2) . '/Fixtures/mailer_quote_status_probe.php') . ' ' . escapeshellarg($clientName) . ' ' . escapeshellarg($mailMode) . ' 2>&1';
         $output = shell_exec($cmd);
         self::assertNotNull($output, 'The probe produced no output.');
 

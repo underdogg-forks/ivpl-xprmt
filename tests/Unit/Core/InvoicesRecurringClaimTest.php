@@ -73,6 +73,38 @@ final class InvoicesRecurringClaimTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_recurring_id' => $id, 'recur_next_date' => '2027-03-15']);
     }
 
+    #[Test]
+    public function it_refuses_a_claimant_whose_stale_date_is_not_the_one_stored(): void
+    {
+        /* Arrange: the row already moved from 2026-03-15 to 2026-04-15 */
+        $id    = $this->seedRecurring('2026-03-15', '1M');
+        $model = $this->model();
+        self::assertTrue($model->claim_for_processing($id, '2026-03-15', '1M'));
+
+        /* Act: a claimant that read an even older date */
+        $stale = $model->claim_for_processing($id, '2026-02-15', '1M');
+
+        /* Assert: the date condition, not just the id, gates the update */
+        self::assertFalse($stale);
+        $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_recurring_id' => $id, 'recur_next_date' => '2026-04-15']);
+    }
+
+    #[Test]
+    public function it_advances_only_the_claimed_row_when_two_rows_share_the_same_due_date(): void
+    {
+        /* Arrange */
+        $first  = $this->seedRecurring('2026-03-15', '1M');
+        $second = $this->seedRecurring('2026-03-15', '1M');
+
+        /* Act */
+        $claimed = $this->model()->claim_for_processing($first, '2026-03-15', '1M');
+
+        /* Assert: the neighbour with the same date is untouched */
+        self::assertTrue($claimed);
+        $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_recurring_id' => $first, 'recur_next_date' => '2026-04-15']);
+        $this->assertDatabaseHas('ip_invoices_recurring', ['invoice_recurring_id' => $second, 'recur_next_date' => '2026-03-15']);
+    }
+
     private function model(): object
     {
         $ci = $this->bootCodeIgniter();
