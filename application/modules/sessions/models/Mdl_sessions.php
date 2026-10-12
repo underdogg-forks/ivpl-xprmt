@@ -118,7 +118,7 @@ class Mdl_Sessions extends CI_Model
             $this->load->helper('file_security');
         }
 
-        $session_path = $this->session->sess_save_path;
+        $session_path = (string) $this->config->item('sess_save_path');
 
         if ( ! is_dir($session_path)) {
             return;
