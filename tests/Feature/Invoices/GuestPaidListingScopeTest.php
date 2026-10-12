@@ -141,6 +141,25 @@ final class GuestPaidListingScopeTest extends AbstractTestCase
         self::assertSame(['TQ-O1-PAID'], $this->listedNumbers($response));
     }
 
+    #[Test]
+    public function it_lists_only_the_guests_own_overdue_invoices_in_the_overdue_listing(): void
+    {
+        /* Arrange */
+        $past = date('Y-m-d', strtotime('-10 days'));
+        $this->seedInvoice($this->clientOwn1, ['invoice_number' => 'TQ-O1-LATE', 'invoice_status_id' => 2, 'invoice_date_due' => $past], ['invoice_balance' => '30.00']);
+        $this->seedInvoice($this->clientOwn1, ['invoice_number' => 'TQ-O1-FUTURE', 'invoice_status_id' => 2], ['invoice_balance' => '30.00']);
+        $this->seedInvoice($this->clientOwn1, ['invoice_number' => 'TQ-O1-LATEDRAFT', 'invoice_status_id' => 1, 'invoice_date_due' => $past], ['invoice_balance' => '30.00']);
+        $this->seedInvoice($this->clientForeign, ['invoice_number' => 'TQ-F-LATE', 'invoice_status_id' => 2, 'invoice_date_due' => $past], ['invoice_balance' => '30.00']);
+        $this->loginAsGuest();
+
+        /* Act */
+        $response = $this->get('/guest/invoices/status/overdue');
+
+        /* Assert: only the own, sent, past-due invoice; not a not-yet-due one, a draft or a foreign one */
+        $this->assertResponseStatusCode($response, 200);
+        self::assertSame(['TQ-O1-LATE'], $this->listedNumbers($response));
+    }
+
     private function seedMatrix(): void
     {
         $rows = [
