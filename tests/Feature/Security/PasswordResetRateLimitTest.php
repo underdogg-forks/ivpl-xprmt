@@ -187,6 +187,22 @@ final class PasswordResetRateLimitTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_restarts_the_ip_count_once_the_previous_requests_are_just_outside_the_window(): void
+    {
+        /* Arrange: 4 counted requests 3630 seconds ago, thirty seconds outside the sixty minute window */
+        $email  = 'just-outside-count@test.local';
+        $userId = $this->seedActiveUser($email);
+        $this->seedLog($this->ipKey(), 4, '-3630 seconds');
+
+        /* Act */
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $email]);
+
+        /* Assert: the stale counter was discarded, so this request is the first of a new window */
+        self::assertNotSame('', $this->tokenOf($userId));
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->ipKey(), 'log_count' => 1]);
+    }
+
+    #[Test]
     public function it_still_refuses_an_ip_whose_limit_was_reached_thirty_minutes_ago(): void
     {
         /* Arrange: inside the sixty minute window */
