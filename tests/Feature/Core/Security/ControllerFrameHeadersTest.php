@@ -107,6 +107,22 @@ final class ControllerFrameHeadersTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_omits_nosniff_on_the_logged_in_guest_portal_only_when_disabled(): void
+    {
+        /* Arrange */
+        $this->seedLoggedInGuest();
+        $this->withEnvironment(['ENABLE_X_CONTENT_TYPE_OPTIONS' => 'false']);
+
+        /* Act */
+        $result = $this->requestCapturingControllerHeaders('GET', '/guest/invoices/status/open');
+
+        /* Assert: 200 proves the guest session was accepted; framing protection stays */
+        self::assertSame(200, $result['status']);
+        self::assertNull($result['headers']['X-Content-Type-Options']);
+        self::assertSame('SAMEORIGIN', $result['headers']['X-Frame-Options']);
+    }
+
+    #[Test]
     public function it_omits_nosniff_from_controller_headers_only_when_disabled(): void
     {
         /* Arrange */

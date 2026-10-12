@@ -82,6 +82,29 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_changes_only_the_resetting_users_credentials_and_leaves_every_other_user_alone(): void
+    {
+        /* Arrange */
+        $userId      = $this->seedAdminWithResetToken();
+        $bystanderId = $this->seedAdminWithResetToken();
+        $this->databaseUpdate('ip_users', ['user_passwordreset_token' => hash('sha256', 'unrelated-token')], ['user_id' => $bystanderId]);
+        $bystanderBefore = $this->databaseFetchOne('ip_users', ['user_id' => $bystanderId]);
+
+        /* Act */
+        $this->actingAsGuest();
+        $reset = $this->postWithValidCsrfToken('/sessions/passwordreset', $this->resetPayload($userId, self::TOKEN));
+        $this->assertResponseRedirectsToRoute($reset, 'sessions/login');
+
+        /* Assert: the update is scoped to the one user_id (positive control: that user did change) */
+        $bystanderAfter = $this->databaseFetchOne('ip_users', ['user_id' => $bystanderId]);
+        self::assertSame($bystanderBefore['user_password'], $bystanderAfter['user_password']);
+        self::assertSame($bystanderBefore['user_psalt'], $bystanderAfter['user_psalt']);
+        self::assertSame(self::OLD_VERSION, (int) $bystanderAfter['user_auth_version']);
+        $changed = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
+        self::assertSame(self::OLD_VERSION + 1, (int) $changed['user_auth_version']);
+    }
+
+    #[Test]
     public function it_keeps_an_existing_session_alive_when_the_reset_is_rejected_for_a_wrong_token(): void
     {
         /* Arrange */
