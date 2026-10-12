@@ -164,6 +164,72 @@ class UsersAjaxControllerTest extends AbstractTestCase
         self::assertStringContainsString('Zed Alpha', $found[0]['text']);
     }
 
+    #[Test]
+    public function it_treats_percent_and_underscore_in_a_name_query_as_literal_characters_not_wildcards(): void
+    {
+        /* Arrange: GHSA-g7f2-mj3r-xx88 follow-up. LIKE wildcards are stripped from the input before it is bound. */
+        $this->actingAsAdmin();
+        $this->seedUser(['user_type' => 1, 'user_name' => 'Zed Alpha', 'user_active' => 1]);
+
+        /* Act */
+        $underscore = $this->request('GET', '/users/ajax/name_query/1', ['query' => 'Z_d'], [], true);
+        $percent    = $this->request('GET', '/users/ajax/name_query/1', ['query' => 'Z%d'], [], true);
+        $plain      = $this->request('GET', '/users/ajax/name_query/1', ['query' => 'Ze%'], [], true);
+
+        /* Assert: 'Z_d' would match 'Zed' and 'Z%d' would match 'Zed' if the wildcards were live */
+        self::assertSame([], json_decode($underscore->body(), true, 512, JSON_THROW_ON_ERROR), '"_" must not act as a single-character wildcard.');
+        self::assertSame([], json_decode($percent->body(), true, 512, JSON_THROW_ON_ERROR), '"%" must not act as a multi-character wildcard.');
+        self::assertCount(1, json_decode($plain->body(), true, 512, JSON_THROW_ON_ERROR), 'The stripped term "Ze" is still a prefix of "Zed Alpha".');
+    }
+
+    #[Test]
+    public function it_only_matches_the_middle_of_a_name_when_permissive_search_is_requested(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $this->seedUser(['user_type' => 1, 'user_name' => 'Zed Alpha', 'user_active' => 1]);
+
+        /* Act */
+        $strict     = $this->request('GET', '/users/ajax/name_query/1', ['query' => 'Alpha'], [], true);
+        $permissive = $this->request('GET', '/users/ajax/name_query/1', ['query' => 'Alpha', 'permissive_search_users' => '1'], [], true);
+
+        /* Assert */
+        self::assertSame([], json_decode($strict->body(), true, 512, JSON_THROW_ON_ERROR));
+        self::assertCount(1, json_decode($permissive->body(), true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    #[Test]
+    public function it_also_searches_the_company_and_invoicing_contact_columns(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $byCompany = $this->seedUser(['user_type' => 1, 'user_name' => 'Nomatch One', 'user_company' => 'Acme Holdings']);
+        $byContact = $this->seedUser(['user_type' => 1, 'user_name' => 'Nomatch Two', 'user_invoicing_contact' => 'Quincy Contact']);
+
+        /* Act */
+        $company = json_decode($this->request('GET', '/users/ajax/name_query/1', ['query' => 'Acme'], [], true)->body(), true, 512, JSON_THROW_ON_ERROR);
+        $contact = json_decode($this->request('GET', '/users/ajax/name_query/1', ['query' => 'Quincy'], [], true)->body(), true, 512, JSON_THROW_ON_ERROR);
+
+        /* Assert */
+        self::assertSame([(string) $byCompany], array_map(static fn ($r) => (string) $r['id'], $company));
+        self::assertSame([(string) $byContact], array_map(static fn ($r) => (string) $r['id'], $contact));
+    }
+
+    #[Test]
+    public function it_returns_an_empty_list_for_a_sql_injection_shaped_name_query(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $this->seedUser(['user_type' => 1, 'user_name' => 'Zed Alpha', 'user_active' => 1]);
+
+        /* Act */
+        $response = $this->request('GET', '/users/ajax/name_query/1', ['query' => "x' OR '1'='1"], [], true);
+
+        /* Assert: bound as a literal prefix, so nothing matches and nothing errors */
+        $this->assertResponseStatusCode($response, 200);
+        self::assertSame([], json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR));
+    }
+
     /** @param array<string,mixed> $overrides */
     protected function seedUser(array $overrides = []): int
     {
