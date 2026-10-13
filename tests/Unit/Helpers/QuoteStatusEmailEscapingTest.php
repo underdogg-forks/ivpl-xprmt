@@ -32,8 +32,10 @@ final class QuoteStatusEmailEscapingTest extends TestCase
         /* Act */
         $output = $this->probe('Plain Client');
 
-        /* Assert: positive control, escaping the URL must not break the anchor markup itself */
-        self::assertStringContainsString('<a href="http://example.test//quotes/view/5">http://example.test//quotes/view/5</a>', $output);
+        /* Assert: positive control, the URL (which carries & and ") is encoded in the href and the link text
+         * without breaking the anchor markup itself */
+        $escaped = 'http://example.test//quotes/view/5?a=1&amp;b=&quot;x&quot;';
+        self::assertStringContainsString('<a href="' . $escaped . '">' . $escaped . '</a>', $output);
         self::assertStringContainsString('SUBJECT:Quote for Plain Client was accepted (Q-1)', $output);
     }
 

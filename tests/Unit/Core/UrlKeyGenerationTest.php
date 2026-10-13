@@ -3,6 +3,7 @@
 namespace Tests\Unit\Core;
 
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionMethod;
 use Tests\AbstractTestCase;
 use Tests\Concerns\UsesCodeIgniterModels;
 
@@ -67,5 +68,39 @@ final class UrlKeyGenerationTest extends AbstractTestCase
             self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $key);
         }
         self::assertCount(20, array_unique($keys));
+    }
+
+    #[Test]
+    public function it_derives_the_invoice_url_key_from_generate_secure_token_with_sixteen_bytes(): void
+    {
+        /* Arrange: a predictable 32-hex key (md5 of the time, mt_rand, ...) passes the format and
+         * uniqueness checks above, so the call site itself is pinned */
+        $ci = $this->bootCodeIgniter();
+        $ci->load->model('invoices/mdl_invoices');
+        $method = new ReflectionMethod($ci->mdl_invoices, 'get_url_key');
+
+        /* Act */
+        $lines  = array_slice(file((string) $method->getFileName()), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1);
+        $source = implode('', $lines);
+
+        /* Assert */
+        self::assertStringContainsString('generate_secure_token(16)', $source);
+    }
+
+    #[Test]
+    public function it_derives_the_quote_url_key_from_generate_secure_token_with_sixteen_bytes(): void
+    {
+        /* Arrange: a predictable 32-hex key (md5 of the time, mt_rand, ...) passes the format and
+         * uniqueness checks above, so the call site itself is pinned */
+        $ci = $this->bootCodeIgniter();
+        $ci->load->model('quotes/mdl_quotes');
+        $method = new ReflectionMethod($ci->mdl_quotes, 'get_url_key');
+
+        /* Act */
+        $lines  = array_slice(file((string) $method->getFileName()), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1);
+        $source = implode('', $lines);
+
+        /* Assert */
+        self::assertStringContainsString('generate_secure_token(16)', $source);
     }
 }

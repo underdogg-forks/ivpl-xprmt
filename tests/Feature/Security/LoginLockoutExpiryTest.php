@@ -56,17 +56,17 @@ final class LoginLockoutExpiryTest extends AbstractTestCase
     #[Test]
     public function it_does_not_unlock_an_account_below_the_threshold_just_because_the_log_is_old(): void
     {
-        /* Arrange: 9 failures from 13 hours ago are not a lockout, so nothing is reset by the unlock rule;
-         * the correct password logs in through the normal success path, which clears the counter itself. */
+        /* Arrange: 9 failures from 13 hours ago are not a lockout, so the unlock rule must not reset them.
+         * A wrong password is used because a successful login would clear the counter and hide the difference. */
         $email = 'old-nine@test.local';
         $this->seedUser($email);
         $this->seedLog($this->accountKey($email), 9, '-13 hours');
 
         /* Act */
-        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'correct-password']);
+        $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'wrong-password']);
 
-        /* Assert */
-        $this->assertResponseRedirectsToRoute($response, 'dashboard');
+        /* Assert: the nine old failures survived and this one made ten */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 10]);
     }
 
     #[Test]

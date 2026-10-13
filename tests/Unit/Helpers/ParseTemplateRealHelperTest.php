@@ -33,16 +33,18 @@ final class ParseTemplateRealHelperTest extends TestCase
             'user_password'            => '$2y$10$SECRETHASHVALUE',
             'user_psalt'               => 'SECRETSALT',
             'user_passwordreset_token' => 'SECRETRESETTOKEN',
+            'user_auth_version'        => 'AUTHVERSION4242',
         ];
 
         /* Act */
-        $output = $this->runParseTemplate($row, '{{{client_name}}}|{{{user_password}}}|{{{user_psalt}}}|{{{user_passwordreset_token}}}');
+        $output = $this->runParseTemplate($row, '{{{client_name}}}|{{{user_password}}}|{{{user_psalt}}}|{{{user_passwordreset_token}}}|{{{user_auth_version}}}');
 
         /* Assert: allowed value substituted, non-allowlisted placeholders left unreplaced */
         self::assertStringContainsString('Alice Example', $output);
         self::assertStringNotContainsString('SECRETHASHVALUE', $output);
         self::assertStringNotContainsString('SECRETSALT', $output);
         self::assertStringNotContainsString('SECRETRESETTOKEN', $output);
+        self::assertStringNotContainsString('AUTHVERSION4242', $output, 'Any column outside the allowlist stays unreplaced, not just the three named secrets.');
     }
 
     #[Test]
@@ -87,6 +89,7 @@ final class ParseTemplateRealHelperTest extends TestCase
         );
 
         $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -d error_reporting=-1 -d display_errors=1 -r ' . escapeshellarg($script) . ' 2>&1');
+
         return (string) $output;
     }
 }
