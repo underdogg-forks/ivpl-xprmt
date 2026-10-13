@@ -127,6 +127,7 @@ final class ControllerFrameHeadersTest extends AbstractTestCase
     {
         /* Arrange */
         $this->actingAsGuest();
+        $this->withEnvironment(['ENABLE_X_CONTENT_TYPE_OPTIONS' => 'true']);
         $enabled = $this->requestCapturingControllerHeaders('GET', '/sessions/login');
         $this->withEnvironment(['ENABLE_X_CONTENT_TYPE_OPTIONS' => 'false']);
 
@@ -134,7 +135,7 @@ final class ControllerFrameHeadersTest extends AbstractTestCase
         $disabled = $this->requestCapturingControllerHeaders('GET', '/sessions/login');
 
         /* Assert */
-        self::assertSame('nosniff', $enabled['headers']['X-Content-Type-Options'], 'Positive control: default enables nosniff.');
+        self::assertSame('nosniff', $enabled['headers']['X-Content-Type-Options'], 'Positive control: explicitly enabled yields nosniff.');
         self::assertNull($disabled['headers']['X-Content-Type-Options']);
         self::assertSame('SAMEORIGIN', $disabled['headers']['X-Frame-Options'], 'Disabling nosniff must not drop framing protection.');
     }

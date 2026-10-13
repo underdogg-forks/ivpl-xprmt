@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 use Tests\Integration\Support\HttpResponse;
+use Throwable;
 
 /**
  * GHSA-fwj7-c84x-jvjq: Sessions::_reject_expired_password_reset_token() is shared by the
@@ -163,15 +164,15 @@ final class PasswordResetExpiryEnforcementTest extends AbstractTestCase
         try {
             $this->databaseRunScript("SET SESSION sql_mode = ''");
             $this->databaseUpdate('ip_users', ['user_passwordreset_token_expiry' => '0000-00-00 00:00:00'], ['user_id' => $userId]);
-        } catch (\Throwable) {
-            self::markTestSkipped('The test database refuses to store a zero-date expiry even with sql_mode lifted.');
+        } catch (Throwable) {
+            self::markTestSkipped('PARITY-OK: the test database refuses to store a zero-date expiry even with sql_mode lifted.');
         } finally {
             $this->databaseRunScript('SET SESSION sql_mode = DEFAULT');
         }
 
         $before = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
         if (empty($before['user_passwordreset_token_expiry'])) {
-            self::markTestSkipped('The database normalised the zero-date expiry to NULL.');
+            self::markTestSkipped('PARITY-OK: the database normalised the zero-date expiry to NULL.');
         }
 
         /* Act */

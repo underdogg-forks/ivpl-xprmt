@@ -47,6 +47,7 @@ final class SumexRemoteUrlGuardTest extends TestCase
         $output = $this->probe('https://127.0.0.1:9/x');
 
         /* Assert: positive control, proving the guard rejects on the scheme and not on every URL */
+        self::assertStringContainsString('RESULT:', $output, 'The probe must have run pdf() to completion.');
         self::assertStringNotContainsString('SUMEX_URL must use the https:// scheme', $output);
     }
 
