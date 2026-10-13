@@ -272,13 +272,6 @@ class Paypal extends Base_Controller
                     log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - PayPal capture ' . sanitize_for_logging($capture_id) . ' succeeded but was not recorded against invoice ' . sanitize_for_logging($invoice_id) . '; manual reconciliation required');
                 }
 
-                if ( ! $settled) {
-                    // Funds were captured at PayPal but no payment was recorded (the invoice changed
-                    // after the pre-capture check). Flag it loudly for manual reconciliation instead
-                    // of logging a success.
-                    log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - PayPal capture ' . sanitize_for_logging($capture_id) . ' succeeded but was not recorded against invoice ' . sanitize_for_logging($invoice_id) . '; manual reconciliation required');
-                }
-
                 // Record COMPLETED capture in merchant responses
                 $this->db->insert('ip_merchant_responses', [
                     'invoice_id'                   => $invoice_id,
