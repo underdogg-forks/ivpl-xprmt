@@ -37,14 +37,14 @@ final class SumexTempXmlFilenameTest extends TestCase
     public static function invoiceNumbers(): array
     {
         return [
-            'path traversal'       => ['../../etc/passwd', 'invoice_______etc_passwd'],
-            'absolute path'        => ['/var/www/html/shell', 'invoice__var_www_html_shell'],
-            'backslash traversal'  => ['..\\..\\win', 'invoice_______win'],
-            'php extension'        => ['x.php', 'invoice_x_php'],
-            'quotes and spaces'    => ['a b"c\'d', 'invoice_a_b_c_d'],
-            'null byte'            => ["INV\x00.php", 'invoice_INV__php'],
-            'newline'              => ["INV\nX", 'invoice_INV_X'],
-            'unicode'              => ['Ä', 'invoice___'],
+            'path traversal'      => ['../../etc/passwd', 'invoice_______etc_passwd'],
+            'absolute path'       => ['/var/www/html/shell', 'invoice__var_www_html_shell'],
+            'backslash traversal' => ['..\\..\\win', 'invoice_______win'],
+            'php extension'       => ['x.php', 'invoice_x_php'],
+            'quotes and spaces'   => ['a b"c\'d', 'invoice_a_b_c_d'],
+            'null byte'           => ["INV\x00.php", 'invoice_INV__php'],
+            'newline'             => ["INV\nX", 'invoice_INV_X'],
+            'unicode'             => ['Ä', 'invoice___'],
         ];
     }
 
@@ -57,9 +57,11 @@ final class SumexTempXmlFilenameTest extends TestCase
 
         /* Assert */
         self::assertSame($expectedName, $result['filename']);
-        self::assertSame($this->dir . '/' . $expectedName . '.xml', $result['xml_path']);
+        self::assertMatchesRegularExpression($this->pathPattern($expectedName), $result['xml_path']);
         self::assertTrue($result['xml_exist'], 'The XML must be written to the sanitised path.');
-        self::assertSame([$expectedName . '.xml'], array_map('basename', glob($this->dir . '/*') ?: []), 'Exactly one file, directly inside the temp folder.');
+        $written = array_map('basename', glob($this->dir . '/*') ?: []);
+        self::assertCount(1, $written, 'Exactly one file, directly inside the temp folder.');
+        self::assertMatchesRegularExpression('/^' . preg_quote($expectedName, '/') . '_[0-9a-f]{16}\.xml$/', $written[0]);
     }
 
     #[Test]
@@ -70,7 +72,7 @@ final class SumexTempXmlFilenameTest extends TestCase
 
         /* Assert: positive control, the sanitiser does not mangle safe numbers */
         self::assertSame('invoice_INV-2026_0007', $result['filename']);
-        self::assertSame($this->dir . '/invoice_INV-2026_0007.xml', $result['xml_path']);
+        self::assertMatchesRegularExpression($this->pathPattern('invoice_INV-2026_0007'), $result['xml_path']);
         self::assertTrue($result['xml_exist']);
     }
 
@@ -85,6 +87,12 @@ final class SumexTempXmlFilenameTest extends TestCase
         self::assertStringNotContainsString('/', $result['filename']);
         self::assertStringNotContainsString('..', basename($result['xml_path']));
         self::assertSame(realpath($this->dir), realpath(dirname($result['xml_path'])));
+    }
+
+    /** The sanitised name, then the unguessable 16-hex suffix added for GHSA-65qw-2ppj-gjvm / GHSA-583r-4pw9-6rc9. */
+    private function pathPattern(string $sanitisedName): string
+    {
+        return '#^' . preg_quote($this->dir . '/' . $sanitisedName, '#') . '_[0-9a-f]{16}\.xml$#';
     }
 
     /**
