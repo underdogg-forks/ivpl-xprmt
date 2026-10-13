@@ -24,7 +24,10 @@ use Tests\Support\NginxLocationResolver;
 final class UploadsImportWebServerDenyTest extends TestCase
 {
     private const IMPORT_PATHS = [
-        'a csv in the folder'        => '/uploads/import/clients.csv',
+        'the clients csv'            => '/uploads/import/clients.csv',
+        'the invoices csv'           => '/uploads/import/invoices.csv',
+        'the invoice items csv'      => '/uploads/import/invoice_items.csv',
+        'the payments csv'           => '/uploads/import/payments.csv',
         'the folder itself'          => '/uploads/import/',
         'the folder without a slash' => '/uploads/import',
         'a php file in the folder'   => '/uploads/import/shell.php',

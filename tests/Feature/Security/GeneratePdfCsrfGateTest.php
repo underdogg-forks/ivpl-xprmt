@@ -51,11 +51,12 @@ final class GeneratePdfCsrfGateTest extends AbstractTestCase
         $genuine = $this->seedInvoice($this->seedClient(), ['invoice_number' => '']);
 
         /* Act */
-        $forgedResponse  = $this->get('/invoices/generate_pdf/' . $forged . '/0', $query, $cookies);
+        $forgedResponse  = $this->get('/invoices/generate_pdf/' . $forged . '/1', $query, $cookies);
         $genuineResponse = $this->get('/invoices/generate_pdf/' . $genuine . '/0', ['_ip_csrf' => self::TOKEN], ['ip_csrf_cookie' => self::TOKEN]);
 
         /* Assert */
-        self::assertLessThan(500, $forgedResponse->statusCode());
+        self::assertSame(200, $forgedResponse->statusCode());
+        self::assertStringStartsWith('%PDF', $forgedResponse->body());
         self::assertLessThan(500, $genuineResponse->statusCode());
         $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $forged, 'invoice_status_id' => 1, 'invoice_number' => '']);
         self::assertSame(2, (int) $this->databaseFetchOne('ip_invoices', ['invoice_id' => $genuine])['invoice_status_id'], 'positive control: a valid pair marks the invoice');
@@ -72,11 +73,12 @@ final class GeneratePdfCsrfGateTest extends AbstractTestCase
         $genuine = $this->seedQuote();
 
         /* Act */
-        $forgedResponse  = $this->get('/quotes/generate_pdf/' . $forged . '/0', $query, $cookies);
+        $forgedResponse  = $this->get('/quotes/generate_pdf/' . $forged . '/1', $query, $cookies);
         $genuineResponse = $this->get('/quotes/generate_pdf/' . $genuine . '/0', ['_ip_csrf' => self::TOKEN], ['ip_csrf_cookie' => self::TOKEN]);
 
         /* Assert */
-        self::assertLessThan(500, $forgedResponse->statusCode());
+        self::assertSame(200, $forgedResponse->statusCode());
+        self::assertStringStartsWith('%PDF', $forgedResponse->body());
         self::assertLessThan(500, $genuineResponse->statusCode());
         $this->assertDatabaseHas('ip_quotes', ['quote_id' => $forged, 'quote_status_id' => 1, 'quote_number' => '']);
         self::assertSame(2, (int) $this->databaseFetchOne('ip_quotes', ['quote_id' => $genuine])['quote_status_id'], 'positive control: a valid pair marks the quote');

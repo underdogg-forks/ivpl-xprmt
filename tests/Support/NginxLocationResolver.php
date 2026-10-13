@@ -17,7 +17,7 @@ final class NginxLocationResolver
 
     public static function fromConfig(string $config): self
     {
-        $withoutComments = (string) preg_replace('/^\s*#.*$/m', '', $config);
+        $withoutComments = (string) preg_replace('/(^|\s)#.*$/m', '$1', $config);
 
         preg_match_all('/location\s+(?:(=|~\*|~|\^~)\s+)?(\S+)\s*\{([^{}]*)\}/', $withoutComments, $matches, PREG_SET_ORDER);
 
@@ -27,6 +27,21 @@ final class NginxLocationResolver
         }
 
         return new self($locations);
+    }
+
+    /** A location refuses the request when it answers 404 (or denies) and never hands it to PHP, a proxy or the filesystem. */
+    public static function refuses(?array $location): bool
+    {
+        if ($location === null) {
+            return false;
+        }
+
+        $body = $location['body'];
+        if (preg_match('/\b(fastcgi_pass|proxy_pass|try_files|root|alias)\b/', $body) === 1) {
+            return false;
+        }
+
+        return preg_match('/\breturn\s+(404|403)\s*;/', $body) === 1 || preg_match('/\bdeny\s+all\s*;/', $body) === 1;
     }
 
     /** @param list<string> $modifiers modifiers to keep; '' is a plain prefix location */
@@ -73,20 +88,5 @@ final class NginxLocationResolver
         }
 
         return $best;
-    }
-
-    /** A location refuses the request when it answers 404 (or denies) and never hands it to PHP, a proxy or the filesystem. */
-    public static function refuses(?array $location): bool
-    {
-        if ($location === null) {
-            return false;
-        }
-
-        $body = $location['body'];
-        if (preg_match('/\b(fastcgi_pass|proxy_pass|try_files|root|alias)\b/', $body) === 1) {
-            return false;
-        }
-
-        return preg_match('/\breturn\s+(404|403)\s*;/', $body) === 1 || preg_match('/\bdeny\s+all\s*;/', $body) === 1;
     }
 }

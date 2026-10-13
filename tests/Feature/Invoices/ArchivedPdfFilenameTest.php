@@ -4,6 +4,7 @@ namespace Tests\Feature\Invoices;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionFunction;
 use Tests\AbstractTestCase;
 
 /**
@@ -56,6 +57,22 @@ final class ArchivedPdfFilenameTest extends AbstractTestCase
             self::assertStringNotContainsString('ZZSECRET7731', $name);
             self::assertStringNotContainsStringIgnoringCase('invoice', $name);
         }
+    }
+
+    #[Test]
+    public function it_draws_the_archive_name_from_the_cryptographic_random_source(): void
+    {
+        /* Arrange: a predictable 32-hex name (md5 of the time, mt_rand, ...) passes the format and
+         * uniqueness checks above, so the call site itself is pinned */
+        require_once ROOT_PATH . '/application/helpers/mpdf_helper.php';
+        $function = new ReflectionFunction('pdf_create');
+
+        /* Act */
+        $lines  = array_slice(file((string) $function->getFileName()), $function->getStartLine() - 1, $function->getEndLine() - $function->getStartLine() + 1);
+        $source = implode('', $lines);
+
+        /* Assert */
+        self::assertStringContainsString('$random_token  = bin2hex(random_bytes(16));', $source);
     }
 
     /** @return list<string> */

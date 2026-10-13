@@ -62,6 +62,7 @@ final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
 
         /* Assert: signed in, and the md5 hash was replaced by a salted one */
         $this->assertResponseRedirectsToRoute($response, 'dashboard');
+        self::assertSame((string) $userId, (string) $response->sessionValue('user_id'));
         $row = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
         self::assertNotSame(md5('legacy-pass'), $row['user_password'], 'The legacy md5 hash must be upgraded on first login.');
         self::assertNotSame('', (string) $row['user_psalt']);
@@ -86,8 +87,8 @@ final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
     public function it_upgrades_only_the_signing_in_users_hash_not_every_legacy_account(): void
     {
         /* Arrange: two legacy md5 accounts; only the first signs in */
-        $first    = $this->seedUser('legacy-one@test.local', ['user_psalt' => '', 'user_password' => md5('pass-one')]);
-        $second   = $this->seedUser('legacy-two@test.local', ['user_psalt' => '', 'user_password' => md5('pass-two')]);
+        $first  = $this->seedUser('legacy-one@test.local', ['user_psalt' => '', 'user_password' => md5('pass-one')]);
+        $second = $this->seedUser('legacy-two@test.local', ['user_psalt' => '', 'user_password' => md5('pass-two')]);
 
         /* Act */
         $this->post('/sessions/login', ['btn_login' => '1', 'email' => 'legacy-one@test.local', 'password' => 'pass-one']);
