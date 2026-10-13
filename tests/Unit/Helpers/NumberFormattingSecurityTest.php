@@ -108,6 +108,24 @@ class NumberFormattingSecurityTest extends TestCase
         $this->assertStringContainsString('&lt;img', $result);
     }
 
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_escapes_decimal_point_in_format_quantity(): void
+    {
+        /* Arrange: hostile decimal point; escaping happens before number_format() uses it */
+        $CI = & get_instance();
+
+        $CI->mdl_settings->_data['thousands_separator']   = ',';
+        $CI->mdl_settings->_data['decimal_point']         = '<img src=x>';
+        $CI->mdl_settings->_data['default_item_decimals'] = '2';
+
+        /* Act */
+        $result = format_quantity(1.5);
+
+        /* Assert: the markup is neutralised and the escaped separator is what got inserted */
+        $this->assertStringNotContainsString('<img', $result);
+        $this->assertStringContainsString('1&lt;img src=x&gt;5', $result);
+    }
+
     /*
      * Mutation-check on number_helper.php (2026-10-11, scrutinizing PR #1742) found these six
      * behaviors had zero coverage anywhere in the suite. Not security-relevant to #1742's own
