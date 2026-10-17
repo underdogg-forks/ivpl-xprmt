@@ -134,6 +134,8 @@ final class SessionInvalidationTest extends AbstractTestCase
         self::assertNotSame('', $response->initialSessionId());
         self::assertNotSame($response->initialSessionId(), $response->sessionId(), 'The session id must change after the password change.');
         self::assertSame((string) $userId, $response->sessionValue('user_id'), 'The acting user stays logged in on the new session id.');
+        $savePath = rtrim((string) (ini_get('session.save_path') ?: sys_get_temp_dir()), '/');
+        self::assertFileDoesNotExist($savePath . '/sess_' . $response->initialSessionId(), 'The old session must be destroyed, not just left behind under its old id.');
     }
 
     #[Test]
