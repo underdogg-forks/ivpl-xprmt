@@ -26,7 +26,12 @@ require $repo . '/application/helpers/mpdf_helper.php';
 $GLOBALS['unitCiInstance'] = (object) ['mdl_settings' => new Tests\Support\FakeCiSettings()];
 
 foreach ($args['seed'] ?? [] as $seeded) {
-    file_put_contents(UPLOADS_ARCHIVE_FOLDER . $seeded, '%PDF-seeded');
+    $seedName = is_array($seeded) ? $seeded['name'] : $seeded;
+    file_put_contents(UPLOADS_ARCHIVE_FOLDER . $seedName, '%PDF-seeded');
+
+    if (is_array($seeded) && isset($seeded['mtime'])) {
+        touch(UPLOADS_ARCHIVE_FOLDER . $seedName, (int) $seeded['mtime']);
+    }
 }
 
 ob_start();
