@@ -109,6 +109,105 @@ class SecurityHelperTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_a_tokenless_post_to_a_csrf_excluded_uri_because_the_framework_never_checked_it(): void
+    {
+        /* Arrange: CI3's csrf_verify() returns early for excluded URIs, so a null token means "never checked" */
+        $this->setRequest([], [], [], withSecurity: true);
+        $this->setRequestUri('invoices/delete/42', ['invoices/delete/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertFalse($valid);
+    }
+
+    #[Test]
+    public function it_accepts_a_matching_token_pair_on_a_csrf_excluded_uri(): void
+    {
+        /* Arrange: positive control for the rejection above, same URI, valid double-submit pair */
+        $token = 'excluded-uri-token';
+        $this->setRequest([], ['_ip_csrf' => $token], ['ip_csrf_cookie' => $token], withSecurity: true);
+        $this->setRequestUri('invoices/delete/42', ['invoices/delete/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertTrue($valid);
+    }
+
+    #[Test]
+    public function it_rejects_a_mismatching_token_pair_on_a_csrf_excluded_uri(): void
+    {
+        /* Arrange */
+        $this->setRequest([], ['_ip_csrf' => 'forged'], ['ip_csrf_cookie' => 'genuine'], withSecurity: true);
+        $this->setRequestUri('invoices/delete/42', ['invoices/delete/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertFalse($valid);
+    }
+
+    #[Test]
+    public function it_still_trusts_the_framework_check_when_the_uri_matches_no_exclusion(): void
+    {
+        /* Arrange: an exclusion list exists, but this URI is not on it */
+        $this->setRequest([], [], [], withSecurity: true);
+        $this->setRequestUri('invoices/delete/42', ['webhook/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertTrue($valid);
+    }
+
+    #[Test]
+    public function it_does_not_exclude_a_uri_that_only_ends_with_the_pattern(): void
+    {
+        /* Arrange: the pattern must match from the start of the URI, as CI3 does */
+        $this->setRequest([], [], [], withSecurity: true);
+        $this->setRequestUri('api/webhook/1', ['webhook/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert: not excluded, so the framework's consumed token is trusted */
+        self::assertTrue($valid);
+    }
+
+    #[Test]
+    public function it_does_not_exclude_a_uri_that_only_starts_with_the_pattern(): void
+    {
+        /* Arrange: the pattern must match to the end of the URI, not just a prefix of it */
+        $this->setRequest([], [], [], withSecurity: true);
+        $this->setRequestUri('webhook/1/extra', ['webhook/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertTrue($valid);
+    }
+
+    #[Test]
+    public function it_matches_the_exclusion_pattern_case_insensitively(): void
+    {
+        /* Arrange */
+        $this->setRequest([], [], [], withSecurity: true);
+        $this->setRequestUri('WEBHOOK/1', ['webhook/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert: excluded, so the missing token is rejected */
+        self::assertFalse($valid);
+    }
+
+    #[Test]
     public function it_escapes_urls_for_html_output(): void
     {
         /* Arrange */
@@ -199,6 +298,41 @@ class SecurityHelperTest extends TestCase
         self::assertSame('3', $encoded);
     }
 
+    /**
+     * Runs verify_csrf_token() as a POST, restoring REQUEST_METHOD afterwards.
+     */
+    private function verifyAsPost(): bool
+    {
+        $originalMethod            = $_SERVER['REQUEST_METHOD'] ?? null;
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        try {
+            return verify_csrf_token();
+        } finally {
+            if ($originalMethod === null) {
+                unset($_SERVER['REQUEST_METHOD']);
+            } else {
+                $_SERVER['REQUEST_METHOD'] = $originalMethod;
+            }
+        }
+    }
+
+    /**
+     * @param list<string> $excludeUris
+     */
+    private function setRequestUri(string $uriString, array $excludeUris): void
+    {
+        $GLOBALS['unitCiConfig']['csrf_exclude_uris'] = $excludeUris;
+        $GLOBALS['unitCiInstance']->uri               = new class ($uriString) {
+            public function __construct(private string $uriString) {}
+
+            public function uri_string(): string
+            {
+                return $this->uriString;
+            }
+        };
+    }
+
     private function setRequest(array $get, array $post, array $cookies, bool $withSecurity = false): void
     {
         $GLOBALS['unitCiConfig'] = [
@@ -211,6 +345,8 @@ class SecurityHelperTest extends TestCase
             public object $input;
 
             public object $load;
+
+            public ?object $uri = null;
 
             public ?object $security = null;
 
