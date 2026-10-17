@@ -11,7 +11,21 @@ class HttpResponse
         private readonly string $stderr = '',
         private readonly array $session = [],
         private readonly bool $sessionActive = false,
+        private readonly string $sessionId = '',
+        private readonly string $initialSessionId = '',
     ) {}
+
+    /** Session id the request started with (the harness derives it from the seeded session). */
+    public function initialSessionId(): string
+    {
+        return $this->initialSessionId;
+    }
+
+    /** Session id at the end of the request; differs from the initial one after sess_regenerate(). */
+    public function sessionId(): string
+    {
+        return $this->sessionId;
+    }
 
     /** Session contents at the end of the request (what the app wrote back). */
     public function session(): array

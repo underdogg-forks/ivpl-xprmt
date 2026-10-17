@@ -43,6 +43,8 @@ if ($session !== []) {
     $_SESSION = $session;
 }
 
+$initialSessionId = session_status() === PHP_SESSION_ACTIVE ? session_id() : '';
+
 $queryString = http_build_query($query);
 $requestUri  = '/index.php' . $uri . ($queryString !== '' ? '?' . $queryString : '');
 
@@ -135,7 +137,7 @@ $exception = null;
 
 // CI's redirect() calls exit(), which prevents normal execution flow after require.
 // We capture the result in a shutdown function so it's always emitted, even when exit() is called.
-register_shutdown_function(static function () use (&$exception): void {
+register_shutdown_function(static function () use (&$exception, $initialSessionId): void {
     // Avoid double-output if the try/catch path already ran.
     if (defined('CI_TEST_RESULT_SENT')) {
         return;
@@ -152,6 +154,8 @@ register_shutdown_function(static function () use (&$exception): void {
         'exception'      => $exception,
         'session'        => $_SESSION ?? [],
         'session_active' => session_status() === PHP_SESSION_ACTIVE,
+        'session_id'     => session_status() === PHP_SESSION_ACTIVE ? session_id() : '',
+        'initial_session_id' => $initialSessionId,
     ];
 
     echo '__CI_TEST_RESULT_START__';
@@ -189,6 +193,8 @@ $result = [
     'exception'      => $exception,
     'session'        => $_SESSION ?? [],
     'session_active' => session_status() === PHP_SESSION_ACTIVE,
+    'session_id'     => session_status() === PHP_SESSION_ACTIVE ? session_id() : '',
+    'initial_session_id' => $initialSessionId,
 ];
 
 echo '__CI_TEST_RESULT_START__';
