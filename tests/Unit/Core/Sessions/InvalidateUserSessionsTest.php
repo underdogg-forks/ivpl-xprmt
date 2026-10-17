@@ -84,6 +84,21 @@ final class InvalidateUserSessionsTest extends TestCase
         $_SESSION                  = $this->sessionBackup ?? [];
     }
 
+    /** @return array<string, array{string}> */
+    public static function unreadableSessionContents(): array
+    {
+        return [
+            'no entry separator'                  => ['garbage without a pipe'],
+            'empty file'                          => [''],
+            'user_id with no value'               => ['user_id|'],
+            'truncated string value'              => ['user_id|s:5:"7"'],
+            'truncated array before user_id'      => ['data|a:2:{i:0;i:1;user_id|s:1:"7";'],
+            'array without its closing brace'     => ['data|a:1:{i:0;i:1;user_id|s:1:"7";'],
+            'object value before user_id'         => ['obj|O:8:"stdClass":0:{}user_id|s:1:"7";'],
+            'user_id that is not a plain integer' => ['user_id|s:3:"7;x";'],
+        ];
+    }
+
     #[Test]
     public function it_deletes_every_session_file_of_the_user_in_the_configured_save_path(): void
     {
@@ -183,6 +198,60 @@ final class InvalidateUserSessionsTest extends TestCase
 
         /* Assert: without a name there is no way to tell a session file from any other file */
         self::assertFileExists($file);
+    }
+
+    #[Test]
+    #[\PHPUnit\Framework\Attributes\DataProvider('unreadableSessionContents')]
+    public function it_leaves_a_file_alone_when_its_content_cannot_be_read_as_a_session(string $contents): void
+    {
+        /* Arrange */
+        $file = $this->writeRaw('ip_session' . bin2hex(random_bytes(8)), $contents);
+
+        /* Act */
+        (new Mdl_Sessions())->invalidate_user_sessions(7);
+
+        /* Assert: fail safe, nothing is deleted on a guess */
+        self::assertFileExists($file);
+    }
+
+    #[Test]
+    public function it_reads_values_nested_up_to_the_depth_limit_and_no_further(): void
+    {
+        /* Arrange: the user_id comes after a value nested 16 levels deep (readable) or 17 (refused) */
+        $nest = static function (int $levels): array {
+            $value = ['leaf' => 'x'];
+            for ($i = 1; $i < $levels; $i++) {
+                $value = ['n' => $value];
+            }
+
+            return $value;
+        };
+        $readable = $this->writeSession('ip_sessiondeep16', ['data' => $nest(16), 'user_id' => '7']);
+        $refused  = $this->writeSession('ip_sessiondeep17', ['data' => $nest(17), 'user_id' => '7']);
+
+        /* Act */
+        (new Mdl_Sessions())->invalidate_user_sessions(7);
+
+        /* Assert */
+        self::assertFileDoesNotExist($readable, 'A value nested 16 levels deep is still readable.');
+        self::assertFileExists($refused, 'Nesting beyond the limit is refused rather than followed.');
+    }
+
+    #[Test]
+    public function it_does_not_try_to_read_a_directory_that_is_named_like_a_session_file(): void
+    {
+        /* Arrange */
+        $directory = $this->dir . DIRECTORY_SEPARATOR . 'ip_sessiondirectory';
+        mkdir($directory);
+        $victim = $this->writeSession('ip_sessionrealone', ['user_id' => '7']);
+
+        /* Act */
+        (new Mdl_Sessions())->invalidate_user_sessions(7);
+
+        /* Assert: the directory is skipped and the real session is still handled */
+        self::assertDirectoryExists($directory);
+        self::assertFileDoesNotExist($victim);
+        rmdir($directory);
     }
 
     #[Test]
