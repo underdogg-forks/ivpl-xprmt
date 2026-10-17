@@ -23,6 +23,10 @@ class Setup extends MX_Controller
      */
     public function __construct()
     {
+        if (env_bool('DISABLE_SETUP', false)) {
+            show_error('The setup is disabled.', 403);
+        }
+
         if (env_bool('SETUP_COMPLETED', false)) {
             show_error('The setup has already been completed. To re-run the setup, set SETUP_COMPLETED=false in ipconfig.php.', 403);
         }
