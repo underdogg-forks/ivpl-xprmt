@@ -48,4 +48,26 @@ final class PrivateControllerMethodRoutingTest extends AbstractTestCase
         $this->assertResponseStatusCode($response, 404);
         self::assertDirectoryDoesNotExist(ROOT_PATH . '/' . $target);
     }
+
+    #[Test]
+    public function it_does_not_route_any_url_to_the_layout_controller(): void
+    {
+        /*
+         * Layout is a helper that other controllers call directly (buffer / set / render / load_view). It extends
+         * MX_Controller, not Admin_Controller, so a URL that reaches it renders views without any login check.
+         */
+
+        /* Arrange */
+        $this->actingAsGuest();
+
+        /* Act */
+        $render    = $this->get('/layout/layout/render');
+        $loadView  = $this->get('/layout/layout/load_view/layout/layout');
+        $buffer    = $this->get('/layout/layout/buffer');
+
+        /* Assert */
+        $this->assertResponseStatusCode($render, 404);
+        $this->assertResponseStatusCode($loadView, 404);
+        $this->assertResponseStatusCode($buffer, 404);
+    }
 }
