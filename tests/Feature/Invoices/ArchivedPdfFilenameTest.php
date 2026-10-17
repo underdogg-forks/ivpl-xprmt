@@ -33,7 +33,7 @@ final class ArchivedPdfFilenameTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_archives_each_generated_invoice_pdf_under_a_fresh_32_hex_token(): void
+    public function it_archives_each_generated_invoice_pdf_under_a_fresh_32_hex_token_followed_by_its_name(): void
     {
         /* Arrange */
         $this->actingAsAdmin();
@@ -52,11 +52,58 @@ final class ArchivedPdfFilenameTest extends AbstractTestCase
         $this->created = array_map(static fn (string $f): string => ROOT_PATH . '/uploads/archive/' . $f, $new);
 
         self::assertCount(2, $new, 'Two generations must produce two distinct archive files (a deterministic name would collide).');
+        $tokens = [];
         foreach ($new as $name) {
-            self::assertMatchesRegularExpression('/^[0-9a-f]{32}\.pdf$/', $name);
-            self::assertStringNotContainsString('ZZSECRET7731', $name);
-            self::assertStringNotContainsStringIgnoringCase('invoice', $name);
+            self::assertMatchesRegularExpression('/^[0-9a-f]{32}_.*ZZSECRET7731\.pdf$/', $name, 'Token first, then the document name, so the copy stays findable.');
+            $tokens[] = substr($name, 0, 32);
         }
+        self::assertCount(2, array_unique($tokens), 'The token must differ per generation; a name derived from the invoice would repeat.');
+    }
+
+    #[Test]
+    public function it_lists_an_archived_invoice_when_the_archive_is_filtered_by_its_number(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $invoice = $this->seedInvoice($this->seedClient(), ['invoice_number' => 'ZZFIND4417', 'invoice_status_id' => 2], ['invoice_total' => '100.00', 'invoice_balance' => '100.00']);
+        $before  = $this->archiveFiles();
+        $this->get('/invoices/generate_pdf/' . $invoice);
+        $new           = array_values(array_diff($this->archiveFiles(), $before));
+        $this->created = array_map(static fn (string $f): string => ROOT_PATH . '/uploads/archive/' . $f, $new);
+
+        /* Act */
+        $hit  = $this->ajax('POST', '/filter/ajax/filter_archives', ['filter_query' => 'ZZFIND4417']);
+        $miss = $this->ajax('POST', '/filter/ajax/filter_archives', ['filter_query' => 'ZZFIND9999']);
+
+        /* Assert: the filter reaches the copy by number although the name starts with a random token */
+        self::assertCount(1, $new);
+        self::assertStringContainsString($new[0], $hit->body());
+        self::assertStringNotContainsString($new[0], $miss->body());
+    }
+
+    #[Test]
+    public function it_lists_the_archive_newest_first_even_though_names_start_with_a_random_token(): void
+    {
+        /* Arrange: the newest file has the lexically smallest name, so a name sort would put it last */
+        $this->actingAsAdmin();
+        $folder = ROOT_PATH . '/uploads/archive/';
+        $newest = $folder . '00000000000000000000000000000000_ZZORDER-NEW.pdf';
+        $oldest = $folder . 'ffffffffffffffffffffffffffffffff_ZZORDER-OLD.pdf';
+        file_put_contents($oldest, '%PDF-1.4');
+        file_put_contents($newest, '%PDF-1.4');
+        touch($oldest, 1_700_000_000);
+        touch($newest, 1_700_009_000);
+        $this->created = [$newest, $oldest];
+
+        /* Act */
+        $body = $this->get('/invoices/archive')->body();
+
+        /* Assert */
+        $newPos = strpos($body, 'ZZORDER-NEW');
+        $oldPos = strpos($body, 'ZZORDER-OLD');
+        self::assertNotFalse($newPos);
+        self::assertNotFalse($oldPos);
+        self::assertLessThan($oldPos, $newPos);
     }
 
     #[Test]
