@@ -225,6 +225,31 @@ class LoginRateLimitLegacyKeyMigrationTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($forged_email), 'log_count' => 1]);
     }
 
+    #[Test]
+    public function it_clears_a_legacy_account_lockout_when_the_password_is_changed_before_the_next_login(): void
+    {
+        /* Arrange: a pre-fix lockout row under the raw email, still active, and a valid reset token.
+         * No login has happened since the upgrade, so the row has not been migrated yet. */
+        $userId = $this->seedUserWithResetToken(gmdate('Y-m-d H:i:s', time() + 600));
+        $email  = (string) $this->databaseFetchOne('ip_users', ['user_id' => $userId])['user_email'];
+        $this->seedLoginLog($email, 10, '-5 minutes');
+
+        /* Act */
+        $this->post('/sessions/passwordreset', [
+            'btn_new_password' => '1',
+            'user_id'          => $userId,
+            'token'            => self::TOKEN,
+            'new_password'     => 'BrandNewPass123!',
+            'new_passwordv'    => 'BrandNewPass123!',
+        ]);
+
+        /* Assert: the reset removed the lockout under both key formats, so the new password logs in */
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $email]);
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->accountKey($email)]);
+        $login = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'BrandNewPass123!']);
+        $this->assertResponseRedirectsToRoute($login, 'dashboard');
+    }
+
     private function ipKey(): string
     {
         return 'login_ip:' . hash('sha256', '127.0.0.1');
