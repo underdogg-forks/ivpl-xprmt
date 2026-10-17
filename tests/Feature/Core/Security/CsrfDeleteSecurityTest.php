@@ -89,7 +89,7 @@ class CsrfDeleteSecurityTest extends TestCase
         foreach ($this->moduleViewFiles() as $file) {
             $content = (string) file_get_contents($file);
 
-            if (preg_match_all('/method\s*=\s*["\']POST["\']/i', $content) === 0) {
+            if (preg_match_all('/(?<![a-z])method\s*=\s*["\']POST["\']/i', $content) === 0) {
                 continue;
             }
 
