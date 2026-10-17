@@ -50,7 +50,7 @@ final class SettingsUpdatesPageTest extends AbstractTestCase
         $positions = [];
         foreach ([
             'latest release'    => 'api.github.com/repos/InvoicePlane/InvoicePlane/releases/latest',
-            'release list'      => 'api.github.com/repos/InvoicePlane/InvoicePlane/releases?per_page=5',
+            'release list'      => "api.github.com/repos/InvoicePlane/InvoicePlane/releases?per_page=5'",
             'update check .com' => 'ids.invoiceplane.com/updatecheck',
             'update check .org' => 'ids.invoiceplane.org/updatecheck',
             'news .com'         => 'ids.invoiceplane.com/get_news',
