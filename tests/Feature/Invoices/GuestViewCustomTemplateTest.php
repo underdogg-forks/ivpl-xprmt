@@ -30,13 +30,18 @@ class GuestViewCustomTemplateTest extends AbstractTestCase
 {
     private const CUSTOM_TEMPLATE_NAME = 'CustomWebTemplate';
 
+    // Allowlisted (passes validate_template_name()) but has no .php file anywhere --
+    // simulates a CUSTOM_INVOICE_TEMPLATES_PUBLIC entry whose file was never created, or
+    // was deleted/typo'd after being added to ipconfig.php.
+    private const MISSING_TEMPLATE_NAME = 'GhostTemplate';
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->withEnvironment([
             'CUSTOM_TEMPLATES_FOLDER'         => dirname(__DIR__, 2) . '/Fixtures/custom_templates',
-            'CUSTOM_INVOICE_TEMPLATES_PUBLIC' => self::CUSTOM_TEMPLATE_NAME,
+            'CUSTOM_INVOICE_TEMPLATES_PUBLIC' => self::CUSTOM_TEMPLATE_NAME . ',' . self::MISSING_TEMPLATE_NAME,
         ]);
     }
 
@@ -64,6 +69,10 @@ class GuestViewCustomTemplateTest extends AbstractTestCase
          * CUSTOM_TEMPLATES_FOLDER and ran its $this->layout->load_view() call successfully. */
         $this->assertResponseOk($response);
         $this->assertResponseBodyContains($response, 'CUSTOM-TEMPLATE-MARKER-CT-INV-1');
+
+        // Rules out a silent fallback to the default template masking the custom lookup
+        // failing: 'webpreview-header' only exists in the built-in InvoicePlane_Web.php.
+        $this->assertResponseBodyNotContains($response, 'webpreview-header');
     }
 
     #[Test]
@@ -82,6 +91,29 @@ class GuestViewCustomTemplateTest extends AbstractTestCase
         /* Assert */
         $this->assertResponseOk($response);
         $this->assertResponseBodyContains($response, 'BT-INV-1');
+        $this->assertResponseBodyNotContains($response, 'CUSTOM-TEMPLATE-MARKER');
+    }
+
+    #[Test]
+    public function it_falls_back_to_the_built_in_template_when_the_selected_one_is_allowlisted_but_its_file_is_missing(): void
+    {
+        /* Arrange: GhostTemplate passes validate_template_name() (it's in the allowlist) but
+         * has no .php file in either CUSTOM_TEMPLATES_FOLDER or the built-in views directory --
+         * get_validated_template_path() must fall back to the hardcoded default rather than
+         * returning a path render_template_view() can't resolve either. */
+        $this->selectPublicInvoiceTemplate(self::MISSING_TEMPLATE_NAME);
+        $clientId = $this->seedClient();
+        $urlKey   = 'missing-tpl-' . bin2hex(random_bytes(4));
+        $this->seedInvoice($clientId, ['invoice_url_key' => $urlKey, 'invoice_status_id' => 2, 'payment_method' => 0, 'invoice_number' => 'MT-INV-1']);
+
+        /* Act */
+        $response = $this->get('/guest/view/invoice/' . $urlKey);
+
+        /* Assert: no 500, and specifically the built-in template's own markup, proving the
+         * fallback resolved to the real default file and not just an empty/partial render. */
+        $this->assertResponseOk($response);
+        $this->assertResponseBodyContains($response, 'webpreview-header');
+        $this->assertResponseBodyContains($response, 'MT-INV-1');
         $this->assertResponseBodyNotContains($response, 'CUSTOM-TEMPLATE-MARKER');
     }
 
