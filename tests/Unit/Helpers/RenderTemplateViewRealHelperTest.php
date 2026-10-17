@@ -14,6 +14,14 @@ use PHPUnit\Framework\TestCase;
  * HTTP stack; no test reaches the $return = true path, so a mutation that forces that branch
  * survived undetected. This runs the real helper directly, in a clean process, against both
  * $return values.
+ *
+ * Also covers the CodeRabbit-flagged follow-up on PR #1781: the closure that includes the
+ * custom file reads $data via extract(), which defaults to EXTR_OVERWRITE -- a $data array
+ * carrying a key named after whatever local variable holds the include path can hijack it.
+ * render_template_view() reads the path via func_get_arg() (never a named local before
+ * extract() runs) and calls extract(..., EXTR_SKIP), so the one pre-existing local can't be
+ * overwritten by any key, while ordinary keys like 'file_path' or 'data' still reach the
+ * template untouched.
  */
 final class RenderTemplateViewRealHelperTest extends TestCase
 {
@@ -40,6 +48,70 @@ final class RenderTemplateViewRealHelperTest extends TestCase
          * but each one exclusively. */
         self::assertSame('NONE', $returned, 'render_template_view() must not return a value when $return is false.');
         self::assertSame('MARKER-return-false', $appended);
+    }
+
+    #[Test]
+    public function it_does_not_let_caller_data_hijack_the_include_target_via_a_ci_path_key(): void
+    {
+        /* Arrange: a $data array a real caller would never build on purpose, but nothing stops
+         * one from carrying a '_ci_path' key -- e.g. a custom field or merged array literally
+         * named that. If it clobbers the include target, render_template_view() includes
+         * whatever file the caller's data pointed at instead of the one Settings selected. */
+        $fixtureDir = sys_get_temp_dir() . '/render_template_view_hijack_test_' . bin2hex(random_bytes(6));
+        mkdir($fixtureDir . '/invoice_templates/pdf', 0777, true);
+        mkdir($fixtureDir . '/evil');
+        file_put_contents(
+            $fixtureDir . '/invoice_templates/pdf/Custom.php',
+            '<?php echo $marker . "|FP:" . ($file_path ?? "MISSING") . "|D:" . ($data ?? "MISSING");'
+        );
+        file_put_contents($fixtureDir . '/evil/Evil.php', '<?php echo "HIJACKED";');
+
+        $maliciousData = [
+            'marker'    => 'MARKER-hijack-test',
+            '_ci_path'  => $fixtureDir . '/evil/Evil.php',
+            'file_path' => 'caller-file-path-value',
+            'data'      => 'caller-data-value',
+        ];
+
+        /* Act */
+        $output = $this->runRenderTemplateViewWithData($fixtureDir, $maliciousData);
+
+        /* Assert: the selected template ran (not evil/Evil.php), and the caller's own
+         * 'file_path' and 'data' keys still reached it -- the fix protects the include target
+         * specifically, not caller data in general. */
+        self::assertSame('MARKER-hijack-test|FP:caller-file-path-value|D:caller-data-value', $output);
+    }
+
+    private function runRenderTemplateViewWithData(string $fixtureDir, array $data): string
+    {
+        $script = sprintf(
+            <<<'PHP'
+                define('BASEPATH', '/');
+                define('CUSTOM_TEMPLATES_FOLDER', %s . DIRECTORY_SEPARATOR);
+                class StubOutput { public function append_output($s) {} }
+                class StubCI { public $output; public function __construct() { $this->output = new StubOutput(); } }
+                function &get_instance() { static $ci; if ($ci === null) { $ci = new StubCI(); } return $ci; }
+                require %s;
+                echo render_template_view('invoice_templates/pdf/Custom', %s, true);
+                PHP,
+            var_export($fixtureDir, true),
+            var_export(dirname(__DIR__, 3) . '/application/helpers/template_helper.php', true),
+            var_export($data, true)
+        );
+
+        $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -d error_reporting=-1 -d display_errors=1 -r ' . escapeshellarg($script) . ' 2>&1');
+
+        $this->removeDirectory($fixtureDir);
+
+        return (string) $output;
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        foreach (glob($dir . '/*') ?: [] as $path) {
+            is_dir($path) ? $this->removeDirectory($path) : unlink($path);
+        }
+        rmdir($dir);
     }
 
     /**
@@ -74,10 +146,7 @@ final class RenderTemplateViewRealHelperTest extends TestCase
 
         $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -d error_reporting=-1 -d display_errors=1 -r ' . escapeshellarg($script) . ' 2>&1');
 
-        unlink($fixtureDir . '/invoice_templates/pdf/Custom.php');
-        rmdir($fixtureDir . '/invoice_templates/pdf');
-        rmdir($fixtureDir . '/invoice_templates');
-        rmdir($fixtureDir);
+        $this->removeDirectory($fixtureDir);
 
         return explode('|', (string) $output, 2) + ['', ''];
     }
