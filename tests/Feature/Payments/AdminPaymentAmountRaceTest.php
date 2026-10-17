@@ -276,6 +276,46 @@ class AdminPaymentAmountRaceTest extends AbstractTestCase
         $this->assertDatabaseCount('ip_payments', 0, ['invoice_id' => $invoiceA]);
     }
 
+    #[Test]
+    public function it_counts_the_amount_of_the_payment_being_edited_when_it_belongs_to_the_same_invoice(): void
+    {
+        /* Arrange: invoice owes 100.00 and already holds its own 400.00 payment */
+        $invoiceId = $this->seedPayableInvoice(100.00);
+        $ownId     = $this->seedPayment($invoiceId, ['payment_amount' => '400.00']);
+
+        /* Act: re-saving that payment at 450.00 fits within 100.00 + its own 400.00 */
+        $response = $this->ajax('POST', '/payments/ajax/add', [
+            'invoice_id'     => (string) $invoiceId,
+            'payment_id'     => (string) $ownId,
+            'payment_date'   => date('Y-m-d'),
+            'payment_amount' => '450.00',
+        ]);
+
+        /* Assert */
+        $json = json_decode($response->body(), true);
+        $this->assertSame(1, $json['success'] ?? null, 'Body: ' . $response->body());
+    }
+
+    #[Test]
+    public function it_ignores_a_payment_id_that_does_not_exist_in_the_balance_check(): void
+    {
+        /* Arrange */
+        $invoiceId = $this->seedPayableInvoice(100.00);
+
+        /* Act */
+        $response = $this->ajax('POST', '/payments/ajax/add', [
+            'invoice_id'     => (string) $invoiceId,
+            'payment_id'     => '999999',
+            'payment_date'   => date('Y-m-d'),
+            'payment_amount' => '150.00',
+        ]);
+
+        /* Assert: refused on the real balance */
+        $json = json_decode($response->body(), true);
+        $this->assertSame(0, $json['success'] ?? null, 'Body: ' . $response->body());
+        $this->assertDatabaseCount('ip_payments', 0, ['invoice_id' => $invoiceId]);
+    }
+
     /**
      * A real line item behind the balance, so Mdl_invoice_amounts::calculate()
      * (run by every payment save) recomputes invoice_total/invoice_balance to
