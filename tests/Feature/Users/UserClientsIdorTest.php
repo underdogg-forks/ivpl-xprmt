@@ -31,6 +31,28 @@ final class UserClientsIdorTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_does_not_let_a_fractional_user_id_pass_the_self_check_and_land_on_the_next_user(): void
+    {
+        /* Arrange: user_id "S.5" is authorised as S by the (int) cast, but a "2.5" in the INT column rounds to the next user */
+        $secondaryId = $this->seedAdmin();
+        $victimId    = $this->seedAdmin();
+        $clientId    = $this->seedClient();
+        $this->actingAsAdmin($secondaryId);
+
+        /* Act */
+        $response = $this->request('POST', '/users/ajax/save_user_client', [], [
+            'user_id'   => $secondaryId . '.5',
+            'client_id' => (string) $clientId,
+            '_ip_csrf'  => $this->csrfToken,
+        ], true, ['ip_csrf_cookie' => $this->csrfToken]);
+
+        /* Assert */
+        self::assertSame(403, $response->statusCode(), 'A non-integer user id must be refused. Body: ' . $response->body());
+        $this->assertDatabaseMissing('ip_user_clients', ['user_id' => $victimId]);
+        $this->assertDatabaseMissing('ip_user_clients', ['user_id' => $secondaryId, 'client_id' => $clientId]);
+    }
+
+    #[Test]
     public function it_allows_the_primary_admin_to_create_a_client_mapping_for_another_user(): void
     {
         /* Arrange */
