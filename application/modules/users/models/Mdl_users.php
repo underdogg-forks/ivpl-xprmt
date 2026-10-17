@@ -364,6 +364,9 @@ class Mdl_Users extends Response_Model
         $db_array = [
             'user_psalt'    => $user_psalt,
             'user_password' => $user_password,
+            // A reset link requested before this change must not outlive the new password.
+            'user_passwordreset_token'        => '',
+            'user_passwordreset_token_expiry' => null,
         ];
 
         $this->db->set('user_auth_version', 'user_auth_version + 1', false);

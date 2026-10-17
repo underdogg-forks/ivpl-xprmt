@@ -113,9 +113,9 @@ class PasswordResetTokenExpiryTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_allows_a_password_change_when_no_expiry_is_stored(): void
+    public function it_rejects_a_password_change_when_the_token_has_no_stored_expiry(): void
     {
-        /* Arrange: a legacy token issued before the expiry column existed (NULL expiry). */
+        /* Arrange: a token row without an expiry; tokens are always written with one, so it must not live forever. */
         $userId = $this->seedUserWithResetToken(null);
         $before = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
 
@@ -128,15 +128,11 @@ class PasswordResetTokenExpiryTest extends AbstractTestCase
             'new_passwordv'    => 'BrandNewPass123!',
         ]);
 
-        /* Assert: with no stored expiry there is nothing to enforce, so it succeeds. */
-        self::assertTrue($response->isRedirect(), 'A no-expiry token password change must redirect.');
-
+        /* Assert: refused, the password is unchanged and the token is burnt */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/passwordreset');
         $after = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
-        self::assertNotSame(
-            $before['user_password'],
-            $after['user_password'],
-            'A token with no stored expiry must still be able to change the password (backward compatibility).'
-        );
+        self::assertSame($before['user_password'], $after['user_password'], 'The password must not change.');
+        self::assertSame('', (string) $after['user_passwordreset_token'], 'The token must be cleared.');
     }
 
     #[Test]
