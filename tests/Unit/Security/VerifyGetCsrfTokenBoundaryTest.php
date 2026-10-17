@@ -83,7 +83,7 @@ final class VerifyGetCsrfTokenBoundaryTest extends TestCase
         /* Arrange: decoys under the other name must not be picked up */
         $this->setRequest(
             true,
-            ['x_tok' => self::TOKEN, 'x_cookie' => 'decoy-from-query'],
+            ['x_tok'    => self::TOKEN, 'x_cookie' => 'decoy-from-query'],
             ['x_cookie' => self::TOKEN, 'x_tok' => 'decoy-from-cookie'],
             'x_tok',
             'x_cookie'
