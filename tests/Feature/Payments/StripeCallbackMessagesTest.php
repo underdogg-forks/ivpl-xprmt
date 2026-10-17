@@ -96,6 +96,40 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
         self::assertSame(0, $this->databaseCount('ip_payments', ['payment_external_id' => 'pi_short']));
     }
 
+    #[Test]
+    public function it_confirms_a_successful_payment_with_the_invoice_number_and_books_it(): void
+    {
+        /* Arrange */
+        $invoiceId = $this->seedPayableInvoice();
+        $urlKey    = $this->urlKeyOf($invoiceId);
+        $number    = (string) $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_number'];
+        $this->mockStripe($this->paidSession($urlKey, 'pi_ok', 5000));
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert: the success message, not a refusal, and exactly one payment row */
+        self::assertSame('Payment successful for invoice #' . $number, $response->sessionValue('alert_success'));
+        self::assertNull($response->sessionValue('alert_info'));
+        self::assertSame(1, $this->databaseCount('ip_payments', ['payment_external_id' => 'pi_ok']));
+    }
+
+    #[Test]
+    public function it_falls_back_to_the_generic_message_when_a_session_was_not_paid_and_nothing_more_specific_applies(): void
+    {
+        /* Arrange: a checkout session that is still unpaid */
+        $invoiceId = $this->seedPayableInvoice();
+        $urlKey    = $this->urlKeyOf($invoiceId);
+        $this->mockStripe($this->paidSession($urlKey, 'pi_unpaid', 5000, 'eur', 'unpaid'));
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert */
+        self::assertSame('Payment failed<br>Payment was not completed. Stripe session status: unpaid', $response->sessionValue('alert_info'));
+        self::assertSame(0, $this->databaseCount('ip_payments', ['payment_external_id' => 'pi_unpaid']));
+    }
+
     private function seedPayableInvoice(): int
     {
         return $this->seedInvoice($this->seedClient(), ['invoice_status_id' => 2], ['invoice_balance' => '50.00']);
@@ -111,14 +145,14 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
         $this->withEnvironment(['STRIPE_MOCK_RESPONSES' => json_encode($responses)]);
     }
 
-    private function paidSession(string $urlKey, string $paymentIntent, int $amountMinor, string $currency = 'eur'): array
+    private function paidSession(string $urlKey, string $paymentIntent, int $amountMinor, string $currency = 'eur', string $paymentStatus = 'paid'): array
     {
         return [['status' => 200, 'body' => json_encode([
             'id'                     => 'cs_test_callback',
             'object'                 => 'checkout.session',
             'status'                 => 'complete',
             'mode'                   => 'payment',
-            'payment_status'         => 'paid',
+            'payment_status'         => $paymentStatus,
             'client_reference_id'    => $urlKey,
             'payment_intent'         => $paymentIntent,
             'currency'               => $currency,
