@@ -61,9 +61,9 @@ final class PrivateControllerMethodRoutingTest extends AbstractTestCase
         $this->actingAsGuest();
 
         /* Act */
-        $render    = $this->get('/layout/layout/render');
-        $loadView  = $this->get('/layout/layout/load_view/layout/layout');
-        $buffer    = $this->get('/layout/layout/buffer');
+        $render   = $this->get('/layout/layout/render');
+        $loadView = $this->get('/layout/layout/load_view/layout/layout');
+        $buffer   = $this->get('/layout/layout/buffer');
 
         /* Assert */
         $this->assertResponseStatusCode($render, 404);
