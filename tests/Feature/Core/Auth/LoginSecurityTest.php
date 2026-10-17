@@ -274,7 +274,7 @@ class LoginSecurityTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 1]);
         clearstatcache(true, $logFile);
         $logged = is_file($logFile) ? (string) file_get_contents($logFile, false, null, $offset) : '';
-        self::assertStringContainsString('Login IP rate limit exceeded', $logged, 'A throttled login is a security event and must reach the log.');
+        self::assertMatchesRegularExpression('/^WARNING - [^\n]*Login IP rate limit exceeded/m', $logged, 'A throttled login is a security event and must reach the log as a WARNING line (application/core/MY_Log.php; stock CI3 drops that level).');
     }
 
     #[Test]
