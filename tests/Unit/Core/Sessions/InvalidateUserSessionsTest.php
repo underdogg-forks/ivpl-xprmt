@@ -38,23 +38,23 @@ final class InvalidateUserSessionsTest extends TestCase
         $this->sessionBackup = $_SESSION ?? null;
         unset($_SESSION['sess_save_path']);
 
-        $GLOBALS['unitCiConfig'] = ['sess_save_path' => $this->dir];
+        $GLOBALS['unitCiConfig'] = ['sess_save_path' => $this->dir, 'sess_cookie_name' => 'ip_session'];
 
-        $config = new class {
+        $config = new class () {
             public function item(string $key): mixed
             {
                 return $GLOBALS['unitCiConfig'][$key] ?? null;
             }
         };
 
-        $session = new class {
+        $session = new class () {
             public function __get(string $key): mixed
             {
                 return $_SESSION[$key] ?? null;
             }
         };
 
-        $load = new class {
+        $load = new class () {
             public function helper(string $name): void
             {
                 require_once APPPATH . 'helpers/' . $name . '_helper.php';
@@ -118,13 +118,13 @@ final class InvalidateUserSessionsTest extends TestCase
         /* Arrange: the victim, plus every near miss the matcher must not touch */
         $victim    = $this->writeSession('ip_sessionvictim', ['user_id' => '7']);
         $survivors = [
-            'user 70 (id starts with 7)'      => $this->writeSession('ip_sessionu70', ['user_id' => '70']),
-            'user 17 (id ends with 7)'        => $this->writeSession('ip_sessionu17', ['user_id' => '17']),
-            'user 8'                          => $this->writeSession('ip_sessionu8', ['user_id' => '8']),
-            'guest without user_id'           => $this->writeSession('ip_sessionguest', ['__ci_last_regenerate' => 1700000000]),
-            'other key ending in user_id'     => $this->writeSession('ip_sessionother', ['target_user_id' => '7']),
-            'user_id as a value, not a key'   => $this->writeSession('ip_sessionvalue', ['note' => 'user_id|i:7;']),
-            'non-session file in the folder'  => $this->writeRaw('index.html', '<html></html>'),
+            'user 70 (id starts with 7)'     => $this->writeSession('ip_sessionu70', ['user_id' => '70']),
+            'user 17 (id ends with 7)'       => $this->writeSession('ip_sessionu17', ['user_id' => '17']),
+            'user 8'                         => $this->writeSession('ip_sessionu8', ['user_id' => '8']),
+            'guest without user_id'          => $this->writeSession('ip_sessionguest', ['__ci_last_regenerate' => 1700000000]),
+            'other key ending in user_id'    => $this->writeSession('ip_sessionother', ['target_user_id' => '7']),
+            'user_id as a value, not a key'  => $this->writeSession('ip_sessionvalue', ['note' => 'user_id|i:7;']),
+            'non-session file in the folder' => $this->writeRaw('index.html', '<html></html>'),
         ];
 
         /* Act */
@@ -138,10 +138,58 @@ final class InvalidateUserSessionsTest extends TestCase
     }
 
     #[Test]
+    public function it_ignores_user_id_text_that_sits_inside_another_sessions_value(): void
+    {
+        /* Arrange: user 9 whose name (stored before the user_id entry) contains exactly what a user_id entry looks like, plus a nested user_id */
+        $textInside = $this->writeSession('ip_sessiontextinside', ['user_name' => 'x;user_id|i:7;', 'user_id' => '9']);
+        $nested     = $this->writeSession('ip_sessionnested', ['user_id' => '9', 'wrapper' => ['user_id' => '7']]);
+        $victim     = $this->writeSession('ip_sessionrealvictim', ['note' => '}', '__ci_vars' => ['flash' => 'new'], 'user_id' => '7']);
+
+        /* Act */
+        (new Mdl_Sessions())->invalidate_user_sessions(7);
+
+        /* Assert: only the session whose top-level user_id is 7 goes, wherever that entry sits in the file */
+        self::assertFileExists($textInside, 'Text inside a value is not a user_id entry.');
+        self::assertFileExists($nested, 'A nested user_id is not the session owner.');
+        self::assertFileDoesNotExist($victim);
+    }
+
+    #[Test]
+    public function it_only_deletes_files_named_like_a_session_of_the_configured_cookie(): void
+    {
+        /* Arrange: the save path can be a shared folder (it defaults to the system temp directory) */
+        $foreign   = $this->writeSession('sess_foreignappsession', ['user_id' => '7']);
+        $lookalike = $this->writeSession('ip_session.log', ['user_id' => '7']);
+        $ours      = $this->writeSession('ip_session' . md5('127.0.0.1') . bin2hex(random_bytes(8)), ['user_id' => '7']);
+
+        /* Act */
+        (new Mdl_Sessions())->invalidate_user_sessions(7);
+
+        /* Assert: another application's session and a log file survive, our IP-matched session does not */
+        self::assertFileExists($foreign);
+        self::assertFileExists($lookalike);
+        self::assertFileDoesNotExist($ours);
+    }
+
+    #[Test]
+    public function it_deletes_nothing_when_the_session_cookie_name_is_not_configured(): void
+    {
+        /* Arrange */
+        unset($GLOBALS['unitCiConfig']['sess_cookie_name']);
+        $file = $this->writeSession('ip_sessionnoname', ['user_id' => '7']);
+
+        /* Act */
+        (new Mdl_Sessions())->invalidate_user_sessions(7);
+
+        /* Assert: without a name there is no way to tell a session file from any other file */
+        self::assertFileExists($file);
+    }
+
+    #[Test]
     public function it_leaves_a_save_path_that_does_not_exist_alone_without_throwing(): void
     {
         /* Arrange */
-        $survivor                          = $this->writeSession('ip_sessionkeep', ['user_id' => '7']);
+        $survivor                                  = $this->writeSession('ip_sessionkeep', ['user_id' => '7']);
         $GLOBALS['unitCiConfig']['sess_save_path'] = $this->dir . DIRECTORY_SEPARATOR . 'missing';
 
         /* Act */
