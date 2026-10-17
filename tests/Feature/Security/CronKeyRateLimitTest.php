@@ -125,6 +125,24 @@ final class CronKeyRateLimitTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->key(), 'log_count' => 1]);
     }
 
+    #[Test]
+    public function it_refuses_the_cron_run_when_no_cron_key_is_configured_and_none_is_sent(): void
+    {
+        /* Arrange: an admin blanked the cron key; hash_equals('', '') would otherwise let anyone in */
+        $this->databaseUpdate('ip_settings', ['setting_value' => ''], ['setting_key' => 'cron_key']);
+
+        /* Act: the key segment is optional in the route */
+        try {
+            $this->get('/invoices/cron/recur/');
+            self::fail('An empty configured cron key must not authorise a request that sends no key.');
+        } catch (RuntimeException $exception) {
+            /* Assert */
+            self::assertStringContainsString('Wrong cron key provided', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->key(), 'log_count' => 1]);
+    }
+
     private function wrongKeyRequest(): void
     {
         try {
