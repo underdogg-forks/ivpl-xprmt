@@ -69,6 +69,23 @@ final class ImportCsvFullSweepTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_removes_staged_csv_files_even_when_the_import_form_is_submitted_with_nothing_selected(): void
+    {
+        /* Arrange: uploaded, then the form is submitted without ticking any file */
+        $this->csv('clients.csv', ['client_name'], [['Never Imported Co']]);
+        $this->csv('payments.csv', ['invoice_number'], [['X-1']]);
+
+        /* Act */
+        $response = $this->postWithValidCsrfToken('/import/form', ['btn_submit' => '1']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'import');
+        $this->assertDatabaseMissing('ip_clients', ['client_name' => 'Never Imported Co']);
+        self::assertFileDoesNotExist($this->dir . '/clients.csv');
+        self::assertFileDoesNotExist($this->dir . '/payments.csv');
+    }
+
+    #[Test]
     public function it_removes_a_csv_with_the_wrong_headers_and_unselected_csvs_too_but_leaves_other_files(): void
     {
         /* Arrange: clients.csv selected but malformed, payments.csv present yet unselected */
