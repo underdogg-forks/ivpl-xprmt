@@ -100,6 +100,37 @@ final class LoginLockoutExpiryTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 1]);
     }
 
+    #[Test]
+    public function it_applies_the_lockout_to_email_spellings_the_database_treats_as_the_same_account(): void
+    {
+        /* Arrange: the exact address is locked out; the same address with a trailing space has its own counter row */
+        $email = 'variant-lockout@test.local';
+        $this->seedUser($email);
+        $this->seedLog($this->accountKey($email), 10, 'now');
+
+        /* Act: the users table compares emails with a PAD SPACE collation, so the spaced spelling finds the same account */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email . ' ', 'password' => 'correct-password']);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect());
+        self::assertFalse(str_contains($response->redirectUrl(), 'dashboard'), 'A locked-out account must not be reachable through another spelling of its address.');
+    }
+
+    #[Test]
+    public function it_counts_a_failure_made_through_another_spelling_on_the_one_account_counter(): void
+    {
+        /* Arrange */
+        $email = 'variant-count@test.local';
+        $this->seedUser($email);
+
+        /* Act: a wrong password through the spaced spelling */
+        $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email . ' ', 'password' => 'wrong-password']);
+
+        /* Assert: counted on the stored spelling's row, and no extra row is created for the variant */
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->accountKey($email), 'log_count' => 1]);
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->accountKey($email . ' ')]);
+    }
+
     private function accountKey(string $email): string
     {
         return 'login_account:' . hash('sha256', mb_strtolower($email));
