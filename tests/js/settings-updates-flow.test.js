@@ -141,3 +141,19 @@ test("a valid GitHub release list is rendered", () => {
     assert.equal(error, null);
     assert.ok(shown.some((entry) => entry.startsWith("append:")), "nothing was appended for a valid release list");
 });
+
+test("legacy IDS news fields reach the page as text, never as an HTML string", () => {
+    /* Arrange: GitHub is down and the first IDS host answers with markup in every field */
+    const hostile = { type: 'x"><script>', title: "<img src=x onerror=1>", text: "line one\nline two", newsdate: { date: "2026-01-01 00:00" } };
+
+    /* Act */
+    const { shown, error } = run((options) => {
+        if (options.url.includes("api.github.com")) options.error({});
+        else if (options.url.includes("ids.invoiceplane.com/get_news")) options.success([hostile]);
+    });
+
+    /* Assert */
+    assert.equal(error, null);
+    assert.ok(shown.some((entry) => entry.startsWith("text:<img src=x onerror=1>")), "the title was not set with text()");
+    assert.ok(!shown.some((entry) => entry.startsWith("append:") && entry.includes("<img")), "markup was appended as an HTML string");
+});
