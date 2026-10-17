@@ -60,11 +60,18 @@ final class SumexUnsanitizedFieldsTest extends TestCase
     public static function textFields(): array
     {
         return [
-            'patient given name' => ['client_name', 'givenname'],
-            'company name'       => ['user_company', 'companyname'],
-            'diagnosis'          => ['sumex_diagnosis', 'diagnosis'],
-            'observations'       => ['sumex_observations', 'remark'],
-            'patient city'       => ['client_city', 'city'],
+            'patient given name'  => ['client_name', 'givenname'],
+            'company name'        => ['user_company', 'companyname'],
+            'diagnosis'           => ['sumex_diagnosis', 'diagnosis'],
+            'observations'        => ['sumex_observations', 'remark'],
+            'patient city'        => ['client_city', 'city'],
+            'patient street'      => ['client_address_1', 'street'],
+            'company street'      => ['user_address_1', 'street'],
+            'patient zip'         => ['client_zip', 'zip'],
+            'company zip'         => ['user_zip', 'zip'],
+            'patient family name' => ['client_surname', 'familyname'],
+            'patient phone'       => ['client_phone', 'phone'],
+            'company phone'       => ['user_phone', 'phone'],
         ];
     }
 
