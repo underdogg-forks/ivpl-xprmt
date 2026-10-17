@@ -53,6 +53,25 @@ final class UserClientsIdorTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_still_collects_clients_in_the_session_while_a_new_user_has_no_id_yet(): void
+    {
+        /* Arrange: the new-user form has no user_id, so the integer guard must not apply to it */
+        $clientId = $this->seedClient();
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->request('POST', '/users/ajax/save_user_client', [], [
+            'user_id'   => '',
+            'client_id' => (string) $clientId,
+            '_ip_csrf'  => $this->csrfToken,
+        ], true, ['ip_csrf_cookie' => $this->csrfToken]);
+
+        /* Assert */
+        self::assertNotSame(403, $response->statusCode(), 'An empty user id is the new-user flow, not an invalid id. Body: ' . $response->body());
+        self::assertSame([$clientId => $clientId], array_map('intval', (array) $response->sessionValue('user_clients')));
+    }
+
+    #[Test]
     public function it_allows_the_primary_admin_to_create_a_client_mapping_for_another_user(): void
     {
         /* Arrange */
