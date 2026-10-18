@@ -447,6 +447,51 @@ class SettingsControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_persists_a_system_theme_whose_directory_name_is_purely_numeric(): void
+    {
+        /*
+         * array_keys() on an array with a purely-numeric string key ('42') returns the
+         * PHP-cast int (42), not the original string, because PHP always normalizes a
+         * numeric-string array key to int. in_array($value, array_keys($themes), true) then
+         * compares the submitted string '42' against the int 42 with strict ===, which is
+         * never true -- so a real, legitimately-shipped theme named e.g. "42" or "2025" could
+         * never be selected. Reproduced with a real theme directory (mirroring how
+         * Mdl_Settings::get_themes() discovers themes by directory scan), not a mock.
+         */
+
+        /* Arrange */
+        $themeDir = THEME_FOLDER . '42';
+        mkdir($themeDir);
+        file_put_contents($themeDir . '/42.theme', "TITLE='Numeric Theme'\n");
+
+        try {
+            /* Act */
+            $response = $this->post('/settings', ['settings' => ['system_theme' => '42'], 'btn_submit' => '1']);
+
+            /* Assert */
+            $this->assertResponseRedirectsToRoute($response, 'settings');
+            $this->assertDatabaseHas('ip_settings', ['setting_key' => 'system_theme', 'setting_value' => '42']);
+        } finally {
+            @unlink($themeDir . '/42.theme');
+            @rmdir($themeDir);
+        }
+    }
+
+    #[Test]
+    public function it_refuses_an_array_submitted_as_system_theme_without_a_fatal_error(): void
+    {
+        /* Arrange: a crafted request bypassing the <select> entirely, e.g. settings[system_theme][]=x */
+        $this->setSetting('cron_key', 'original-cron-key');
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => ['system_theme' => ['x'], 'cron_key' => 'must-not-be-saved'], 'btn_submit' => '1']);
+
+        /* Assert: rejected cleanly (redirect + flash), not a 500 from an uncaught TypeError */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'original-cron-key']);
+    }
+
+    #[Test]
     #[DataProvider('validAdminSettingValues')]
     public function it_persists_a_valid_admin_setting(string $key, string $value): void
     {
