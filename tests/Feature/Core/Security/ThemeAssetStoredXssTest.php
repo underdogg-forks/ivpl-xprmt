@@ -2,10 +2,8 @@
 
 namespace Tests\Feature\Core\Security;
 
-use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use Sessions;
 use Tests\AbstractTestCase;
 
 /**
@@ -27,7 +25,6 @@ use Tests\AbstractTestCase;
  * pattern (see SettingsControllerTest::it_renders_the_week_start_setting_escaped_for_the_javascript_context()).
  */
 #[Group('security')]
-#[CoversClass(Sessions::class)]
 class ThemeAssetStoredXssTest extends AbstractTestCase
 {
     #[Test]
