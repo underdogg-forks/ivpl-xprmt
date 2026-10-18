@@ -126,7 +126,18 @@ class Settings extends Admin_Controller
                         // server-side allowlist and echoed unescaped by _theme_asset() on 18
                         // views, including the unauthenticated login page. Validate against the
                         // same theme list the <select> itself is built from.
-                        if ( ! in_array($value, array_keys($this->mdl_settings->get_themes()), true)) {
+                        //
+                        // array_key_exists(), not in_array(..., array_keys(...), true): PHP
+                        // normalizes a purely-numeric string array key (e.g. a theme directory
+                        // literally named "42") to an int, so array_keys() would return 42 (int)
+                        // and strict in_array('42', [42], true) would never match -- rejecting a
+                        // real, legitimately-shipped theme. array_key_exists('42', $themes)
+                        // looks the submitted string up against the array directly, so PHP's own
+                        // key normalization works for it instead of against it. is_string() is
+                        // checked first because array_key_exists() throws a TypeError for a
+                        // non-int/string key (e.g. a crafted settings[system_theme][]=x array),
+                        // where in_array() would have just returned false.
+                        if ( ! is_string($value) || ! array_key_exists($value, $this->mdl_settings->get_themes())) {
                             $this->rejectInvalidSetting($key, $value);
                         }
                     } elseif ($key === 'pdf_watermark') {
