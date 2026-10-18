@@ -57,6 +57,9 @@ class SettingsControllerTest extends AbstractTestCase
             'date_format xss'            => ['date_format', "d/m/Y'];alert(1);//"],
             'date_format unknown'        => ['date_format', 'not-a-real-format'],
             'number_format unknown'      => ['number_format', 'not_a_real_format'],
+            'system_theme xss'           => ['system_theme', 'x" onerror="alert(1)" x="'],
+            'system_theme unknown'       => ['system_theme', 'not_a_real_theme'],
+            'system_theme traversal'     => ['system_theme', '../../../etc/passwd'],
             'pdf_watermark not boolean'  => ['pdf_watermark', 'true'],
             'pdf_watermark xss'          => ['pdf_watermark', '<script>alert(1)</script>'],
             'default_language traversal' => ['default_language', '../../../etc/passwd'],
@@ -72,6 +75,7 @@ class SettingsControllerTest extends AbstractTestCase
             'currency_symbol'       => ['currency_symbol', '€'],
             'date_format'           => ['date_format', 'd-m-Y'],
             'number_format'         => ['number_format', 'number_format_european'],
+            'system_theme'          => ['system_theme', 'invoiceplane_blue'],
             'pdf_watermark on'      => ['pdf_watermark', '1'],
             'pdf_watermark off'     => ['pdf_watermark', '0'],
             'default_language'      => ['default_language', 'english'],
@@ -95,6 +99,26 @@ class SettingsControllerTest extends AbstractTestCase
         /* Assert */
         $this->assertResponseBodyContains($response, 'visible-cron-key-42');
         $this->assertResponseBodyNotContains($response, 'A PHP Error was encountered');
+    }
+
+    #[Test]
+    public function it_lists_the_real_shipped_themes_in_the_theme_dropdown(): void
+    {
+        /*
+         * Regression for THEME_FOLDER pointing at the non-existent resources/assets/
+         * (bootstrap/kernel.php): Mdl_Settings::get_themes() calls directory_map(THEME_FOLDER, 1),
+         * which returns false for a missing directory, so the <select> silently had zero
+         * <option> elements and every system_theme value -- including the one already stored --
+         * would have failed the allowlist this fix adds to Settings::index(). Themes actually
+         * ship under assets/ (assets/invoiceplane/, assets/invoiceplane_blue/, assets/core/).
+         */
+
+        /* Act */
+        $response = $this->get('/settings');
+
+        /* Assert */
+        $this->assertResponseBodyContains($response, 'settings[system_theme]');
+        $this->assertResponseBodyContains($response, 'value="invoiceplane_blue"');
     }
 
     // -------------------------------------------------------------------------

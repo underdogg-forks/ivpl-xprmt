@@ -121,6 +121,14 @@ class Settings extends Admin_Controller
                         if ( ! in_array($value, array_keys($number_formats), true)) {
                             $this->rejectInvalidSetting($key, $value);
                         }
+                    } elseif ($key === 'system_theme') {
+                        // Security: Stored XSS (CWE-79) -- system_theme was persisted with no
+                        // server-side allowlist and echoed unescaped by _theme_asset() on 18
+                        // views, including the unauthenticated login page. Validate against the
+                        // same theme list the <select> itself is built from.
+                        if ( ! in_array($value, array_keys($this->mdl_settings->get_themes()), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
                     } elseif ($key === 'pdf_watermark') {
                         if ( ! in_array($value, ['0', '1'], true)) {
                             $this->rejectInvalidSetting($key, $value);
