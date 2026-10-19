@@ -21,9 +21,20 @@ require $repo . '/tests/Support/FakeCiSettings.php';
 require $repo . '/tests/Support/UnitCodeIgniter.php';
 require $repo . '/application/helpers/echo_helper.php';
 require $repo . '/application/helpers/settings_helper.php';
+if ( ! function_exists('trans')) {
+    function trans(string $line, string $id = '', $default = null)
+    {
+        return $line === 'page' ? 'Page' : $line;
+    }
+}
+
 require $repo . '/application/helpers/mpdf_helper.php';
 
-$GLOBALS['unitCiInstance'] = (object) ['mdl_settings' => new Tests\Support\FakeCiSettings()];
+$settings        = new Tests\Support\FakeCiSettings();
+$settings->_data    = $args['settings'] ?? [];
+$settings->settings = $args['settings'] ?? [];
+
+$GLOBALS['unitCiInstance'] = (object) ['mdl_settings' => $settings];
 
 foreach ($args['seed'] ?? [] as $seeded) {
     $seedName = is_array($seeded) ? $seeded['name'] : $seeded;
@@ -45,12 +56,27 @@ $returned = pdf_create(
 );
 $streamed = (string) ob_get_clean();
 
+// Text-showing operators (Tj / TJ) in the page content streams of the streamed PDF: a footer line adds some.
+$textOperators = static function (string $pdf): int {
+    $count = 0;
+    if (preg_match_all('/stream\r?\n(.*?)\r?\nendstream/s', $pdf, $streams) > 0) {
+        foreach ($streams[1] as $stream) {
+            $plain = @gzuncompress($stream);
+            $plain = $plain === false ? $stream : $plain;
+            $count += preg_match_all('/\]\s*TJ|\)\s*Tj/', $plain);
+        }
+    }
+
+    return $count;
+};
+
 $list = static fn (string $dir): array => array_values(array_diff(scandir($dir) ?: [], ['.', '..']));
 
 echo json_encode([
     'returned'    => is_string($returned) ? str_replace($root, '', $returned) : null,
     'stream_head' => substr($streamed, 0, 5),
     'stream_len'  => strlen($streamed),
+    'text_ops'    => $textOperators($streamed),
     'archive'     => $list(UPLOADS_ARCHIVE_FOLDER),
     'temp'        => $list(UPLOADS_TEMP_FOLDER),
 ], JSON_THROW_ON_ERROR);
