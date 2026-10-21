@@ -700,4 +700,25 @@ class Ajax extends Admin_Controller
 
         return [];
     }
+
+    // Modal preview PDF
+    public function modal_preview_pdf()
+    {
+        $this->load->module('layout');
+
+        $this->load->model('invoices/mdl_invoices');
+        $this->load->model('invoice_groups/mdl_invoice_groups');
+        $this->load->model('tax_rates/mdl_tax_rates');
+        $data = [
+            'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
+            'tax_rates'      => $this->mdl_tax_rates->get()->result(),
+            'invoice_id'     => $this->security->xss_clean($this->input->post('invoice_id')),
+            'invoice'        => $this->mdl_invoices
+                ->where('ip_invoices.invoice_id', $this->input->post('invoice_id'))
+                ->get()
+                ->row(),
+        ];
+
+        $this->layout->load_view('invoices/modal_preview_pdf', $data);
+    }
 }
