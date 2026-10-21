@@ -42,7 +42,7 @@ class LoginTimingOracleTest extends AbstractTestCase
         $ci = $this->bootCodeIgniter();
         require_once APPPATH . 'libraries/Crypt.php';
         $ci->crypt = new Crypt();
-        $model = $this->ciModel('sessions/models/Mdl_sessions');
+        $model     = $this->ciModel('sessions/models/Mdl_sessions');
 
         /* Act */
         $start  = hrtime(true);
