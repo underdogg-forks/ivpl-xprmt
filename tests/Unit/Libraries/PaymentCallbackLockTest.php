@@ -6,6 +6,7 @@ use LogicException;
 use PaymentCallbackLock;
 use PDO;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\AbstractTestCase;
 use Tests\Concerns\UsesCodeIgniterModels;
 
@@ -72,7 +73,7 @@ final class PaymentCallbackLockTest extends AbstractTestCase
     public function it_is_a_safe_no_op_to_release_a_lock_that_was_never_acquired(): void
     {
         /* Arrange: a fresh instance that never called acquire() */
-        $ci  = $this->bootCodeIgniter();
+        $ci   = $this->bootCodeIgniter();
         $lock = new PaymentCallbackLock($ci->db);
 
         /* Act */
@@ -130,7 +131,7 @@ final class PaymentCallbackLockTest extends AbstractTestCase
         try {
             $lock->acquire(7);
             self::fail('A NULL from GET_LOCK() must raise, not return false.');
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             self::assertStringContainsString('ip:payment:invoice:7', $e->getMessage());
         }
         $lock->release();
@@ -189,44 +190,6 @@ final class PaymentCallbackLockTest extends AbstractTestCase
         self::assertTrue($again);
     }
 
-    /** @param list<array<string, mixed>> $answers one row per GET_LOCK() call */
-    private function recordingDatabase(array $answers, bool $throwOnRelease = false): object
-    {
-        return new class ($answers, $throwOnRelease) {
-            /** @var list<array{0: string, 1: array}> */
-            public array $queries = [];
-
-            public function __construct(private array $answers, private bool $throwOnRelease) {}
-
-            public function query(string $sql, array $binds = []): object
-            {
-                $this->queries[] = [$sql, $binds];
-                if (str_contains($sql, 'RELEASE_LOCK')) {
-                    if ($this->throwOnRelease) {
-                        throw new \RuntimeException('connection lost');
-                    }
-
-                    return new class {
-                        public function row_array(): array
-                        {
-                            return [];
-                        }
-                    };
-                }
-                $row = array_shift($this->answers);
-
-                return new class ($row) {
-                    public function __construct(private ?array $row) {}
-
-                    public function row_array(): array
-                    {
-                        return $this->row ?? [];
-                    }
-                };
-            }
-        };
-    }
-
     #[Test]
     public function it_refuses_to_acquire_the_same_lock_instance_twice_in_a_row(): void
     {
@@ -245,6 +208,44 @@ final class PaymentCallbackLockTest extends AbstractTestCase
         } finally {
             $lock->release();
         }
+    }
+
+    /** @param list<array<string, mixed>> $answers one row per GET_LOCK() call */
+    private function recordingDatabase(array $answers, bool $throwOnRelease = false): object
+    {
+        return new class ($answers, $throwOnRelease) {
+            /** @var list<array{0: string, 1: array}> */
+            public array $queries = [];
+
+            public function __construct(private array $answers, private bool $throwOnRelease) {}
+
+            public function query(string $sql, array $binds = []): object
+            {
+                $this->queries[] = [$sql, $binds];
+                if (str_contains($sql, 'RELEASE_LOCK')) {
+                    if ($this->throwOnRelease) {
+                        throw new RuntimeException('connection lost');
+                    }
+
+                    return new class () {
+                        public function row_array(): array
+                        {
+                            return [];
+                        }
+                    };
+                }
+                $row = array_shift($this->answers);
+
+                return new class ($row) {
+                    public function __construct(private ?array $row) {}
+
+                    public function row_array(): array
+                    {
+                        return $this->row ?? [];
+                    }
+                };
+            }
+        };
     }
 
     private function openSecondaryConnection(): PDO
