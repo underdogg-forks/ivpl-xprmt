@@ -601,6 +601,37 @@ class SettingsControllerTest extends AbstractTestCase
         }
     }
 
+    #[Test]
+    public function it_renders_the_remove_logo_buttons_inside_the_settings_form_instead_of_nesting_forms(): void
+    {
+        /*
+         * GHSA-qx8h-35wf-cgqf made logo removal a POST. The buttons were wrapped in their own <form>, but the
+         * settings tabs render inside <form id="form-settings">: browsers drop a nested form tag, so the button
+         * submitted the settings form and the logo could not be removed from the UI.
+         */
+
+        /* Arrange */
+        $this->setSetting('login_logo', 'login-logo.png');
+        $this->setSetting('invoice_logo', 'invoice-logo.png');
+
+        /* Act */
+        $response = $this->get('/settings');
+
+        /* Assert */
+        $body      = $response->body();
+        $formOpen  = strpos($body, 'id="form-settings"');
+        $formClose = strpos($body, '</form>', (int) $formOpen);
+        self::assertNotFalse($formOpen);
+        foreach (['login', 'invoice'] as $kind) {
+            $needle = 'formaction="http://localhost/settings/remove_logo/' . $kind . '"';
+            $at     = strpos($body, $needle);
+            self::assertNotFalse($at, "No remove-logo button for the {$kind} logo.");
+            self::assertGreaterThan($formOpen, $at);
+            self::assertLessThan($formClose, $at, 'The button must sit inside the settings form, which carries the CSRF field.');
+        }
+        self::assertStringNotContainsString('<form method="post" action="http://localhost/settings/remove_logo', $body, 'A nested form is dropped by browsers.');
+    }
+
     private function setSetting(string $key, string $value): void
     {
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => $key, 'setting_value' => '']);

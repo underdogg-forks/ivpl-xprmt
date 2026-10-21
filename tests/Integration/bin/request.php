@@ -43,6 +43,8 @@ if ($session !== []) {
     $_SESSION = $session;
 }
 
+$initialSessionId = session_status() === PHP_SESSION_ACTIVE ? session_id() : '';
+
 $queryString = http_build_query($query);
 $requestUri  = '/index.php' . $uri . ($queryString !== '' ? '?' . $queryString : '');
 
@@ -135,7 +137,7 @@ $exception = null;
 
 // CI's redirect() calls exit(), which prevents normal execution flow after require.
 // We capture the result in a shutdown function so it's always emitted, even when exit() is called.
-register_shutdown_function(static function () use (&$exception): void {
+register_shutdown_function(static function () use (&$exception, $initialSessionId): void {
     // Avoid double-output if the try/catch path already ran.
     if (defined('CI_TEST_RESULT_SENT')) {
         return;
@@ -148,10 +150,12 @@ register_shutdown_function(static function () use (&$exception): void {
         'headers' => array_merge(headers_list(), isset($GLOBALS['ip_test_location']) ? ['Location: ' . $GLOBALS['ip_test_location']] : [], $GLOBALS['ip_security_response_headers'] ?? []),
         // base64-encoded: the body may be binary (a streamed PDF, an image, ...),
         // which isn't valid UTF-8 and would make json_encode() throw below.
-        'output'         => base64_encode($output),
-        'exception'      => $exception,
-        'session'        => $_SESSION ?? [],
-        'session_active' => session_status() === PHP_SESSION_ACTIVE,
+        'output'             => base64_encode($output),
+        'exception'          => $exception,
+        'session'            => $_SESSION ?? [],
+        'session_active'     => session_status() === PHP_SESSION_ACTIVE,
+        'session_id'         => session_status() === PHP_SESSION_ACTIVE ? session_id() : '',
+        'initial_session_id' => $initialSessionId,
     ];
 
     echo '__CI_TEST_RESULT_START__';
@@ -185,10 +189,12 @@ $result = [
     'status'  => http_response_code() ?: 200,
     'headers' => array_merge(headers_list(), isset($GLOBALS['ip_test_location']) ? ['Location: ' . $GLOBALS['ip_test_location']] : [], $GLOBALS['ip_security_response_headers'] ?? []),
     // base64-encoded: see the shutdown-function comment above.
-    'output'         => base64_encode($output),
-    'exception'      => $exception,
-    'session'        => $_SESSION ?? [],
-    'session_active' => session_status() === PHP_SESSION_ACTIVE,
+    'output'             => base64_encode($output),
+    'exception'          => $exception,
+    'session'            => $_SESSION ?? [],
+    'session_active'     => session_status() === PHP_SESSION_ACTIVE,
+    'session_id'         => session_status() === PHP_SESSION_ACTIVE ? session_id() : '',
+    'initial_session_id' => $initialSessionId,
 ];
 
 echo '__CI_TEST_RESULT_START__';
