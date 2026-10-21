@@ -117,9 +117,11 @@ function pdf_create(
     $invoice_array = [];
 
     // mPDF loading
+    // Security: disable remote file access (SSRF prevention)
+    // PDFs are generated server-side with local assets only
     $mpdf = new \Mpdf\Mpdf([
         'tempDir'                 => UPLOADS_TEMP_MPDF_FOLDER,
-        'whitelistStreamWrappers' => ['http', 'https'],
+        'whitelistStreamWrappers' => [],
     ]);
 
     // mPDF configuration
