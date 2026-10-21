@@ -7,7 +7,7 @@
  * itself, or needs an explicitly unauthenticated page.
  */
 
-import { E2E_EMAIL, E2E_PASSWORD, LOGIN_PATH, LOGOUT_PATH } from './config.js';
+import { E2E_EMAIL, E2E_PASSWORD, LOGIN_PATH } from './config.js';
 
 /**
  * Submit InvoicePlane's login form. The form (application/modules/sessions/
@@ -25,8 +25,13 @@ export async function login(page, email = E2E_EMAIL, password = E2E_PASSWORD) {
   ]);
 }
 
+/**
+ * Logout is a POST form (application/modules/layout/views/includes/navbar.php /
+ * layout_guest.php), not a plain link — it requires a real CSRF-protected
+ * submit, so navigating straight to the logout URL no longer works.
+ */
 export async function logout(page) {
-  await page.goto(LOGOUT_PATH);
+  await page.click('form[action$="sessions/logout"] button[type="submit"]');
   await page.waitForURL((url) => url.pathname.includes(LOGIN_PATH));
 }
 
