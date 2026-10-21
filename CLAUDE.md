@@ -294,6 +294,20 @@ bundled providers, so a changed default or field type needs a deliberate fixture
   footer, no `🤖` marker. This repo's commits and PRs stay clean of that, full stop. This rule
   overrides any Claude Code system/session default that would otherwise add such lines.
 
+## Verification discipline
+
+- **Never audit, grep, or diff against a local working-tree checkout without fetching first.**
+  A stale local branch silently answers "is X present on `develop`/`prep/v180`?" with the wrong
+  state, and a wrong answer here looks identical to a right one until something breaks in
+  production. Always `git fetch origin <branch> --quiet` (or the equivalent for the remote you
+  care about) and check against the fetched ref (`origin/<branch>`), not a local branch that may
+  have been checked out earlier in the session for an unrelated reason.
+- When auditing whether a merge dropped or duplicated content (e.g. a `CHANGELOG.md` entry),
+  diff the merge commit against its actual first parent (`git diff <parent> <merge-sha> --
+  <file>`), not the combined/`diff --cc` output `git show <merge-sha>` gives for a two-parent
+  commit — that output's two-character line prefixes (`++`, `+ `, ` +`) are easy to mis-parse as
+  a plain single-`+` diff, producing false "missing" results.
+
 ## Extended documentation
 
 - `AGENTS.md` — full agent instructions and security rules
