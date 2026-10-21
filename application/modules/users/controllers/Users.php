@@ -239,6 +239,11 @@ class Users extends Admin_Controller
                     'user_credential'   => session_credential_fingerprint((string) $updated_user->user_password),
                     'user_auth_version' => (int) $updated_user->user_auth_version,
                 ]);
+
+                // A copy of this very session (a stolen cookie) shares its id with the session that
+                // just changed the password and would pass the refreshed checks above. A new id,
+                // with the old session destroyed, ends it.
+                $this->session->sess_regenerate(true);
             }
 
             redirect('users/form/' . $user_id);
