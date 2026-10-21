@@ -639,11 +639,19 @@ class Ajax extends Admin_Controller
         $this->load->model('tax_rates/mdl_tax_rates');
         $this->load->model('clients/mdl_clients');
 
+        $quote_id = (int) $this->input->post('quote_id');
+        $quote    = $this->mdl_quotes->where('ip_quotes.quote_id', $quote_id)->get()->row();
+        if ($quote === null) {
+            show_404();
+
+            return;
+        }
+
         $data = [
             'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
             'tax_rates'      => $this->mdl_tax_rates->get()->result(),
-            'quote_id'       => $this->input->post('quote_id'),
-            'quote'          => $this->mdl_quotes->where('ip_quotes.quote_id', $this->input->post('quote_id'))->get()->row(),
+            'quote_id'       => $quote_id,
+            'quote'          => $quote,
             'client'         => $this->mdl_clients->get_by_id($this->input->post('client_id')),
         ];
 

@@ -709,14 +709,20 @@ class Ajax extends Admin_Controller
         $this->load->model('invoices/mdl_invoices');
         $this->load->model('invoice_groups/mdl_invoice_groups');
         $this->load->model('tax_rates/mdl_tax_rates');
+
+        $invoice_id = (int) $this->input->post('invoice_id');
+        $invoice    = $this->mdl_invoices->where('ip_invoices.invoice_id', $invoice_id)->get()->row();
+        if ($invoice === null) {
+            show_404();
+
+            return;
+        }
+
         $data = [
             'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
             'tax_rates'      => $this->mdl_tax_rates->get()->result(),
-            'invoice_id'     => $this->security->xss_clean($this->input->post('invoice_id')),
-            'invoice'        => $this->mdl_invoices
-                ->where('ip_invoices.invoice_id', $this->input->post('invoice_id'))
-                ->get()
-                ->row(),
+            'invoice_id'     => $invoice_id,
+            'invoice'        => $invoice,
         ];
 
         $this->layout->load_view('invoices/modal_preview_pdf', $data);
