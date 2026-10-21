@@ -411,6 +411,10 @@ class Sessions extends Base_Controller
             $this->_record_ip_login_attempt();
         }
 
+        // Mitigate timing side-channel (CWE-204): add random jitter to mask whether
+        // the username exists. Sleep duration is random but consistent per request.
+        usleep(random_int(10000, 50000));
+
         return false;
     }
 
