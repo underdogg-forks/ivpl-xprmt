@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Security;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
@@ -147,14 +149,6 @@ final class PasswordResetRateLimitTest extends AbstractTestCase
         self::assertEqualsWithDelta(15 * 60, $this->expiryInSeconds($userId), 120);
     }
 
-    private function expiryInSeconds(int $userId): int
-    {
-        $expiry = (string) ($this->databaseFetchOne('ip_users', ['user_id' => $userId])['user_passwordreset_token_expiry'] ?? '');
-        self::assertNotSame('', $expiry, 'A reset request must store a token expiry.');
-
-        return (int) ((new \DateTimeImmutable($expiry, new \DateTimeZone('UTC')))->getTimestamp() - time());
-    }
-
     #[Test]
     public function it_still_refuses_an_email_whose_limit_was_reached_thirty_minutes_ago(): void
     {
@@ -230,6 +224,14 @@ final class PasswordResetRateLimitTest extends AbstractTestCase
 
         /* Assert */
         self::assertNotSame('', $this->tokenOf($userId));
+    }
+
+    private function expiryInSeconds(int $userId): int
+    {
+        $expiry = (string) ($this->databaseFetchOne('ip_users', ['user_id' => $userId])['user_passwordreset_token_expiry'] ?? '');
+        self::assertNotSame('', $expiry, 'A reset request must store a token expiry.');
+
+        return (int) ((new DateTimeImmutable($expiry, new DateTimeZone('UTC')))->getTimestamp() - time());
     }
 
     private function emailKey(string $email): string
