@@ -20,6 +20,14 @@ class Cron extends Base_Controller
      * The scheduled endpoint. Its URL is unchanged, so existing crontab entries keep
      * working and pick up reminders automatically.
      *
+     * **Key Rotation Policy (chqc):**
+     * - CRON_KEY: Safe to rotate at any time (only affects new cron job submissions).
+     *   Update in Admin › Settings › Scheduler, then update your crontab entries.
+     * - GUEST_KEYS: DO NOT rotate. They are baked into archived invoice URLs and cannot
+     *   be changed without breaking guest access links. Old guest keys are retained for
+     *   backward compatibility and should be considered "forever" credentials for that
+     *   invoice. Use access controls (firewall, IP whitelist) to restrict guest URL exposure.
+     *
      * @param string|null $cron_key
      */
     public function recur($cron_key = null)
