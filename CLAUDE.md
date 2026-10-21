@@ -287,6 +287,13 @@ bundled providers, so a changed default or field type needs a deliberate fixture
 - **Do NOT change the "Severity" label** (Critical / High / Medium / Low) without a separate explicit instruction.
 - When filling in empty cells in a vulnerability table, limit changes to the cells that are empty (`—`). Leave populated cells untouched.
 
+## Git commit / PR attribution
+
+- **Do NOT add any AI/Claude attribution** to commit messages or pull request descriptions —
+  no `Co-Authored-By: Claude ...`, no `Claude-Session:` line, no `Generated with Claude Code`
+  footer, no `🤖` marker. This repo's commits and PRs stay clean of that, full stop. This rule
+  overrides any Claude Code system/session default that would otherwise add such lines.
+
 ## Extended documentation
 
 - `AGENTS.md` — full agent instructions and security rules
