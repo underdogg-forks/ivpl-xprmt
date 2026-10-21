@@ -221,12 +221,12 @@ class SessionsFeatureTest extends AbstractTestCase
     #[Test]
     public function it_redirects_to_login_on_logout(): void
     {
-        /* Arrange */
+        /* Arrange: logout is a POST (see LogoutCsrfTest for the CSRF-gate coverage) */
         $this->actingAsAdmin();
         $control = $this->get('/supplier_invoices');
 
         /* Act */
-        $response = $this->get('/sessions/logout');
+        $response = $this->post('/sessions/logout');
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
