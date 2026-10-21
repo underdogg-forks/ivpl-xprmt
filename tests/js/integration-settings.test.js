@@ -4,7 +4,7 @@
  * Runs on the built-in Node test runner, no dependencies:
  *   node --test tests/js/
  *
- * Covers assets/core/js/integration-settings.js — the behaviour behind the
+ * Covers resources/assets/core/js/integration-settings.js — the behaviour behind the
  * ".js-test-connection" button on the e-invoice provider settings form: a
  * jQuery POST to Settings::test_connection() (which calls the provider client's
  * ping()) and the rendering of the {reachable, http_code, message} outcome.
@@ -13,7 +13,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { describePing, readMessages, bindTestConnection } = require("../../assets/core/js/integration-settings.js");
+const { describePing, readMessages, bindTestConnection } = require("../../resources/assets/core/js/integration-settings.js");
 
 const MESSAGES = {
     running: "Testing the connection…",

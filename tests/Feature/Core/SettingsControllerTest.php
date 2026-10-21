@@ -105,12 +105,14 @@ class SettingsControllerTest extends AbstractTestCase
     public function it_lists_the_real_shipped_themes_in_the_theme_dropdown(): void
     {
         /*
-         * Regression for THEME_FOLDER pointing at the non-existent resources/assets/
-         * (bootstrap/kernel.php): Mdl_Settings::get_themes() calls directory_map(THEME_FOLDER, 1),
-         * which returns false for a missing directory, so the <select> silently had zero
-         * <option> elements and every system_theme value -- including the one already stored --
-         * would have failed the allowlist this fix adds to Settings::index(). Themes actually
-         * ship under assets/ (assets/invoiceplane/, assets/invoiceplane_blue/, assets/core/).
+         * Regression for THEME_FOLDER pointing at a missing directory (bootstrap/kernel.php):
+         * Mdl_Settings::get_themes() calls directory_map(THEME_FOLDER, 1), which returns false for
+         * a missing directory, so the <select> silently had zero <option> elements and every
+         * system_theme value -- including the one already stored -- would have failed the
+         * allowlist in Settings::index(). The theme descriptors are tracked sources under
+         * resources/assets/ (invoiceplane/, invoiceplane_blue/, core/); the built files in
+         * public/assets/ are generated and absent on a fresh checkout, so the list must not
+         * depend on them.
          */
 
         /* Act */

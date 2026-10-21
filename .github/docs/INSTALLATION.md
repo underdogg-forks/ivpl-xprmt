@@ -160,8 +160,8 @@ The **Workflow** phase covers your day-to-day development activities.
 
 2. **Make Code Changes:**
    - Edit PHP files in `application/` directory
-   - Edit SASS files in `assets/` directory
-   - Edit JavaScript files in `assets/` directory
+   - Edit SASS files in `resources/assets/` (`<theme>/sass/`), then run `yarn build`
+   - Edit JavaScript files in `resources/assets/core/js/`, then run `yarn build` (output goes to `public/assets/`)
 
 3. **Build Assets (if you changed frontend files):**
    ```bash
