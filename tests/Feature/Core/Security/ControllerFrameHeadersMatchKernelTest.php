@@ -14,7 +14,7 @@ use Tests\Concerns\CapturesControllerOutputHeaders;
  * headers again with replace=TRUE, so on a real web request whatever they queue wins. They must
  * queue the kernel's validated values, not rebuild them from the raw environment value:
  *   - X_FRAME_OPTIONS=ALLOWALL  would send "X-Frame-Options: ALLOWALL" (invalid, ignored by browsers)
- *   - X_FRAME_OPTIONS=DENY      would send CSP frame-ancestors 'self' although the operator asked for 'none'
+ *   - X_FRAME_OPTIONS=DENY      would send CSP frame-ancestors 'self' although the operator asked for 'none'.
  */
 #[Group('security')]
 final class ControllerFrameHeadersMatchKernelTest extends AbstractTestCase

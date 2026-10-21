@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Helpers;
 
+use ArrayIterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -48,11 +49,6 @@ final class ItemAmountHelperBoundaryTest extends TestCase
             'negative quantity' => ['-0,01', '10', ''],
             'zero price'        => ['-1', '0', ''],
         ];
-    }
-
-    private function row(string $name, string $quantity, string $price, string $discount = ''): object
-    {
-        return (object) ['item_name' => $name, 'item_quantity' => $quantity, 'item_price' => $price, 'item_discount_amount' => $discount];
     }
 
     #[Test]
@@ -173,12 +169,17 @@ final class ItemAmountHelperBoundaryTest extends TestCase
     public function it_accepts_a_traversable_items_payload(): void
     {
         /* Arrange */
-        $items = new \ArrayIterator([$this->row('Bad', '1', '-1')]);
+        $items = new ArrayIterator([$this->row('Bad', '1', '-1')]);
 
         /* Act */
         $errors = amount_sign_errors($items, '', '');
 
         /* Assert */
         self::assertSame(['item_price'], array_keys($errors));
+    }
+
+    private function row(string $name, string $quantity, string $price, string $discount = ''): object
+    {
+        return (object) ['item_name' => $name, 'item_quantity' => $quantity, 'item_price' => $price, 'item_discount_amount' => $discount];
     }
 }
