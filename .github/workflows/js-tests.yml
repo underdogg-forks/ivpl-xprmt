@@ -2,7 +2,7 @@ name: JS Tests
 
 # The front-end has one small piece of behaviour worth pinning: the
 # "Test connection" button on the e-invoice provider settings form
-# (assets/core/js/integration-settings.js). It runs on the built-in Node
+# (resources/assets/core/js/integration-settings.js). It runs on the built-in Node
 # test runner with no dependencies — see tests/js/.
 
 on:
