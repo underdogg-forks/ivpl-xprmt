@@ -404,6 +404,8 @@ class Sessions extends Base_Controller
 
         $this->load->model('mdl_sessions');
 
+        $email_address = $this->_canonical_login_email($email_address);
+
         // IP-based rate limiting mirrors the password-reset throttle.
         if ($this->_is_ip_rate_limited_login()) {
             $this->load->helper('file_security');
@@ -430,6 +432,21 @@ class Sessions extends Base_Controller
         }
 
         return false;
+    }
+
+    /**
+     * The email as stored for the account it identifies, or the submitted value when no account matches.
+     *
+     * The users table compares emails with a case-insensitive, trailing-space-insensitive collation, so
+     * "a@x.com", "A@X.com" and "a@x.com " all reach the same account. The failed-login counter is keyed on
+     * the submitted text, so each spelling would get a fresh counter and the lockout could be walked around.
+     * Resolving to the stored spelling makes every spelling share one counter.
+     */
+    private function _canonical_login_email(string $email_address): string
+    {
+        $row = $this->db->select('user_email')->where('user_email', $email_address)->limit(1)->get('ip_users')->row();
+
+        return $row !== null ? (string) $row->user_email : $email_address;
     }
 
     /**
@@ -795,10 +812,8 @@ class Sessions extends Base_Controller
      */
     private function _reject_expired_password_reset_token($user): void
     {
-        if (empty($user->user_passwordreset_token_expiry)) {
-            return;
-        }
-
+        // A token without a stored expiry is rejected like a malformed one: tokens are always written
+        // together with their expiry, so a row without one must not stay valid forever.
         try {
             // Initialize UTC timezone if not already done
             if ( ! isset(self::$utc_timezone)) {

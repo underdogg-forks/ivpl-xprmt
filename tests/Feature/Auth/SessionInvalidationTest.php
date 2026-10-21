@@ -117,6 +117,46 @@ final class SessionInvalidationTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_gives_the_session_that_changes_its_own_password_a_new_id_so_a_copied_cookie_dies(): void
+    {
+        /* Arrange: a stolen cookie is a copy of this very session, so it shares the session id */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin($userId);
+
+        /* Act */
+        $response = $this->post('/users/change_password/' . $userId, [
+            'user_password'  => 'BrandNewPassword123!',
+            'user_passwordv' => 'BrandNewPassword123!',
+        ]);
+
+        /* Assert: the old id (what the thief holds) no longer names the live session; the owner keeps their login */
+        self::assertTrue($response->isRedirect(), 'A valid password change must redirect.');
+        self::assertNotSame('', $response->initialSessionId());
+        self::assertNotSame($response->initialSessionId(), $response->sessionId(), 'The session id must change after the password change.');
+        self::assertSame((string) $userId, $response->sessionValue('user_id'), 'The acting user stays logged in on the new session id.');
+        $savePath = rtrim((string) (ini_get('session.save_path') ?: sys_get_temp_dir()), '/');
+        self::assertFileDoesNotExist($savePath . '/sess_' . $response->initialSessionId(), 'The old session must be destroyed, not just left behind under its old id.');
+    }
+
+    #[Test]
+    public function it_keeps_the_session_id_when_the_primary_admin_changes_another_users_password(): void
+    {
+        /* Arrange: positive control, the acting session is not the one whose credentials changed */
+        $otherId = $this->seedAdmin();
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->post('/users/change_password/' . $otherId, [
+            'user_password'  => 'BrandNewPassword123!',
+            'user_passwordv' => 'BrandNewPassword123!',
+        ]);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A valid password change must redirect.');
+        self::assertSame($response->initialSessionId(), $response->sessionId(), 'Changing someone else\'s password must not rotate the acting session.');
+    }
+
+    #[Test]
     public function it_rejects_a_session_whose_account_was_deactivated(): void
     {
         /* Arrange */
@@ -236,6 +276,30 @@ final class SessionInvalidationTest extends AbstractTestCase
         /* Assert: the session snapshot is checked, not just the database */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
         self::assertSame('', $response->body(), 'A session whose own role is not administrator must be rejected.');
+    }
+
+    #[Test]
+    public function it_clears_a_pending_password_reset_token_when_the_password_is_changed(): void
+    {
+        /* Arrange: a reset link was requested, then the owner changes the password another way */
+        $userId = $this->seedAdmin();
+        $this->databaseUpdate('ip_users', [
+            'user_passwordreset_token'        => hash('sha256', 'pending-reset-token'),
+            'user_passwordreset_token_expiry' => gmdate('Y-m-d H:i:s', time() + 600),
+        ], ['user_id' => $userId]);
+        $this->actingAsAdmin($userId);
+
+        /* Act */
+        $response = $this->post('/users/change_password/' . $userId, [
+            'user_password'  => 'BrandNewPassword123!',
+            'user_passwordv' => 'BrandNewPassword123!',
+        ]);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A valid password change must redirect.');
+        $row = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
+        self::assertSame('', (string) $row['user_passwordreset_token'], 'The pending reset token must be cleared.');
+        self::assertNull($row['user_passwordreset_token_expiry']);
     }
 
     private function seedAdmin(): int

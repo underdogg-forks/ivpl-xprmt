@@ -10,7 +10,7 @@ use Tests\AbstractTestCase;
 
 /**
  * GHSA-pp5w-98m2-gvc8: the setup wizard (which reaches Mdl_setup::upgrade_tables()) must be
- * unreachable once SETUP_COMPLETED is true, whatever DISABLE_SETUP says.
+ * unreachable once either lock is on: SETUP_COMPLETED=true or DISABLE_SETUP=true.
  *
  * SetupControllerTest only walks the GET routes with no wizard state. These tests drive the
  * routes an attacker actually uses: POSTs that advance the wizard, and requests that already
@@ -39,6 +39,28 @@ final class SetupLockdownTest extends AbstractTestCase
             $response->sessionValue('install_step'),
             'A locked setup must not move the wizard to its next step.'
         );
+    }
+
+    #[Test]
+    public function it_refuses_every_wizard_route_when_setup_is_disabled_even_if_it_is_not_completed(): void
+    {
+        /* Arrange: the documented "security purposes" flag alone, SETUP_COMPLETED left at its default */
+        $this->withEnvironment(['SETUP_COMPLETED' => 'false', 'DISABLE_SETUP' => 'true']);
+        $this->sessionData = ['install_step' => 'upgrade_tables', 'is_upgrade' => true];
+        $versionsBefore    = $this->databaseCount('ip_versions');
+        $settingsBefore    = $this->databaseCount('ip_settings');
+
+        /* Act */
+        $upgrade   = $this->get('/setup/upgrade_tables');
+        $language  = $this->get('/setup/language');
+        $configure = $this->post('/setup/configure_database', ['btn_continue' => '1']);
+
+        /* Assert */
+        $this->assertResponseStatusCode($upgrade, 403);
+        $this->assertResponseStatusCode($language, 403);
+        $this->assertResponseStatusCode($configure, 403);
+        self::assertSame($versionsBefore, $this->databaseCount('ip_versions'), 'No migration may be recorded.');
+        self::assertSame($settingsBefore, $this->databaseCount('ip_settings'), 'No default setting may be (re)installed.');
     }
 
     #[Test]
