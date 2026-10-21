@@ -89,6 +89,32 @@ class CronRecurControllerTest extends AbstractTestCase
         $this->assertDatabaseCount('ip_invoices', 1, ['client_id' => $seeded['clientId']]);
     }
 
+    #[Test]
+    public function it_claims_the_recurring_invoice_before_it_draws_a_number_from_the_invoice_group(): void
+    {
+        /* Arrange: a trigger that advances the schedule whenever the group counter moves, the way a
+         * concurrent run that wins the claim would. The number may only be drawn once this run owns the
+         * row; drawn first, the claim is lost, no invoice exists and the number is burned (GHSA-hvvh). */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'the-real-key']);
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'invoices_due_after', 'setting_value' => '30']);
+        $seeded = $this->seedRecurringInvoice();
+        $before = (int) $this->databaseFetchOne('ip_invoice_groups', ['invoice_group_id' => 1])['invoice_group_next_id'];
+        $this->databaseRunScript('DROP TRIGGER IF EXISTS ip_test_advance_recur');
+        $this->databaseRunScript('CREATE TRIGGER ip_test_advance_recur AFTER UPDATE ON ip_invoice_groups FOR EACH ROW UPDATE ip_invoices_recurring SET recur_next_date = DATE_ADD(recur_next_date, INTERVAL 1 MONTH)');
+
+        try {
+            /* Act */
+            $this->get('/invoices/cron/recur/the-real-key');
+        } finally {
+            $this->databaseRunScript('DROP TRIGGER IF EXISTS ip_test_advance_recur');
+        }
+
+        /* Assert: one new invoice, and the counter moved exactly once for it */
+        $this->assertDatabaseCount('ip_invoices', 2, ['client_id' => $seeded['clientId']]);
+        $after = (int) $this->databaseFetchOne('ip_invoice_groups', ['invoice_group_id' => 1])['invoice_group_next_id'];
+        self::assertSame($before + 1, $after);
+    }
+
     protected function seedRecurringInvoice(array $overrides = []): array
     {
         $clientId    = $this->seedClient();
