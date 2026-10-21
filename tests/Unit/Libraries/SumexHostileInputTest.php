@@ -72,6 +72,65 @@ final class SumexHostileInputTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function singleControlCharacters(): array
+    {
+        $cases = [];
+        foreach (array_merge(range(0x00, 0x08), [0x0B, 0x0C], range(0x0E, 0x1F), [0x7F]) as $code) {
+            $cases[sprintf('U+%04X', $code)] = [chr($code)];
+        }
+
+        return $cases;
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function allowedWhitespace(): array
+    {
+        return [
+            'tab'             => ["\t"],
+            'line feed'       => ["\n"],
+            'carriage return' => ["\r"],
+            'space'           => [' '],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function invoiceNumbers(): array
+    {
+        return [
+            'plain token'                  => ['INV-2026/001.a_b', 'INV-2026/001.a_b'],
+            'attribute breakout'           => ['X" evil="1" y="', 'Xevil1y'],
+            'element breakout'             => ['"><invoice:evil/><x a="', 'invoiceevil/xa'],
+            'single quote and ampersand'   => ["A'B&C;D", 'ABCD'],
+            'spaces'                       => ['A B C', 'ABC'],
+            'control characters'           => ["A\x00B\x01C\nD\rE\tF\x7FG", 'ABCDEFG'],
+            'null byte truncation attempt' => ["INV\x00.php", 'INV.php'],
+            'unicode'                      => ['Rechnung-Ä€日本-1', 'Rechnung--1'],
+            'only illegal characters'      => ['"<>&\' =', ''],
+            'empty'                        => ['', ''],
+            'very long'                    => [str_repeat('A', 10000) . '"', str_repeat('A', 10000)],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function subscriberNumbers(): array
+    {
+        return [
+            'attribute breakout'     => ['"/><x a="01-123456-7', '01-123456-7'],
+            'letters and whitespace' => [" 01-12a3456 -7\n", '01-123456-7'],
+            'control characters'     => ["01-123\x00456\x01-7", '01-123456-7'],
+            'unicode digits'         => ['١٢01-123456-7٣', '01-123456-7'],
+        ];
+    }
+
     #[Test]
     #[DataProvider('freeTextInvoiceFields')]
     public function it_strips_control_characters_and_keeps_markup_inert_in_every_free_text_field(string $field): void
@@ -106,19 +165,6 @@ final class SumexHostileInputTest extends TestCase
         self::assertContains($clean, $this->leafTexts($doc));
     }
 
-    /**
-     * @return array<string, array{0: string}>
-     */
-    public static function singleControlCharacters(): array
-    {
-        $cases = [];
-        foreach (array_merge(range(0x00, 0x08), [0x0B, 0x0C], range(0x0E, 0x1F), [0x7F]) as $code) {
-            $cases[sprintf('U+%04X', $code)] = [chr($code)];
-        }
-
-        return $cases;
-    }
-
     #[Test]
     #[DataProvider('singleControlCharacters')]
     public function it_removes_each_forbidden_control_character_from_the_diagnosis(string $char): void
@@ -133,19 +179,6 @@ final class SumexHostileInputTest extends TestCase
         /* Assert */
         self::assertSame('Fluvirus', $this->first($doc, 'diagnosis')->textContent);
         self::assertStringNotContainsString($char, $raw);
-    }
-
-    /**
-     * @return array<string, array{0: string}>
-     */
-    public static function allowedWhitespace(): array
-    {
-        return [
-            'tab'             => ["\t"],
-            'line feed'       => ["\n"],
-            'carriage return' => ["\r"],
-            'space'           => [' '],
-        ];
     }
 
     #[Test]
@@ -218,26 +251,6 @@ final class SumexHostileInputTest extends TestCase
         self::assertSame(str_repeat("ab<>\"'", 20000), $this->first($doc, 'remark')->textContent);
     }
 
-    /**
-     * @return array<string, array{0: string, 1: string}>
-     */
-    public static function invoiceNumbers(): array
-    {
-        return [
-            'plain token'                  => ['INV-2026/001.a_b', 'INV-2026/001.a_b'],
-            'attribute breakout'           => ['X" evil="1" y="', 'Xevil1y'],
-            'element breakout'             => ['"><invoice:evil/><x a="', 'invoiceevil/xa'],
-            'single quote and ampersand'   => ["A'B&C;D", 'ABCD'],
-            'spaces'                       => ['A B C', 'ABC'],
-            'control characters'           => ["A\x00B\x01C\nD\rE\tF\x7FG", 'ABCDEFG'],
-            'null byte truncation attempt' => ["INV\x00.php", 'INV.php'],
-            'unicode'                      => ['Rechnung-Ä€日本-1', 'Rechnung--1'],
-            'only illegal characters'      => ['"<>&\' =', ''],
-            'empty'                        => ['', ''],
-            'very long'                    => [str_repeat('A', 10000) . '"', str_repeat('A', 10000)],
-        ];
-    }
-
     #[Test]
     #[DataProvider('invoiceNumbers')]
     public function it_restricts_the_invoice_number_to_the_attribute_allowlist_in_the_request_id(string $input, string $expected): void
@@ -267,19 +280,6 @@ final class SumexHostileInputTest extends TestCase
         /* Assert */
         self::assertSame($expected, $this->first($doc, 'payment_reason')->textContent);
         self::assertSame(0, $doc->getElementsByTagNameNS('*', 'evil')->length);
-    }
-
-    /**
-     * @return array<string, array{0: string, 1: string}>
-     */
-    public static function subscriberNumbers(): array
-    {
-        return [
-            'attribute breakout'     => ['"/><x a="01-123456-7', '01-123456-7'],
-            'letters and whitespace' => [" 01-12a3456 -7\n", '01-123456-7'],
-            'control characters'     => ["01-123\x00456\x01-7", '01-123456-7'],
-            'unicode digits'         => ['١٢01-123456-7٣', '01-123456-7'],
-        ];
     }
 
     #[Test]
