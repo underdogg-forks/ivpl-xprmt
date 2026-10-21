@@ -69,6 +69,7 @@ class LoginTimingOracleTest extends AbstractTestCase
     {
         /* Arrange */
         $this->ciModel('sessions/models/Mdl_sessions');
+        require_once APPPATH . 'libraries/Crypt.php';
         $ref = new ReflectionClass(Mdl_Sessions::class);
 
         /* Act */
@@ -76,15 +77,65 @@ class LoginTimingOracleTest extends AbstractTestCase
 
         /* Assert */
         self::assertIsString($hash);
-        self::assertStringStartsWith(
-            '$2y$10$',
+        self::assertMatchesRegularExpression(
+            '/^\$2y\$(\d+)\$/',
             $hash,
-            'The decoy hash must be a real bcrypt hash at the same cost factor (10) as password_hash() ' .
-            'uses for real users, or its comparison time will not match the genuine-account path.'
+            'The decoy hash must be a real bcrypt hash.'
+        );
+        preg_match('/^\$2y\$(\d+)\$/', $hash, $m);
+        self::assertSame(
+            Crypt::BCRYPT_COST,
+            (int) $m[1],
+            'The decoy hash must be generated at the same cost Crypt::generate_password() currently uses, ' .
+            'or its comparison time stops matching the genuine-account path. If Crypt::BCRYPT_COST changes, ' .
+            'DUMMY_PASSWORD_HASH must be regenerated at the new cost.'
         );
         self::assertFalse(
             password_verify('wrong-password', $hash),
             'Sanity check: the decoy hash must not happen to match the password used by the timing test above.'
+        );
+    }
+
+    /**
+     * The legacy pre-1.2.0 path (no user_psalt, md5 hash) returned false via a
+     * cheap hash_equals()/md5() comparison on a wrong password, with no
+     * bcrypt work at all -- a second timing side-channel, distinguishing a
+     * legacy account from every other failure path (modern wrong-password,
+     * non-existent email), both of which do run bcrypt.
+     */
+    #[Test]
+    public function it_runs_a_bcrypt_comparison_when_a_legacy_md5_account_has_the_wrong_password(): void
+    {
+        /* Arrange */
+        $email = 'legacy-' . bin2hex(random_bytes(6)) . '@test.local';
+        $this->databaseInsert('ip_users', [
+            'user_name'          => 'Legacy Tester',
+            'user_password'      => md5('correct-legacy-password'),
+            'user_psalt'         => '',
+            'user_email'         => $email,
+            'user_type'          => 1,
+            'user_active'        => 1,
+            'user_date_created'  => date('Y-m-d H:i:s'),
+            'user_date_modified' => date('Y-m-d H:i:s'),
+        ]);
+        $ci = $this->bootCodeIgniter();
+        require_once APPPATH . 'libraries/Crypt.php';
+        $ci->crypt = new Crypt();
+        $model     = $this->ciModel('sessions/models/Mdl_sessions');
+
+        /* Act */
+        $start     = hrtime(true);
+        $result    = $model->auth($email, 'wrong-password');
+        $elapsedMs = (hrtime(true) - $start) / 1e6;
+
+        /* Assert */
+        self::assertFalse($result, 'A legacy account with the wrong password must never authenticate.');
+        self::assertGreaterThan(
+            5.0,
+            $elapsedMs,
+            'A legacy (pre-1.2.0, no user_psalt) account with a wrong password must still run a bcrypt ' .
+            'comparison against the decoy hash: an md5-only rejection takes microseconds, so a near-instant ' .
+            'result here would distinguish legacy accounts from every other failure path by timing alone.'
         );
     }
 }
