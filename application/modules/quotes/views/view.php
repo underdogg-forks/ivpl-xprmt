@@ -103,6 +103,9 @@ if ($quote->quote_status_id == 1) {
                     }
                 });
         });
+        $('#btn_preview_pdf').click(function () {
+            $('#modal-placeholder').load("<?php echo site_url('quotes/ajax/modal_preview_pdf'); ?>", {quote_id: <?php echo $quote_id; ?>});
+        });   
 
         $(document).on('click', '.btn_delete_item', function () {
             var btn = $(this);
@@ -255,12 +258,24 @@ if ($legacy_calculation) {
                         <?php _trans('download_pdf'); ?>
                     </a>
                 </li>
+                <?php if (get_setting('show_menu_item_preview_pdf') != 1) { ?>                
                 <li>
                     <a href="<?php echo site_url('mailer/quote/' . $quote->quote_id); ?>">
                         <i class="fa fa-send fa-margin"></i>
                         <?php _trans('send_email'); ?>
                     </a>
                 </li>
+                <?php } ?>
+                <?php if (get_setting('show_menu_item_preview_pdf') == 1) { ?>
+                    <li>
+                        <a href="#" id="btn_preview_pdf"
+                           data-quote-id="<?php echo $quote_id; ?>">
+                            <i class="fa fa-file-pdf-o fa-margin"></i> 
+                            <?php _trans('preview_pdf'); ?>
+                        </a>
+                    </li>
+                <?php } ?> 
+
                 <li>
                     <a href="#" id="btn_quote_to_invoice"
                        data-quote-id="<?php echo $quote_id; ?>">
