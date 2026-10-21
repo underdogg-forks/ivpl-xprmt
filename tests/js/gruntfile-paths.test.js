@@ -6,15 +6,50 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const Module = require("node:module");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "../..");
 
+// The JS workflow runs on the bare Node test runner without "yarn install", so the Gruntfile is
+// loaded against a minimal grunt double: initConfig() keeps the object, config.get() reads a dotted
+// path, file.expand() lists real files below cwd, and the packages the Gruntfile requires are stubbed.
+function listFiles(dir, prefix = "") {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? listFiles(path.join(dir, entry.name), prefix + entry.name + "/") : [prefix + entry.name]
+  );
+}
+
 function loadConfig() {
-  const grunt = require(path.join(root, "node_modules/grunt"));
-  process.chdir(root);
-  require(path.join(root, "Gruntfile.js"))(grunt);
-  return grunt.config;
+  let config;
+  const grunt = {
+    initConfig(c) {
+      config = c;
+    },
+    registerTask() {},
+    file: {
+      expand({ cwd }, pattern) {
+        // only the "**/sass/*.scss" pattern is used with expand()
+        assert.equal(pattern, "**/sass/*.scss");
+        return listFiles(path.join(root, cwd)).filter((f) => /(^|\/)sass\/[^/]+\.scss$/.test(f));
+      },
+    },
+  };
+  const realLoad = Module._load;
+  Module._load = function (request, ...rest) {
+    if (["sass", "load-grunt-tasks", "autoprefixer"].includes(request)) return request === "load-grunt-tasks" ? () => {} : {};
+    return realLoad.call(this, request, ...rest);
+  };
+  try {
+    delete require.cache[require.resolve(path.join(root, "Gruntfile.js"))];
+    require(path.join(root, "Gruntfile.js"))(grunt);
+  } finally {
+    Module._load = realLoad;
+  }
+  return {
+    get: (dotted) => dotted.split(".").reduce((node, key) => node[key], config),
+  };
 }
 
 test("every theme stylesheet is built from resources/assets into public/assets", () => {

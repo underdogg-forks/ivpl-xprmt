@@ -12,16 +12,20 @@
 $root = dirname(__DIR__);
 $uri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
-// Let the built-in server return static files that actually exist on disk,
-// but never anything above the project root.
-$candidate = realpath($root . $uri);
-if (
-    $uri !== '/'
-    && $candidate !== false
-    && is_file($candidate)
-    && str_starts_with($candidate, $root . DIRECTORY_SEPARATOR)
-) {
-    return false;
+// Let the built-in server return static files that actually exist on disk: first the web root
+// (public/, where "yarn build" writes assets/ and where favicon.ico and robots.txt live), then the
+// project root (uploads/ logos, as the production web server maps them). Never anything above it.
+foreach ([$root . '/public', $root] as $base) {
+    $candidate = realpath($base . $uri);
+    if (
+        $uri !== '/'
+        && $candidate !== false
+        && is_file($candidate)
+        && str_starts_with($candidate, $base . DIRECTORY_SEPARATOR)
+        && ! str_ends_with($candidate, '.php')
+    ) {
+        return false;
+    }
 }
 
 // Normalise the path: strip a leading /index.php so clean and non-clean URLs
