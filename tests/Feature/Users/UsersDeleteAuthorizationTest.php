@@ -107,9 +107,9 @@ final class UsersDeleteAuthorizationTest extends AbstractTestCase
     public function it_lets_the_primary_admin_delete_a_peer_admin_and_only_that_peer(): void
     {
         /* Arrange: positive control for every denial above */
-        $peerId   = $this->seedUser(1, 'peer-to-delete');
-        $otherId  = $this->seedUser(1, 'peer-to-keep');
-        $guestId  = $this->seedUser(2, 'guest-to-keep');
+        $peerId  = $this->seedUser(1, 'peer-to-delete');
+        $otherId = $this->seedUser(1, 'peer-to-keep');
+        $guestId = $this->seedUser(2, 'guest-to-keep');
         $this->actingAsAdmin(1);
 
         /* Act */

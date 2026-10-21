@@ -5,7 +5,8 @@
  */
 
 import { test, expect } from '../../test.js';
-import { LOGIN_PATH } from '../../config.js';
+import { LOGIN_PATH, LOGOUT_PATH } from '../../config.js';
+import { logout } from '../../auth-helpers.js';
 
 test.describe('Sessions — login page', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -129,17 +130,30 @@ test.describe('Sessions — password reset', () => {
 });
 
 test.describe('Sessions — logout', () => {
-  test('it destroys the session and redirects to login on logout', async ({ page }) => {
+  test('it destroys the session and redirects to login when the logout form is submitted', async ({ page }) => {
     /* Arrange: the fixture gives us an authenticated admin */
     await page.goto('/dashboard');
     await expect(page).not.toHaveURL(new RegExp(LOGIN_PATH));
 
     /* Act */
-    await page.goto('/sessions/logout');
+    await logout(page);
 
     /* Assert */
     await expect(page).toHaveURL(new RegExp(LOGIN_PATH));
     await page.goto('/dashboard');
     await expect(page).toHaveURL(new RegExp(LOGIN_PATH));
+  });
+
+  test('it does not log out on a bare GET navigation to the logout URL (CWE-352)', async ({ page }) => {
+    /* Arrange: the fixture gives us an authenticated admin */
+    await page.goto('/dashboard');
+    await expect(page).not.toHaveURL(new RegExp(LOGIN_PATH));
+
+    /* Act: simulates a forced top-level cross-site navigation, e.g. a link on an attacker page */
+    await page.goto(LOGOUT_PATH);
+
+    /* Assert: the session must survive -- a GET alone must never log the user out */
+    await page.goto('/dashboard');
+    await expect(page).not.toHaveURL(new RegExp(LOGIN_PATH));
   });
 });

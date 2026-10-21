@@ -162,10 +162,13 @@ require_once __DIR__ . '/session_path.php';
 
 require_once __DIR__ . '/constants.php';
 
-// THEME_FOLDER points to the compiled/source asset tree under resources/assets/.
-// Subdirectories there (core/, invoiceplane/, invoiceplane_blue/, …) are the
-// available themes as listed by Settings. Do not change this to views/themes/.
-defined('THEME_FOLDER') || define('THEME_FOLDER', $base . '/resources/assets/');
+// THEME_FOLDER points to the asset tree under assets/ (matching upstream's
+// FCPATH . 'assets'). Subdirectories there (core/, invoiceplane/, invoiceplane_blue/, …)
+// are the available themes as listed by Settings. 'resources/assets/' does not exist in
+// this tree, so Mdl_Settings::get_themes()'s directory_map() silently returned nothing --
+// the theme dropdown was empty and any system_theme allowlist built from it would reject
+// every value. Do not change this to views/themes/.
+defined('THEME_FOLDER') || define('THEME_FOLDER', $base . '/assets/');
 
 defined('SUMEX_SETTINGS') || define('SUMEX_SETTINGS', env_bool('SUMEX_SETTINGS', false));
 
