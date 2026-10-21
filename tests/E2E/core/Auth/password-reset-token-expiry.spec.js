@@ -91,17 +91,18 @@ test.describe('Password reset token expiry', () => {
     expect(passwordOf(id)).not.toBe(before);
   });
 
-  test('it allows a password change when no expiry is stored', async ({ page }) => {
-    /* Arrange: a legacy token issued before the expiry column existed */
+  test('it rejects a password change when the token has no stored expiry', async ({ page }) => {
+    /* Arrange: a token row without an expiry; tokens are always written with one, so it must not live forever */
     const id = seedUserWithResetToken(null);
     const before = passwordOf(id);
 
     /* Act */
     const response = await submitNewPassword(page, id, 'LegacyNewPass123!');
 
-    /* Assert */
+    /* Assert: refused, the password is unchanged and the token is burnt */
     expect([301, 302, 303]).toContain(response.status());
-    expect(passwordOf(id)).not.toBe(before);
+    expect(passwordOf(id)).toBe(before);
+    expect(tokenOf(id) ?? '').toBe('');
   });
 
   test('it rejects the reset link when the token has expired', async ({ page }) => {
