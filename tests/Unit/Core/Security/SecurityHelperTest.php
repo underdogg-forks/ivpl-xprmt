@@ -235,10 +235,26 @@ class SecurityHelperTest extends TestCase
         /* Act */
         $encoded = encode_for_javascript_string($payload);
 
-        /* Assert: every single quote must be escaped — remove the escaped sequences and
-         * confirm no bare quote remains that could close the surrounding JS string literal. */
-        self::assertStringContainsString("\\'", $encoded);
-        self::assertStringNotContainsString("'", str_replace("\\'", '', $encoded));
+        /* Assert: no bare single quote survives, so nothing can close the surrounding JS string
+         * literal; each one is written as the \u0027 escape. */
+        self::assertStringNotContainsString("'", $encoded);
+        self::assertSame(substr_count($payload, "'"), substr_count($encoded, '\\u0027'));
+    }
+
+    #[Test]
+    public function it_hex_encodes_angle_brackets_ampersands_and_double_quotes_so_markup_cannot_end_the_script_block(): void
+    {
+        /* Arrange: a script-block terminator, an HTML comment opener (script data double-escape state),
+         * an entity and a double quote */
+        $payload = '</script><!--<script>&amp;"';
+
+        /* Act */
+        $encoded = encode_for_javascript_string($payload);
+
+        /* Assert */
+        self::assertSame('\u003C\/script\u003E\u003C!--\u003Cscript\u003E\u0026amp;\u0022', $encoded);
+        self::assertStringNotContainsString('<', $encoded);
+        self::assertStringNotContainsString('>', $encoded);
     }
 
     #[Test]
