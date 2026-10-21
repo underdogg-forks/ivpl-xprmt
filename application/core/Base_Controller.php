@@ -77,16 +77,18 @@ class Base_Controller extends MX_Controller
         }
     }
 
-    /**
-     * Queue the headers bootstrap/kernel.php already derived and validated (X_FRAME_OPTIONS is
-     * limited to SAMEORIGIN|DENY and the CSP frame-ancestors follows it). Building them again
-     * here from the raw environment value overwrote the validated ones with an invalid
-     * X-Frame-Options and a CSP that ignored DENY.
-     */
     protected function setSecurityHeaders(): void
     {
-        foreach ($GLOBALS['ip_security_response_headers'] ?? [] as $header) {
+        $this->load->helper('ip_security');
+
+        foreach (security_frame_headers() as $header) {
             $this->output->set_header($header);
+        }
+
+        $this->output->set_header('Referrer-Policy: strict-origin-when-cross-origin');
+
+        if (env_bool('ENABLE_X_CONTENT_TYPE_OPTIONS', 'true')) {
+            $this->output->set_header('X-Content-Type-Options: nosniff');
         }
     }
 
