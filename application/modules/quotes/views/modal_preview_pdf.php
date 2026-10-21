@@ -10,7 +10,7 @@
     <form class="modal-content">
         <div class="modal-header">         
             <a data-dismiss="modal" class="close"><i class="fa fa-close"></i></a>
-            <h3><i class="fa fa-file-pdf-o"></i><?php echo '  ' . trans('quote') . ': #' . $quote->quote_number ; ?></h3>            
+            <h3><i class="fa fa-file-pdf-o"></i><?php echo '  ' . trans('quote') . ': #' . htmlsc($quote->quote_number); ?></h3>            
         </div>
         <div class="modal-body" style="padding: 0; margin: 0; background-color: #ededf0;">
             <object
