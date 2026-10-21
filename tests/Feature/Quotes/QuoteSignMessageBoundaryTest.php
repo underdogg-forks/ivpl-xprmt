@@ -25,9 +25,9 @@ final class QuoteSignMessageBoundaryTest extends AbstractTestCase
     public static function singleDiscountFields(): array
     {
         return [
-            'negative amount'       => [['quote_discount_amount' => '-1'], 'quote_discount_amount', 'The discount cannot be negative.'],
-            'negative percent'      => [['quote_discount_percent' => '-1'], 'quote_discount_percent', 'The discount cannot be negative.'],
-            'percent over 100'      => [['quote_discount_percent' => '100.5'], 'quote_discount_percent', 'The discount percentage cannot exceed 100.'],
+            'negative amount'  => [['quote_discount_amount' => '-1'], 'quote_discount_amount', 'The discount cannot be negative.'],
+            'negative percent' => [['quote_discount_percent' => '-1'], 'quote_discount_percent', 'The discount cannot be negative.'],
+            'percent over 100' => [['quote_discount_percent' => '100.5'], 'quote_discount_percent', 'The discount percentage cannot exceed 100.'],
         ];
     }
 
