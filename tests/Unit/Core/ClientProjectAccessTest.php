@@ -39,9 +39,9 @@ final class ClientProjectAccessTest extends AbstractTestCase
     public function it_lets_a_guest_user_access_only_their_assigned_client_and_its_projects(): void
     {
         /* Arrange */
-        $assigned   = $this->seedClient();
-        $other      = $this->seedClient();
-        $userId     = $this->seedUser(2);
+        $assigned = $this->seedClient();
+        $other    = $this->seedClient();
+        $userId   = $this->seedUser(2);
         $this->databaseInsert('ip_user_clients', ['user_id' => $userId, 'client_id' => $assigned]);
         $ownProject = $this->seedProject($assigned);
         $foreign    = $this->seedProject($other);
@@ -69,8 +69,8 @@ final class ClientProjectAccessTest extends AbstractTestCase
     public function it_refuses_a_regular_user_every_client_and_project_even_when_assigned(): void
     {
         /* Arrange: type 3 has no client access at all, even with a (stray) assignment row */
-        $clientId  = $this->seedClient();
-        $userId    = $this->seedUser(3);
+        $clientId = $this->seedClient();
+        $userId   = $this->seedUser(3);
         $this->databaseInsert('ip_user_clients', ['user_id' => $userId, 'client_id' => $clientId]);
         $projectId = $this->seedProject($clientId);
         $ci        = $this->sessionFor(3, $userId);
