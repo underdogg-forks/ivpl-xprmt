@@ -83,7 +83,7 @@ final class VerifyGetCsrfTokenBoundaryTest extends TestCase
         /* Arrange: decoys under the other name must not be picked up */
         $this->setRequest(
             true,
-            ['x_tok' => self::TOKEN, 'x_cookie' => 'decoy-from-query'],
+            ['x_tok'    => self::TOKEN, 'x_cookie' => 'decoy-from-query'],
             ['x_cookie' => self::TOKEN, 'x_tok' => 'decoy-from-cookie'],
             'x_tok',
             'x_cookie'
@@ -109,12 +109,51 @@ final class VerifyGetCsrfTokenBoundaryTest extends TestCase
         self::assertFalse($valid);
     }
 
-    private function setRequest(bool $enabled, array $get, array $cookies, string $tokenName = '_ip_csrf', string $cookieName = 'ip_csrf_cookie'): void
+    /**
+     * CodeIgniter's own Security library prepends cookie_prefix to
+     * csrf_cookie_name when it actually sets/reads the CSRF cookie
+     * (CI_Security::__construct()). A genuine logout link must still
+     * validate when a deployment sets a non-default cookie_prefix.
+     */
+    #[Test]
+    public function it_accepts_a_valid_token_when_cookie_prefix_is_configured(): void
     {
+        /* Arrange */
+        $this->setRequest(true, ['_ip_csrf' => self::TOKEN], ['myapp_ip_csrf_cookie' => self::TOKEN], cookiePrefix: 'myapp_');
+
+        /* Act */
+        $valid = verify_get_csrf_token();
+
+        /* Assert */
+        self::assertTrue($valid, 'A token matching the prefixed cookie name must be accepted.');
+    }
+
+    #[Test]
+    public function it_rejects_a_token_matching_only_the_unprefixed_cookie_name_when_cookie_prefix_is_configured(): void
+    {
+        /* Arrange: the cookie the real framework would never set under this name */
+        $this->setRequest(true, ['_ip_csrf' => self::TOKEN], ['ip_csrf_cookie' => self::TOKEN], cookiePrefix: 'myapp_');
+
+        /* Act */
+        $valid = verify_get_csrf_token();
+
+        /* Assert */
+        self::assertFalse($valid, 'The unprefixed cookie name must not be treated as a match once cookie_prefix is set.');
+    }
+
+    private function setRequest(
+        bool $enabled,
+        array $get,
+        array $cookies,
+        string $tokenName = '_ip_csrf',
+        string $cookieName = 'ip_csrf_cookie',
+        string $cookiePrefix = ''
+    ): void {
         $GLOBALS['unitCiConfig'] = [
             'csrf_protection'  => $enabled,
             'csrf_token_name'  => $tokenName,
             'csrf_cookie_name' => $cookieName,
+            'cookie_prefix'    => $cookiePrefix,
         ];
         $GLOBALS['unitCiInstance'] = new class ($get, $cookies) {
             public object $input;
