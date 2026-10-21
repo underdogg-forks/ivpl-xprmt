@@ -122,7 +122,7 @@ function generate_invoice_pdf($invoice_id, $stream = true, $invoice_template = n
         $custom_fields['quote'] = $CI->mdl_custom_fields->get_values_for_fields('mdl_quote_custom', $invoice->quote_id);
     }
 
-    $filename = trans('invoice') . '_' . str_replace(['\\', '/'], '_', $invoice->invoice_number);
+    $filename = trans('invoice') . '_' . sanitize_document_number_for_filename((string) $invoice->invoice_number);
 
     // START eInvoicing
     $xml_id    = false;
@@ -241,7 +241,7 @@ function generate_invoice_sumex($invoice_id, $stream = true, $invoice_template =
     $sumexPDF = $CI->sumex->pdf($invoice_template);
     $sha1sum  = sha1($sumexPDF);
     $shortsum = mb_substr($sha1sum, 0, 8);
-    $filename = trans('invoice') . '_' . str_replace(['\\', '/'], '_', $invoice->invoice_number) . '_' . $shortsum;
+    $filename = trans('invoice') . '_' . sanitize_document_number_for_filename((string) $invoice->invoice_number) . '_' . $shortsum;
 
     if ( ! $client) {
         $temp = tempnam('/tmp', 'invsumex_');
@@ -369,5 +369,5 @@ function generate_quote_pdf($quote_id, $stream = true, $quote_template = null)
 
     $CI->load->helper('mpdf');
 
-    return pdf_create($html, trans('quote') . '_' . str_replace(['\\', '/'], '_', $quote->quote_number), $stream, $quote->quote_password);
+    return pdf_create($html, trans('quote') . '_' . sanitize_document_number_for_filename((string) $quote->quote_number), $stream, $quote->quote_password);
 }
