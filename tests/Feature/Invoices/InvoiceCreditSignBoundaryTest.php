@@ -25,8 +25,8 @@ final class InvoiceCreditSignBoundaryTest extends AbstractTestCase
     public function it_rejects_a_negative_item_discount_and_a_negative_global_discount_on_a_credit_invoice(): void
     {
         /* Arrange */
-        [$creditId, $itemId] = $this->creditInvoiceWithItem();
-        $item                = $this->existingItem($creditId, $itemId, '-2', '150');
+        [$creditId, $itemId]          = $this->creditInvoiceWithItem();
+        $item                         = $this->existingItem($creditId, $itemId, '-2', '150');
         $item['item_discount_amount'] = '-5';
 
         /* Act */
