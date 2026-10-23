@@ -59,9 +59,9 @@ class MailerControllerTest extends AbstractTestCase
         /* Act */
         $response = $this->get('/mailer/invoice/' . $invoiceId);
 
-        /* Assert */
-        $this->assertResponseBodyContains($response, 'value="noreply@company.example"');
-        $this->assertResponseBodyNotContains($response, 'value="admin@test.local"');
+        /* Assert: from_email is displayed as read-only text, not editable input */
+        $this->assertResponseBodyContains($response, 'noreply@company.example');
+        $this->assertResponseBodyNotContains($response, 'admin@test.local');
     }
 
     #[Test]
@@ -176,9 +176,9 @@ class MailerControllerTest extends AbstractTestCase
         /* Act */
         $response = $this->get('/mailer/invoice/' . $invoiceId);
 
-        /* Assert */
-        $this->assertResponseBodyContains($response, 'value="admin@test.local"');
-        $this->assertResponseBodyNotContains($response, 'value="noreply@company.example"');
+        /* Assert: fallback to user email when smtp_mail_from is not set */
+        $this->assertResponseBodyContains($response, 'admin@test.local');
+        $this->assertResponseBodyNotContains($response, 'noreply@company.example');
     }
 
     // -------------------------------------------------------------------------
