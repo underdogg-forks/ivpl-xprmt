@@ -5,6 +5,9 @@ namespace Tests\Unit\Helpers;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\FakeCiSettings;
 
+/**
+ * GHSA-x9qq-6v8r-pfcf: SSRF via thousands_separator / decimal_point settings in mPDF number formatting.
+ */
 class NumberFormattingSecurityTest extends TestCase
 {
     private mixed $previousCi = null;

@@ -5,6 +5,9 @@ namespace Tests\Unit\Validators;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
+/**
+ * GHSA-xvpx-fwvm-346g: Stored XSS via custom field label in flash alerts.
+ */
 class CustomFieldValidationSecurityTest extends TestCase
 {
     private mixed $previousCi = null;

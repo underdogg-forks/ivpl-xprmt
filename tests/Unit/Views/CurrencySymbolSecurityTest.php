@@ -5,6 +5,9 @@ namespace Tests\Unit\Views;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\FakeCiSettings;
 
+/**
+ * GHSA-x4g3-fp78-5gjx: Stored XSS via unescaped currency_symbol on public guest invoice/quote pages.
+ */
 class CurrencySymbolSecurityTest extends TestCase
 {
     private mixed $previousCi = null;

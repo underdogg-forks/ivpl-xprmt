@@ -23,6 +23,8 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
  * returns true and this gate is never exercised — the exact config-parity
  * trap config-parity-guard checks for. Every test here therefore explicitly
  * enables CSRF_PROTECTION to exercise the production configuration.
+ *
+ * GHSA-wj32-69hp-233w: Logout CSRF via tokenless GET /sessions/logout
  */
 final class LogoutCsrfTest extends AbstractTestCase
 {

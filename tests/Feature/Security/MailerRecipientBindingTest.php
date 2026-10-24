@@ -5,16 +5,22 @@ namespace Tests\Feature\Security;
 use Tests\AbstractTestCase;
 use Tests\Concerns\PerformsCsrfProtectedRequests;
 
+/**
+ * GHSA-qw48-r3gw-gc45: Mailer allows arbitrary recipients and sender spoofing.
+ */
 class MailerRecipientBindingTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;
+
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_binds_invoice_recipient_to_client_email(): void
     {
         /* Arrange */
         $clientId = $this->databaseInsert('ip_clients', [
-            'client_name'    => 'Test Client',
-            'client_email'   => 'legitimate@client.test',
+            'client_date_created'  => date('Y-m-d H:i:s'),
+            'client_date_modified' => date('Y-m-d H:i:s'),
+            'client_name'          => 'Test Client',
+            'client_email'         => 'legitimate@client.test',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
         $this->actingAsAdmin();
@@ -35,8 +41,11 @@ class MailerRecipientBindingTest extends AbstractTestCase
         $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
         $this->assertNotNull($invoice);
         $client = $this->databaseFetchOne('ip_clients', ['client_id' => $invoice['client_id']]);
-        $this->assertEquals('legitimate@client.test', $client['client_email'],
-            'Recipient is bound to invoice client email, not attacker email');
+        $this->assertEquals(
+            'legitimate@client.test',
+            $client['client_email'],
+            'Recipient is bound to invoice client email, not attacker email'
+        );
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -44,8 +53,10 @@ class MailerRecipientBindingTest extends AbstractTestCase
     {
         /* Arrange */
         $clientId = $this->databaseInsert('ip_clients', [
-            'client_name'  => 'Test Client',
-            'client_email' => 'client@example.test',
+            'client_date_created'  => date('Y-m-d H:i:s'),
+            'client_date_modified' => date('Y-m-d H:i:s'),
+            'client_name'          => 'Test Client',
+            'client_email'         => 'client@example.test',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
         $this->actingAsAdmin();
@@ -72,8 +83,10 @@ class MailerRecipientBindingTest extends AbstractTestCase
     {
         /* Arrange: POST parameters cannot override recipient */
         $clientId = $this->databaseInsert('ip_clients', [
-            'client_name'  => 'Test Client',
-            'client_email' => 'correct@client.test',
+            'client_date_created'  => date('Y-m-d H:i:s'),
+            'client_date_modified' => date('Y-m-d H:i:s'),
+            'client_name'          => 'Test Client',
+            'client_email'         => 'correct@client.test',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
         $this->actingAsAdmin();
@@ -94,8 +107,11 @@ class MailerRecipientBindingTest extends AbstractTestCase
         $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
         $this->assertNotNull($invoice);
         $client = $this->databaseFetchOne('ip_clients', ['client_id' => $invoice['client_id']]);
-        $this->assertEquals('correct@client.test', $client['client_email'],
-            'POST to_email parameter is ignored');
+        $this->assertEquals(
+            'correct@client.test',
+            $client['client_email'],
+            'POST to_email parameter is ignored'
+        );
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -103,8 +119,10 @@ class MailerRecipientBindingTest extends AbstractTestCase
     {
         /* Arrange: CC/BCC are accepted but not bound to anything */
         $clientId = $this->databaseInsert('ip_clients', [
-            'client_name'  => 'Test Client',
-            'client_email' => 'client@example.test',
+            'client_date_created'  => date('Y-m-d H:i:s'),
+            'client_date_modified' => date('Y-m-d H:i:s'),
+            'client_name'          => 'Test Client',
+            'client_email'         => 'client@example.test',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
         $this->actingAsAdmin();
@@ -130,8 +148,10 @@ class MailerRecipientBindingTest extends AbstractTestCase
     {
         /* Arrange: malformed email in CC should be rejected */
         $clientId = $this->databaseInsert('ip_clients', [
-            'client_name'  => 'Test Client',
-            'client_email' => 'client@example.test',
+            'client_date_created'  => date('Y-m-d H:i:s'),
+            'client_date_modified' => date('Y-m-d H:i:s'),
+            'client_name'          => 'Test Client',
+            'client_email'         => 'client@example.test',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
         $this->actingAsAdmin();
@@ -157,8 +177,10 @@ class MailerRecipientBindingTest extends AbstractTestCase
     {
         /* Arrange: same binding applies to quotes */
         $clientId = $this->databaseInsert('ip_clients', [
-            'client_name'  => 'Test Client',
-            'client_email' => 'correct@client.test',
+            'client_date_created'  => date('Y-m-d H:i:s'),
+            'client_date_modified' => date('Y-m-d H:i:s'),
+            'client_name'          => 'Test Client',
+            'client_email'         => 'correct@client.test',
         ]);
         $quoteId = $this->seedQuote($clientId);
         $this->actingAsAdmin();
@@ -180,8 +202,11 @@ class MailerRecipientBindingTest extends AbstractTestCase
         $this->assertNotNull($quote);
         $client = $this->databaseFetchOne('ip_clients', ['client_id' => $quote['client_id']]);
         $this->assertNotNull($client);
-        $this->assertEquals('correct@client.test', $client['client_email'],
-            'Quote uses client email as recipient');
+        $this->assertEquals(
+            'correct@client.test',
+            $client['client_email'],
+            'Quote uses client email as recipient'
+        );
     }
 
     private function seedQuote(int $clientId, array $overrides = []): int
