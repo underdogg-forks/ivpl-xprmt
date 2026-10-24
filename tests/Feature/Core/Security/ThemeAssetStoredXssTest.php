@@ -23,6 +23,8 @@ use Tests\AbstractTestCase;
  * would already be, and assert the view-layer encoding independently of the POST-time
  * allowlist added to Settings::index() -- defense in depth, per the project's own established
  * pattern (see SettingsControllerTest::it_renders_the_week_start_setting_escaped_for_the_javascript_context()).
+ *
+ * GHSA-hmqm-59ff-gmcw: Stored XSS on the Unauthenticated Login Page via the system_theme Setting
  */
 #[Group('security')]
 class ThemeAssetStoredXssTest extends AbstractTestCase

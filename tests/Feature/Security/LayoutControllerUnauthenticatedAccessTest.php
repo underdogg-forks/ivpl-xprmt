@@ -23,6 +23,8 @@ use Tests\AbstractTestCase;
  * any direct route to this controller (see the class). This test locks
  * that behavior in: removing _remap(), or changing it to allow any of
  * these methods through, must turn it red.
+ *
+ * GHSA-8cpm-3w3g-97hr: Unauthenticated internal Layout rendering controller exposes verbose PHP errors (absolute path and backtrace disclosure)
  */
 final class LayoutControllerUnauthenticatedAccessTest extends AbstractTestCase
 {

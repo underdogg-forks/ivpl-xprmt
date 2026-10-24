@@ -18,6 +18,8 @@ use Tests\AbstractTestCase;
  * headers_list() always returns []. We cannot read flash messages or Location
  * headers directly. We assert on observable HTTP behaviour (redirect vs. 200)
  * and on the absence of privileged content in the response body.
+ *
+ * GHSA-9452-64v7-9g2p: Username/email enumeration via login timing side-channel
  */
 #[Group('security')]
 class LoginSecurityTest extends AbstractTestCase
