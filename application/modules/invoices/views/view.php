@@ -121,9 +121,6 @@ if ($invoice->invoice_status_id == 1 && ! $invoice->creditinvoice_parent_id) {
                     }
                 });
         });
-        $('#btn_preview_pdf').click(function () {
-            $('#modal-placeholder').load("<?php echo site_url('invoices/ajax/modal_preview_pdf'); ?>", {invoice_id: <?php echo $invoice_id; ?>});
-        });
 
         $('#btn_generate_pdf').click(function () {
             window.open('<?php echo site_url('invoices/generate_pdf/' . $invoice_id) . '?' . _csrf_query(); ?>', '_blank');
@@ -314,25 +311,13 @@ if ($invoice->invoice_balance != 0) {
 <?php
 }
 ?>
-                <?php if (get_setting('show_menu_item_preview_pdf') != 1) { ?>                
-                    <li>
-                        <a href="#" id="btn_generate_pdf"
-                        data-invoice-id="<?php echo $invoice_id; ?>">
-                            <i class="fa fa-print fa-margin"></i>
-                            <?php _trans('download_pdf'); ?>
-                        </a>
-                    </li>
-                <?php } ?>                
-                <?php if (get_setting('show_menu_item_preview_pdf') == 1) { ?>
-                    <li>
-                        <a href="#" id="btn_preview_pdf"
-                           data-invoice-id="<?php echo $invoice_id; ?>">
-                            <i class="fa fa-file-pdf-o fa-margin"></i> 
-                            <?php _trans('preview_pdf'); ?>
-                        </a>
-                    </li>
-                <?php } ?>   
-
+                <li>
+                    <a href="#" id="btn_generate_pdf"
+                       data-invoice-id="<?php echo $invoice_id; ?>">
+                        <i class="fa fa-print fa-margin"></i>
+                        <?php _trans('download_pdf'); ?>
+                    </a>
+                </li>
 <?php
 // eInvoice & user fields OK: Show download XML Option
 if ($einvoice->user) {
