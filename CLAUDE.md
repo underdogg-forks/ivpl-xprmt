@@ -1,8 +1,8 @@
 # CLAUDE.md — InvoicePlane Development Guide
 
 InvoicePlane is a self-hosted, open-source invoicing app built on **CodeIgniter 3** with HMVC
-(`application/modules/`). It is **not** a Laravel application — there is no Artisan CLI, no
-Eloquent ORM, and no `.env` file. Configuration lives in `ipconfig.php`.
+(`application/modules/`). It is **not** a Laravel application: there is no Artisan CLI, no
+Eloquent ORM and no `.env` file. Configuration lives in `ipconfig.php`.
 
 ## Quick-start mental model
 
@@ -66,19 +66,212 @@ pattern in new guest-facing code rather than inventing a wrapper function.
 - Method names: `snake_case`; test methods: `it_<snake_case>` with `#[Test]`.
 - No comments unless the *why* is non-obvious.
 
-## Testing & Code Quality
+## Testing
 
-Before pushing:
+### Quality gate before pushing
+
 ```bash
-php -l application/**/*.php   # Syntax check (finds parse errors)
-vendor/bin/phpunit            # run all tests
-vendor/bin/pint               # fix code style
-vendor/bin/phpstan analyse    # static analysis
+php -l <changed files>                  # syntax check; the php-lint workflow blocks parse errors
+vendor/bin/phpunit                      # full suite, run on its own (see "One run at a time")
+vendor/bin/pint                         # code style
+vendor/bin/phpstan analyse              # static analysis (level 0, baseline in phpstan-baseline.neon)
+php .claude/skills/config-parity-guard/audit.php   # every mutating endpoint is tested with CSRF on
 ```
 
-**CRITICAL:** `php -l` must be run before any push to prevent parse errors in GitHub Actions. The workflow `.github/workflows/php-lint.yml` will block commits with syntax errors, so catch them locally first. This catches issues like embedded `<?php` tags in comments that confuse the lexer.
+After adding, removing or renaming test files, regenerate the class inventory, otherwise
+`ClassCoverageInventoryTest` fails:
 
-Tests live in `tests/`. Use plain `\PHPUnit\Framework\TestCase` — no Laravel `TestCase`.
+```bash
+php -r 'require "tests/Support/ClassCoverageInventory.php"; $r = getcwd();
+  file_put_contents("$r/tests/Support/class-coverage-inventory.md",
+  ClassCoverageInventory::toMarkdown(ClassCoverageInventory::build($r)));'
+```
+
+### Test conventions
+
+- Plain `\PHPUnit\Framework\TestCase` (unit) or `Tests\AbstractTestCase` (feature); no Laravel base classes.
+- Method names `it_<snake_case>` with `#[Test]`; Arrange / Act / Assert sections.
+- A test must be able to fail for the reason it names:
+  - no `assertTrue(true)`, and no re-implementation of production logic inside a test;
+  - no `assertTrue(function_exists(...))` / `class_exists(...)` / `method_exists(...)` standing
+    in for a real assertion — that a dependency merely exists says nothing about whether it
+    behaves correctly, and it is specifically checked for by `TestHonestyGuardTest`;
+  - "renders without PHP errors" is not an assertion; assert on content or state;
+  - a redirect test asserts the destination **and** the state change or a positive control
+    (the same request succeeding for an authorised user);
+  - security and money logic is mutation-checked: break the production code and confirm the
+    test turns red;
+  - when editing an existing test, re-read the whole method afterward, not just the diff —
+    delete or rewrite any comment that still describes the behavior you just replaced. A stale
+    comment claiming the test does less than it now does is worse than no comment at all.
+- Every test method has explicit `/* Arrange */` / `/* Act */` / `/* Assert */` sections (or
+  `/* Arrange: ... */`-style inline documentation on each). A test without them is not valid,
+  full stop — not even for a one-line test.
+- Use the harness instead of inventing helpers: `seedClient`, `seedInvoice`, `databaseInsert`,
+  `assertDatabaseHas`, `actingAsAdmin`, `postWithValidCsrfToken`, `withEnvironment`,
+  `withServer`, `withFiles` (`tests/AbstractTestCase.php`, `tests/Concerns/`).
+- Model logic can be tested in-process with `tests/Concerns/UsesCodeIgniterModels.php`
+  (real CI database driver, no HTTP round trip). Override `ciDatabaseName()` to target a
+  scratch database, as `SetupModelInstallTest` does.
+- External services are replaced by fakes in `tests/Fakes/` (`FakePaypalHttpClient`,
+  `FakeStripeHttpClient`, `QueueApiClient`), armed through `PAYPAL_MOCK_RESPONSES` and
+  `INTEGRATION_MOCK_RESPONSES`. Never call a live provider from a test.
+
+### How the feature harness works
+
+`AbstractTestCase::request()` runs the application in a clean-environment subprocess
+(`tests/Integration/bin/request.php`) and returns an `HttpResponse` carrying the status,
+headers, body and the final session contents (`session()`, `sessionValue()`,
+`sessionActive()`).
+
+- `headers_list()` is empty under the CLI SAPI. The harness therefore records redirect targets
+  itself and reads security headers from `$GLOBALS['ip_security_response_headers']`
+  (set in `bootstrap/kernel.php`).
+- Authenticated requests need `user_auth_version` and `user_credential` in the session
+  (`HMAC-SHA256(password_hash, ENCRYPTION_KEY)`). `actingAs()` / `actingAsAdmin()` bind both
+  from the stored `ip_users` row; any new `actingAs*()` helper must do the same, otherwise
+  every request redirects to `sessions/login` (307). Session values are strings
+  (`user_type => '1'`).
+- To reproduce one request by hand, use the same clean environment:
+
+```bash
+PAYLOAD=$(php -r 'echo base64_encode(json_encode(["method"=>"GET","uri"=>"/clients","query"=>[],"post"=>[],"session"=>["user_id"=>"1","user_type"=>"1","user_email"=>"admin@test.local","user_language"=>"system"],"ajax"=>false]));')
+env -i CI_TEST_REQUEST="$PAYLOAD" php tests/Integration/bin/request.php
+```
+
+### Environment setup
+
+Two supported setups. Both use MariaDB, the only supported test database.
+
+**Docker (ivpldock).** Run phpunit inside the containers, never on the host: the `mariadb`
+hostname only resolves inside the Docker network. The Makefile defaults
+`DOCKER_PROJECT_DIR` to `/var/www/projects/exprmt`; pass the real mount point:
+
+```bash
+make docker-test        DOCKER_PROJECT_DIR=/var/www/projects/invoiceplane/ivplv1
+make docker-test-suite  SUITE=Unit DOCKER_PROJECT_DIR=...
+make docker-test-filter FILTER=Session DOCKER_PROJECT_DIR=...
+make docker-phpstan     DOCKER_PROJECT_DIR=...
+```
+
+`docker-db-prepare` rebuilds `invoiceplane_test` from `application/modules/setup/sql/*.sql`,
+retrying transient InnoDB deadlocks (`tests/Support/docker-import-sql.sh`) and failing loudly
+if the schema is incomplete. An unseeded or half-built schema shows up as `Expected row in
+[ip_*] not found` or `Table ... doesn't exist` across many tests; re-run the prepare step.
+
+**Sandbox (no Docker).**
+
+```bash
+bash tests/Support/sandbox-mariadb.sh     # install/start MariaDB, build and seed invoiceplane_test, write ipconfig.php
+bash tests/Support/sandbox-bootstrap.sh   # install phpunit and the phpstan phar under .sandbox-tools/
+env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
+  php .sandbox-tools/punit/vendor/bin/phpunit --bootstrap tests/bootstrap.php
+php .sandbox-tools/phpstan.phar analyse --memory-limit=1G
+```
+
+Both scripts are idempotent. In the sandbox, Composer's dist downloads (`api.github.com`,
+`codeload.github.com`) are blocked and `apt` is unavailable, so use `--prefer-source` and
+`--ignore-platform-req=ext-bcmath`; the bootstrap script already does. State lives in the
+gitignored `.sandbox-tools/`.
+
+### One run at a time
+
+phpunit truncates the shared test database. Never start a second run, or touch the database,
+while a full run is in progress. If tests suddenly fail with "MariaDB is unreachable" or a
+wall of 307 redirects, the database was stopped (the sandbox reaps `mysqld_safe`), not the
+code: re-run `sandbox-mariadb.sh` and retry.
+
+### Do not export `DB_*`
+
+The phpunit parent reads its database settings through `env()`, which only reads `$_ENV`.
+With `variables_order=GPCS`, exported variables land in `getenv()` but not `$_ENV`, and
+Dotenv's `createImmutable` then refuses to load the `ipconfig.php` values. `env('DB_USERNAME')`
+becomes `null`, the connection is denied, and every DB-backed test is **skipped** instead of
+failing. A run with zero failures but a large skip count is therefore not green: check the skip
+count. The same applies to CI: keep `DB_*` out of the job-level `env:` of the phpunit step.
+
+### Known traps when merging `develop` into `prep/v180`
+
+A blunt "develop wins" conflict resolution strategy breaks things that look unrelated to the
+actual conflict, because `prep/v180` carries fixes of its own in the same files. Recorded here
+after a merge (#1706) first went green on the second attempt, having started red (3 failures,
+625 skipped):
+
+- **`config.php`.** Taking develop's whole file wholesale drops `prep/v180`'s tested
+  `resolve_session_save_path()` wiring and the `#1601` test-mode `csrf_regenerate` toggle —
+  `SessionSavePathResolverTest` then fails. Keep `prep/v180`'s `config.php`; develop's only
+  unique change there (the `SESS_SAVE_PATH` line) is already superseded by that helper.
+- **`application/modules/users/controllers/Users.php`.** Taking develop's whole file pulls in
+  an unqualified `$this->load->model('mdl_user_clients')` (→ "Unable to locate the model" on
+  `delete_user_client`) and drops `user_einvoice_identifier` from the self-edit session
+  refresh. Keep develop's `Mdl_Users::is_primary_administrator()` authorization consolidation,
+  but restore both of those from `prep/v180`'s version.
+- **`UserAuthorizationService`.** Once `Users::form()` uses develop's inline
+  `is_primary_administrator()` check, this class and its unit test become dead code — delete
+  both, and drop `application/modules/users/services/` from the composer classmap (a classmap
+  entry for a directory with no files left breaks `composer install` autoload generation).
+- **625 skipped, not failed.** See "Do not export `DB_*`" above — a masked DB run looks like a
+  clean pass unless you check the skip count.
+- Regenerate `tests/Support/class-coverage-inventory.md` (see the command above) after any of
+  this — removing `UserAuthorizationService`'s test changes the file-to-test mapping.
+
+### Line coverage (PCOV)
+
+`tests/Support/class-coverage-inventory.md` is only a name search. For executed-line coverage,
+including code that feature tests run in the request subprocess:
+
+```bash
+PCOV_SO=/path/to/pcov.so bash tests/Support/coverage/run.sh [phpunit args]
+```
+
+The `pcov` extension has to be built from `github.com/krakjoe/pcov` with `phpize`; see the
+script header. Output is a ranked list of the least-covered files. Playwright E2E is not
+included, and files that no test loads are estimated. Run it on its own, like the full suite.
+
+### Static analysis
+
+PHPStan runs at level 0 with `phpstan.neon`. CodeIgniter 3 has no autoloader, so
+`tests/Support/phpstan-bootstrap.php` defines the path constants and loads every helper, and
+`tests/Support/phpstan-ci-stubs.php` declares the CI system functions. If code calls a new CI
+system function, add its signature to the stubs file instead of baselining `function.notFound`.
+A clean run reports `[OK] No errors`.
+
+**Never pass individual file paths to `phpstan analyse`.** Run it with no path arguments
+(`phpstan analyse` / `.sandbox-tools/phpstan.phar analyse --memory-limit=1G`) so it resolves
+`phpstan.neon`'s configured `paths` and autoload bootstrap. Scoping to specific files bypasses
+that bootstrap — PHPUnit attributes and project-defined functions/classes then look undefined,
+producing errors that are artifacts of the invocation, not real findings. To check only your
+changed files, run the full-project analysis and compare against `phpstan-baseline.neon`,
+or filter the full run's output by path — don't narrow the command's own argument list. The
+same applies on an upstream-only branch without a `tests/` dir: if `phpstan.neon` fails there
+(a config path resolving to a missing directory), that's a config/branch mismatch, not a code
+defect — fall back to `php -l` + Pint instead of trying to work around it with file-scoped
+`analyse` calls.
+
+## Adding an e-invoicing provider
+
+Providers live in `application/modules/integrations/libraries/providers/` (`FooClient.php`, or
+`Foo/FooClient.php` with helper classes beside it). `IntegrationClientRegistry` scans the
+directory once per process and indexes every class that implements `IntegrationClientInterface`
+by its client code; there is nothing to register.
+
+For a REST provider, extend `AbstractRestProvider` (`libraries/AbstractRestProvider.php`):
+
+1. Declare the provider once in `definition()`: `code`, `name`, optional `label` (used in error
+   messages), `auth` (`bearer` or `oauth2`), and `settings` (key, default, form type, `required`,
+   `sensitive`). Endpoint paths are settings whose keys end in `_endpoint`. Code, name, auth type,
+   default settings and the settings form are all derived from it.
+2. Implement `sendInvoice`, `getInvoiceStatus`, `receiveInvoices`, `downloadInvoiceDocument` and
+   `getInvoiceEvents`. Use `buildUrl()`, `request()` and `ProviderResponseNormalizer::entity()` /
+   `IntegrationResponseNormalizer::extractItems()` for the common work.
+3. Override `authenticate()` / `fetchToken()` only if the provider's authentication is not plain
+   bearer or OAuth2 client credentials, and `bearerToken()` / `extraHeaders()` for per-request
+   credentials.
+
+`tests/Fixtures/integrations/providers/DemoPdpClient.php` and
+`tests/Unit/Core/Integrations/NewProviderOnBaseTest.php` are the reference to copy. Stored settings
+and the settings form are a persistence contract: `ProviderSettingsContractTest` pins them for the
+bundled providers, so a changed default or field type needs a deliberate fixture update.
 
 ## Common pitfalls
 
@@ -104,12 +297,11 @@ Tests live in `tests/`. Use plain `\PHPUnit\Framework\TestCase` — no Laravel `
 ## Verification discipline
 
 - **Never audit, grep, or diff against a local working-tree checkout without fetching first.**
-  A stale local branch silently answers "is X present on `develop`?" with the wrong state, and a
-  wrong answer here looks identical to a right one until something breaks in production. Always
-  `git fetch <remote> develop --quiet` (where `<remote>` is the remote that points at
-  `InvoicePlane/InvoicePlane`: `upstream` in a fork, `origin` in a direct clone) and check against
-  `<remote>/develop`, not a local branch that may have been checked out earlier in the session for
-  an unrelated reason.
+  A stale local branch silently answers "is X present on `develop`/`prep/v180`?" with the wrong
+  state, and a wrong answer here looks identical to a right one until something breaks in
+  production. Always `git fetch origin <branch> --quiet` (or the equivalent for the remote you
+  care about) and check against the fetched ref (`origin/<branch>`), not a local branch that may
+  have been checked out earlier in the session for an unrelated reason.
 - When auditing whether a merge dropped or duplicated content (e.g. a `CHANGELOG.md` entry),
   diff the merge commit against its actual first parent (`git diff <parent> <merge-sha> --
   <file>`), not the combined/`diff --cc` output `git show <merge-sha>` gives for a two-parent
