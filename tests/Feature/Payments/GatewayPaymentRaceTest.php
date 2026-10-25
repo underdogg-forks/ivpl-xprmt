@@ -229,6 +229,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
             'payment_date'        => date('Y-m-d'),
             'payment_amount'      => '40.00',
             'payment_method_id'   => 1,
+            'payment_note'        => '',
             'payment_external_id' => null,
         ]);
         $this->databaseUpdate('ip_invoice_amounts', [
