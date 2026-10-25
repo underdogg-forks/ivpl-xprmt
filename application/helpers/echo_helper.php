@@ -23,7 +23,7 @@ if ( ! defined('BASEPATH')) {
 function htmlsc($output): ?string
 {
     if (null !== $output) {
-        return htmlspecialchars($output, ENT_QUOTES | ENT_SUBSTITUTE | ENT_DISALLOWED | ENT_HTML5);
+        return htmlspecialchars($output, ENT_QUOTES | ENT_IGNORE);
     }
 
     return $output;
@@ -42,7 +42,7 @@ function _htmlsc($output)
         return '';
     }
 
-    echo htmlspecialchars($output, ENT_QUOTES | ENT_SUBSTITUTE | ENT_DISALLOWED | ENT_HTML5);
+    echo htmlspecialchars($output, ENT_QUOTES | ENT_IGNORE);
 }
 
 /**
@@ -58,7 +58,7 @@ function _htmle($output)
         return '';
     }
 
-    echo htmlentities($output, ENT_COMPAT  | ENT_SUBSTITUTE | ENT_DISALLOWED | ENT_HTML5);
+    echo htmlentities($output, ENT_COMPAT);
 }
 
 /**
