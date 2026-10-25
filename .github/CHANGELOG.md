@@ -21,13 +21,19 @@ Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@d3do-23](https://github.com/d3do-23), [@capivara-research](https://github.com/capivara-research),
 [@Suraj-Siddharudh](https://github.com/Suraj-Siddharudh), [@Ishbarna](https://github.com/Ishbarna),
 [@Taxanehh](https://github.com/Taxanehh), [@Shad0w35](https://github.com/Shad0w35),
-[@dreamer1eh](https://github.com/dreamer1eh), [@iamharshitgupta](https://github.com/iamharshitgupta),
+[@dreamer1eh](https://github.com/dreamer1eh),
+[@iamharshitgupta](https://github.com/iamharshitgupta),
 [@medamineelhatimi](https://github.com/medamineelhatimi), [@T0x1cG](https://github.com/T0x1cG),
 [@fr1d4yy](https://github.com/fr1d4yy), [@sharma19d](https://github.com/sharma19d),
 [@mkax0](https://github.com/mkax0), [@crypto-nidh](https://github.com/crypto-nidh),
-[@RekhanshRajput](https://github.com/RekhanshRajput),
-[@0x0Axlw](https://github.com/0x0Axlw), [@cray4367](https://github.com/cray4367), and
-[@krishnan-tech](https://github.com/krishnan-tech) for responsibly disclosing the issues resolved or
+[@RekhanshRajput](https://github.com/RekhanshRajput), [@0x0Axlw](https://github.com/0x0Axlw),
+[@cray4367](https://github.com/cray4367), [@krishnan-tech](https://github.com/krishnan-tech),
+[@Char0n1507](https://github.com/Char0n1507), [@yeshwanthmoota](https://github.com/yeshwanthmoota),
+[@ashrexon](https://github.com/ashrexon), [@baozongwi](https://github.com/baozongwi),
+[@polybjorn](https://github.com/polybjorn), [@FelipeSilvany](https://github.com/FelipeSilvany),
+[@alham-rizvi](https://github.com/alham-rizvi), [@PLpaPLpa](https://github.com/PLpaPLpa),
+[@0raN9ewww](https://github.com/0raN9ewww), [@mattmumford-git](https://github.com/mattmumford-git),
+and [@ali-iltizar](https://github.com/ali-iltizar) for responsibly disclosing the issues resolved or
 in progress in this release.
 
 ### Security Vulnerability Summary
