@@ -53,36 +53,36 @@ class Users extends Admin_Controller
             redirect('users');
         }
 
-        $id = $id ? (int) $id : null;
-        $current_user_id = (int) $this->session->userdata('user_id');
-        $is_self_edit = $id && $id === $current_user_id;
+        $id               = $id ? (int) $id : null;
+        $current_user_id  = (int) $this->session->userdata('user_id');
+        $is_self_edit     = $id && $id === $current_user_id;
         $is_primary_admin = Mdl_Users::is_primary_administrator($current_user_id);
 
         // Object-level authorization: only the primary administrator may edit
         // another user's record. A peer administrator is limited to its own
         // account, so it cannot rewrite user_id 1's role, email or password
         // through this form (CWE-639 / CWE-269).
-        if ($id && !$is_self_edit && !$is_primary_admin) {
+        if ($id && ! $is_self_edit && ! $is_primary_admin) {
             show_error(trans('access_denied'), 403);
 
             return;
         }
 
         if ($this->mdl_users->run_validation(($id) ? 'validation_rules_existing' : 'validation_rules')) {
-            $db_array      = $this->mdl_users->db_array();
+            $db_array       = $this->mdl_users->db_array();
             $requested_type = (int) $this->input->post('user_type');
 
             // Only allow user_type changes through explicit authorization:
             // - New user creation: set the requested type
             // - Admin editing another user: set the requested type and invalidate sessions
             // - User editing themselves: do not allow type changes (prevents self-escalation)
-            $old_user = $id ? $this->mdl_users->get_by_id($id) : null;
+            $old_user     = $id ? $this->mdl_users->get_by_id($id) : null;
             $role_changed = false;
 
             if ( ! $is_self_edit) {
                 if ( ! $old_user || (int) $old_user->user_type !== $requested_type) {
                     $db_array['user_type'] = $requested_type;
-                    $role_changed = true;
+                    $role_changed          = true;
                 }
             }
 
@@ -226,18 +226,23 @@ class Users extends Admin_Controller
         if ($this->mdl_users->run_validation('validation_rules_change_password')) {
             $this->mdl_users->save_change_password($user_id, $this->input->post('user_password'));
 
-            // Every other session of this user ends on its next request (User_Controller); keep
-            // the acting user's own session when they changed their own password.
+            // Every session created with the old password ends on its next request (User_Controller).
+            // Keep the acting user's own session when they changed their own password.
             if ((string) $user_id === $acting_user_id) {
                 $this->load->helper('ip_security');
                 $updated_user = $this->mdl_users->get_by_id($user_id);
+                // save_change_password() also increments user_auth_version, and
+                // User_Controller checks that before the credential fingerprint —
+                // refreshing only the fingerprint here left the acting user's own
+                // session logged out by the auth_version check it had just caused.
                 $this->session->set_userdata([
-                    'user_credential' => session_credential_fingerprint((string) $updated_user->user_password),
+                    'user_credential'   => session_credential_fingerprint((string) $updated_user->user_password),
+                    'user_auth_version' => (int) $updated_user->user_auth_version,
                 ]);
 
                 // A copy of this very session (a stolen cookie) shares its id with the session that
-                // just changed the password and would pass the refreshed check above. A new id, with
-                // the old session destroyed, ends it.
+                // just changed the password and would pass the refreshed checks above. A new id,
+                // with the old session destroyed, ends it.
                 $this->session->sess_regenerate(true);
             }
 
@@ -246,18 +251,6 @@ class Users extends Admin_Controller
 
         $this->layout->buffer('content', 'users/form_change_password');
         $this->layout->render();
-    }
-
-    /**
-     * Invalidate all sessions for a user when their role or active status changes,
-     * forcing immediate revocation of any stale privileged sessions.
-     *
-     * @param string|int $user_id
-     */
-    private function invalidate_user_sessions($user_id): void
-    {
-        $this->load->model('sessions/mdl_sessions');
-        $this->mdl_sessions->invalidate_user_sessions($user_id);
     }
 
     /**
@@ -300,20 +293,15 @@ class Users extends Admin_Controller
 
         $this->load->model('user_clients/mdl_user_clients');
 
-        if ( ! $this->mdl_user_clients->can_user_manage($user_client_id)) {
-            show_error(trans('access_denied'), 403);
-        }
-
         $user_client = $this->mdl_user_clients->get_by_id($user_client_id);
         if ( ! $user_client) {
             show_404();
         }
 
-        // The assignment must belong to the user in the URL, and the acting user must be
-        // allowed to manage that account.
-        if ((string) $user_client->user_id !== (string) $user_id
-            || ! $this->mdl_user_clients->can_manage_user_clients($user_client->user_id)
-        ) {
+        // Authorization: only primary admin or the user themselves can manage their clients
+        $current_user_id = (int) $this->session->userdata('user_id');
+        $target_user_id  = (int) $user_client->user_id;
+        if ($target_user_id !== $current_user_id && ! $this->mdl_users->is_primary_administrator($current_user_id)) {
             show_error(trans('access_denied'), 403);
 
             return;
@@ -322,5 +310,17 @@ class Users extends Admin_Controller
         $this->mdl_user_clients->delete($user_client_id);
 
         redirect('users/form/' . $user_id);
+    }
+
+    /**
+     * Invalidate all sessions for a user when their role or active status changes,
+     * forcing immediate revocation of any stale privileged sessions.
+     *
+     * @param string|int $user_id
+     */
+    private function invalidate_user_sessions($user_id): void
+    {
+        $this->load->model('sessions/mdl_sessions');
+        $this->mdl_sessions->invalidate_user_sessions($user_id);
     }
 }

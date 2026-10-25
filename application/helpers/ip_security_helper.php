@@ -88,11 +88,18 @@ function generate_secure_token(int $length = 32): string
  *
  * @return string A 64-character hexadecimal token (32 bytes of randomness = 256 bits entropy)
  */
-function generate_password_reset_token(): string
+function session_credential_fingerprint(string $password_hash): string
 {
-    // Generate 32 bytes (256 bits) of entropy
-    // This provides sufficient security against brute force attacks
-    return generate_secure_token(32);
+    // Ties an authenticated session to the password it was created with. Stored in the session at
+    // login and compared on every request (User_Controller), so changing or resetting a password
+    // ends every other session of that user on its next request, for any session driver. HMAC with
+    // the encryption key so the session never carries anything derived from the bare hash.
+
+    // Use env() instead of config_item() to avoid relying on CI's config cache, which may not be
+    // loaded during early test setup. env() reads directly from $_ENV which is populated by bootstrap/kernel.php.
+    $key = (string) env('ENCRYPTION_KEY', config_item('encryption_key'));
+
+    return hash_hmac('sha256', $password_hash, $key);
 }
 
 /**
@@ -102,6 +109,13 @@ function generate_password_reset_token(): string
 function hash_password_reset_token(string $token): string
 {
     return hash('sha256', $token);
+}
+
+function generate_password_reset_token(): string
+{
+    // Generate 32 bytes (256 bits) of entropy
+    // This provides sufficient security against brute force attacks
+    return generate_secure_token(32);
 }
 
 /**
@@ -131,19 +145,6 @@ function generate_secure_salt(): string
         log_message('error', 'Failed to generate secure salt: ' . $safeMessage);
         throw new RuntimeException('Unable to generate secure salt');
     }
-}
-
-/**
- * Fingerprint of the password an authenticated session was created with.
- *
- * Stored in the session at login and compared on every request (User_Controller), so changing or
- * resetting a password ends every other session of that user on its next request, whatever the
- * session driver. HMAC with the encryption key so the session never carries anything derived from
- * the bare password hash.
- */
-function session_credential_fingerprint(string $password_hash): string
-{
-    return hash_hmac('sha256', $password_hash, (string) config_item('encryption_key'));
 }
 
 if ( ! function_exists('security_frame_headers')) {

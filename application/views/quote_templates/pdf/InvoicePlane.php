@@ -27,7 +27,10 @@ if ($quote->client_vat_id) {
     echo '<div>' . trans('vat_id_short') . ': ' . htmlsc($quote->client_vat_id) . '</div>';
 }
 if ($quote->client_tax_code) {
-    echo '<div>' . trans('tax_code_short') . ': ' . htmlsc($quote->client_tax_code) . '</div>';
+    echo '<div>' . trans('tax_code') . ': ' . htmlsc($quote->client_tax_code) . '</div>';
+}
+if ($quote->client_peppol_id) {
+    echo '<div>' . trans('peppol_participant_id') . ': ' . htmlsc($quote->client_peppol_id) . '</div>';
 }
 if ($quote->client_address_1) {
     echo '<div>' . htmlsc($quote->client_address_1) . '</div>';
@@ -63,11 +66,19 @@ if ($quote->client_phone) {
     <div id="company">
         <div><b><?php _htmlsc($quote->user_name); ?></b></div>
 <?php
+if (isset($quote->service_name) && $quote->service_name) {
+    echo '<div>';
+    _htmlsc($quote->service_name);
+    echo '</div>';
+}
 if ($quote->user_vat_id) {
     echo '<div>' . trans('vat_id_short') . ': ' . htmlsc($quote->user_vat_id) . '</div>';
 }
 if ($quote->user_tax_code) {
-    echo '<div>' . trans('tax_code_short') . ': ' . htmlsc($quote->user_tax_code) . '</div>';
+    echo '<div>' . trans('tax_code') . ': ' . htmlsc($quote->user_tax_code) . '</div>';
+}
+if ($quote->user_einvoice_identifier) {
+    echo '<div>' . trans('peppol_participant_id') . ': ' . htmlsc($quote->user_einvoice_identifier) . '</div>';
 }
 if ($quote->user_address_1) {
     echo '<div>' . htmlsc($quote->user_address_1) . '</div>';

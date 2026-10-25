@@ -22,7 +22,9 @@ class Crypt
      * a precomputed hash used to keep the non-existent-account login path's
      * timing matched to a real one (see Mdl_Sessions::auth()), and that only
      * holds if both are generated at the same cost. If this value changes,
-     * regenerate that constant at the same cost.
+     * regenerate that constant at the same cost --
+     * LoginTimingOracleTest::it_defines_the_decoy_hash_as_a_real_bcrypt_hash_matching_the_production_cost_factor()
+     * pins the two together.
      */
     public const BCRYPT_COST = 10;
 

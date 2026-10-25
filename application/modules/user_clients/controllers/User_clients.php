@@ -63,23 +63,38 @@ class User_Clients extends Admin_Controller
         if ( ! $user_id) {
             redirect('custom_values');
         } elseif ($this->input->post('btn_cancel')) {
-            redirect('user_clients/field/' . $user_id);
+            redirect('user_clients/user/' . $user_id);
         }
 
-        // Object-level authorization: the URL user and the POSTed user (which the model saves) must both
-        // be accounts the acting user may manage.
-        $posted_user_id = $this->input->post('user_id');
-        if ( ! $this->mdl_user_clients->can_manage_user_clients($user_id)
-            || ($posted_user_id !== null && $posted_user_id !== '' && ! $this->mdl_user_clients->can_manage_user_clients($posted_user_id))
+        // A non-integer-shaped id (e.g. "2.9") would authorize against user 2 via the (int) cast
+        // below, but the raw, uncast $user_id is what later reaches $this->db->where('user_id', ...)
+        // and the model's save() — a type-confusion gap between what's authorized and what's written.
+        if ( ! ctype_digit((string) $user_id)) {
+            show_error(trans('access_denied'), 403);
+
+            return;
+        }
+
+        // Authorization: only primary admin or the user themselves can manage their clients
+        $current_user_id = (int) $this->session->userdata('user_id');
+        $target_user_id  = (int) $user_id;
+        if ($target_user_id !== $current_user_id && ! $this->mdl_users->is_primary_administrator($current_user_id)) {
+            show_error(trans('access_denied'), 403);
+
+            return;
+        }
+
+        // Defense-in-depth: POSTed user_id must match the URL user_id, and be the same
+        // integer-shaped value (same type-confusion concern as above).
+        if ($this->input->post('user_id') !== null && $this->input->post('user_id') !== ''
+            && ( ! ctype_digit((string) $this->input->post('user_id')) || (int) $this->input->post('user_id') !== $target_user_id)
         ) {
             show_error(trans('access_denied'), 403);
 
             return;
         }
 
-        // user_all_clients grants read access to every client in the system, so a peer administrator
-        // must not be able to set it, not even on their own account.
-        if ($this->input->post('user_all_clients') && ! Mdl_Users::is_primary_administrator($this->session->userdata('user_id'))) {
+        if ($this->input->post('user_all_clients') && ! $this->mdl_users->is_primary_administrator($current_user_id)) {
             show_error(trans('access_denied'), 403);
 
             return;
@@ -127,17 +142,16 @@ class User_Clients extends Admin_Controller
             return;
         }
 
-        if ( ! $this->mdl_user_clients->can_user_manage($user_client_id)) {
-            show_error(trans('access_denied'), 403);
-        }
-
         $ref = $this->mdl_user_clients->get_by_id($user_client_id);
 
         if ( ! $ref) {
             show_404();
         }
 
-        if ( ! $this->mdl_user_clients->can_manage_user_clients($ref->user_id)) {
+        // Authorization: only primary admin or the user themselves can manage their clients
+        $current_user_id = (int) $this->session->userdata('user_id');
+        $target_user_id  = (int) $ref->user_id;
+        if ($target_user_id !== $current_user_id && ! $this->mdl_users->is_primary_administrator($current_user_id)) {
             show_error(trans('access_denied'), 403);
 
             return;

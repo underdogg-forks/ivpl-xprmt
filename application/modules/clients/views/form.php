@@ -1,13 +1,13 @@
 <?php
 $client_active = $this->mdl_clients->form_value('client_active');
-$active        = ($client_active == 1 || ! is_numeric($client_active)) ? ' checked="checked"' : '';
-$itsCompany    = $this->mdl_clients->form_value('client_company') || $this->mdl_clients->form_value('client_vat_id');
+$active = ($client_active == 1 || ! is_numeric($client_active)) ? ' checked="checked"' : '';
+$itsCompany = $this->mdl_clients->form_value('client_company') || $this->mdl_clients->form_value('client_vat_id');
 if ($req_einvoicing) {
     // eInvoicing panel
-    $nb_users    = count($req_einvoicing->users);
-    $me          = $req_einvoicing->users[$_SESSION['user_id']]->show_table;
-    $nb          = $req_einvoicing->show_table; // Of users in error
-    $ln          = 'user' . (($nb ?: $nb_users) > 1 ? 's' : ''); // tweak 1 on more nb_users no ok
+    $nb_users = count($req_einvoicing->users);
+    $me = $req_einvoicing->users[$_SESSION['user_id']]->show_table;
+    $nb = $req_einvoicing->show_table; // Of users in error
+    $ln = 'user' . (($nb ?: $nb_users) > 1 ? 's' : ''); // tweak 1 on more nb_users no ok
     $user_toggle = ($req_einvoicing->show_table ? ($me ? 'danger' : 'warning') : 'default') . ' ' . ($me ? '" aria-expanded="true' : '" collapsed" aria-expanded="false');
 }
 // eInvoicing enabled?
@@ -57,6 +57,18 @@ $einvoicingOpt = $req_einvoicing ? $einvoicingTip . trans('optional') . ')"' : '
                                 <?php _trans('active_client'); ?>
                                 <input id="client_active" name="client_active" type="checkbox" value="1"<?php echo $active; ?>>
                             </label>
+                            &nbsp;
+                            <label for="client_disable_reminders" class="control-label">
+                                <?php _trans('disable_payment_reminders'); ?>
+<?php
+// An unchecked checkbox posts nothing, so the hidden field supplies the 0 that
+// clears the flag; without it the opt-out could be set but never unset.
+?>
+                                <input type="hidden" name="client_disable_reminders" value="0">
+                                <input id="client_disable_reminders" name="client_disable_reminders"
+                                       type="checkbox" value="1"
+                                    <?php check_select($this->mdl_clients->form_value('client_disable_reminders'), 1, '==', true); ?>>
+                            </label>
                         </div>
                     </div>
                     <div class="panel-body">
@@ -81,6 +93,15 @@ $einvoicingOpt = $req_einvoicing ? $einvoicingTip . trans('optional') . ')"' : '
                             <div class="controls">
                                 <input id="client_company" name="client_company" type="text" class="form-control"
                                        value="<?php echo $this->mdl_clients->form_value('client_company', true); ?>">
+                            </div>
+                        </div>
+                        <div class="form-group"<?php echo $itsCompany ? $einvoicingB2B : $einvoicingOpt; ?>>
+                            <label for="client_peppol_id"><?php _trans('peppol_participant_id'); ?> (<?php _trans($itsCompany ? 'required_field' : 'optional'); ?>)</label>
+
+                            <div class="controls">
+                                <input id="client_peppol_id" name="client_peppol_id" type="text" class="form-control"
+                                       title="<?php _trans('peppol_participant_id_help'); ?>"
+                                       value="<?php echo $this->mdl_clients->form_value('client_peppol_id', true); ?>">
                             </div>
                         </div>
                         <div class="form-group no-margin">
@@ -387,7 +408,7 @@ foreach ($genders as $key => $val) {
                         </div>
                         <div class="form-group">
 <?php
-$client_title    = $this->mdl_clients->form_value('client_title');
+$client_title = $this->mdl_clients->form_value('client_title');
 $is_custom_title = null === ClientTitleEnum::tryFrom($client_title);
 ?>
                             <label for="client_title"><?php _trans('client_title'); ?></label>
@@ -435,9 +456,9 @@ $bdate = ($bdate && $bdate != '0000-00-00') ? date_from_mysql($bdate) : '';
 
 <?php
 if ($this->mdl_settings->setting('sumex') == '1') {
-    $avs           = format_avs($this->mdl_clients->form_value('client_avs'));
+    $avs = format_avs($this->mdl_clients->form_value('client_avs'));
     $insuredNumber = $this->mdl_clients->form_value('client_insurednumber');
-    $veka          = $this->mdl_clients->form_value('client_veka');
+    $veka = $this->mdl_clients->form_value('client_veka');
     ?>
 
                         <div class="form-group">

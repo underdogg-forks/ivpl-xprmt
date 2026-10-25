@@ -14,19 +14,27 @@ if ( ! function_exists('split_sql_statements')) {
      * comments (/* ... *\/) so semicolons inside them are never treated as
      * statement terminators.
      *
-     * @return string[] Trimmed statements, in order, with empty ones removed.
+     * @return string[] trimmed statements, in order, with empty ones removed
      */
     function split_sql_statements(string $sql): array
     {
         $statements = [];
         $buffer     = '';
-        $length     = strlen($sql);
 
-        $in_single  = false; // '...'
-        $in_double  = false; // "..."
-        $in_ident   = false; // `...`
-        $in_line    = false; // -- or #  until end of line
-        $in_block   = false; // /* ... */
+        // Byte length, not mb_strlen(): the walker indexes $sql[$i] byte by
+        // byte and only ever tests ASCII structural characters (' " ` ; - # / *
+        // \). Every byte of a UTF-8 multibyte sequence is >= 0x80 and matches
+        // none of them, so byte-walking is correct. Using mb_strlen() here made
+        // the loop stop N bytes early on a script containing N multibyte
+        // characters (e.g. an em dash in a COMMENT), silently truncating the
+        // final statement of the file.
+        $length = strlen($sql);
+
+        $in_single = false; // '...'
+        $in_double = false; // "..."
+        $in_ident  = false; // `...`
+        $in_line   = false; // -- or #  until end of line
+        $in_block  = false; // /* ... */
 
         for ($i = 0; $i < $length; $i++) {
             $ch   = $sql[$i];
