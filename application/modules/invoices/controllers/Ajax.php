@@ -182,6 +182,7 @@ class Ajax extends Admin_Controller
                 'invoice_password'         => $this->security->xss_clean($this->input->post('invoice_password')),
                 'invoice_terms'            => $this->security->xss_clean($this->input->post('invoice_terms')),
                 'payment_method'           => $this->security->xss_clean($this->input->post('payment_method')),
+                'service_id'               => (int) $this->input->post('service_id'),
                 'invoice_discount_amount'  => standardize_amount($invoice_discount_amount),
                 'invoice_discount_percent' => standardize_amount($invoice_discount_percent),
             ];
@@ -315,8 +316,12 @@ class Ajax extends Admin_Controller
         $item_id = $this->security->xss_clean($this->input->post('item_id'));
         $this->load->model('mdl_invoices');
 
-        // Only continue if the invoice exists or no item id was provided
-        if ($this->mdl_invoices->get_by_id($invoice_id) || empty($item_id)) {
+        // Only continue if the invoice exists and the item really belongs to it; deleting by bare
+        // item id would let one invoice's URL remove (and recalculate) another invoice's line.
+        $item_belongs_to_invoice = ! empty($item_id)
+            && $this->db->where(['item_id' => $item_id, 'invoice_id' => $invoice_id])->count_all_results('ip_invoice_items') > 0;
+
+        if ($item_belongs_to_invoice && $this->mdl_invoices->get_by_id($invoice_id)) {
             // Delete invoice item
             $this->load->model('mdl_items');
             $item = $this->mdl_items->delete($item_id);
@@ -507,13 +512,17 @@ class Ajax extends Admin_Controller
             'invoice_groups/mdl_invoice_groups',
             'tax_rates/mdl_tax_rates',
             'clients/mdl_clients',
+            'services/mdl_services',
         ]);
+
+        $services = $this->mdl_services->get()->result_array();
 
         $data = [
             'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
             'tax_rates'      => $this->mdl_tax_rates->get()->result(),
             'client'         => $this->mdl_clients->get_by_id($this->input->post('client_id')),
             'clients'        => $this->mdl_clients->get_latest(),
+            'services'       => $services,
         ];
 
         $this->layout->load_view('invoices/modal_create_invoice', $data);

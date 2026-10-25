@@ -18,7 +18,7 @@ use Stripe\StripeClient;
 #[AllowDynamicProperties]
 class Stripe extends Base_Controller
 {
-    protected StripeClient $stripe;
+    protected ?StripeClient $stripe = null;
 
     protected $Mdl_settings;
 
@@ -30,7 +30,7 @@ class Stripe extends Base_Controller
         $this->load->helper('file_security');
         $this->load->helper(['currency', 'stripe']);
 
-        $this->stripe = new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
+        $this->useTestHttpClientIfConfigured();
     }
 
     /**
@@ -39,9 +39,9 @@ class Stripe extends Base_Controller
      *
      * @param string $invoice_url_key the url key that is used to retrive the invoice
      *
-     * @return json the client secret in a json format
+     * @return void
      */
-    public function create_checkout_session($invoice_url_key)
+    public function create_checkout_session($invoice_url_key = null)
     {
         // Require POST request to prevent CSRF attacks
         if ($this->input->method() !== 'post') {
@@ -52,7 +52,7 @@ class Stripe extends Base_Controller
 
         // Security: Verify the invoice exists and is guest-visible
         if ( ! $invoice) {
-            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted checkout session creation for non-public or non-existent invoice with key: ' . sanitize_for_logging($invoice_url_key));
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted checkout session creation for non-public or non-existent invoice with key: ' . sanitize_for_logging((string) $invoice_url_key));
             show_404();
         }
 
@@ -63,7 +63,7 @@ class Stripe extends Base_Controller
             redirect(site_url('guest/view/invoice/' . $invoice->invoice_url_key));
         }
 
-        $checkout_session = $this->stripe->checkout->sessions->create([
+        $checkout_session = $this->stripeClient()->checkout->sessions->create([
             'mode'                => 'payment',
             'ui_mode'             => 'embedded',
             'return_url'          => site_url('guest/gateways/stripe/callback/{CHECKOUT_SESSION_ID}'),
@@ -112,13 +112,13 @@ class Stripe extends Base_Controller
 
         try {
             // Retrieve the Checkout Session from Stripe
-            $session = $this->stripe->checkout->sessions->retrieve($checkout_session_id);
+            $session = $this->stripeClient()->checkout->sessions->retrieve($checkout_session_id);
 
             // Debug logging
             log_message('debug', __CLASS__ . '::' . __FUNCTION__ . ' reached, status: ' . $session->status . ' payment_status: ' . $session->payment_status . ', checkout_session_id: ' . sanitize_for_logging($checkout_session_id));
 
             // Determine which invoice we’re dealing with
-            $invoice_key = $session->client_reference_id;
+            $invoice_key = StripeResponseExtractor::extractInvoiceKey($session);
 
             // Retrieve the invoice
             $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_url_key', $invoice_key)->get()->row();
@@ -131,15 +131,15 @@ class Stripe extends Base_Controller
 
             // Check the session payment_status is 'paid'
             // See: https://github.com/stripe/stripe-php/blob/044f9dd190967b8fb7e55fd0ea25f11c625c00a4/lib/Checkout/Session.php#L101
-            $paid = $session->payment_status === $session::PAYMENT_STATUS_PAID; // +2 status: *_NO_PAYMENT_REQUIRED *_UNPAID
+            $paid = StripeResponseExtractor::isPaid($session); // +2 status: *_NO_PAYMENT_REQUIRED *_UNPAID
 
             // Is paid? (intent flow 'succeeded')
             if ($paid) {
                 $this->load->model('payments/mdl_payments');
 
                 // Validate and sanitize the payment_intent ID
-                $payment_intent = (string) $session->payment_intent;
-                if (empty($payment_intent) || mb_strlen($payment_intent) > 255) {
+                $payment_intent = StripeResponseExtractor::extractPaymentIntentId($session);
+                if ($payment_intent === null || mb_strlen($payment_intent) > 255) {
                     log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Invalid payment_intent ID format');
                     throw new Exception('Invalid payment intent ID');
                 }
@@ -163,8 +163,8 @@ class Stripe extends Base_Controller
                 } else {
                     // Validate currency and amount before recording payment
                     $expected_currency = mb_strtoupper((string) get_setting('gateway_stripe_currency'));
-                    $capture_currency  = mb_strtoupper((string) ($session->currency ?? ''));
-                    $capture_amount    = amount_from_minor_units($session->amount_total, stripe_minor_unit_multiplier($capture_currency));
+                    $capture_currency  = StripeResponseExtractor::extractCurrency($session);
+                    $capture_amount    = amount_from_minor_units(StripeResponseExtractor::extractAmountTotalMinor($session), stripe_minor_unit_multiplier($capture_currency));
 
                     if ($capture_currency !== $expected_currency) {
                         log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected capture: currency mismatch for invoice ' . sanitize_for_logging($invoice_key) . '. Expected: ' . $expected_currency . ', received: ' . $capture_currency);
@@ -175,10 +175,12 @@ class Stripe extends Base_Controller
                         $paid     = false;
                         $user_msg = trans('online_payment_payment_failed');
                     } else {
-                        // Record the payment atomically: the balance guard and
-                        // the insert are one conditional UPDATE, so a concurrent
-                        // callback with a different payment_intent cannot also
-                        // pass a stale balance and double-credit the invoice.
+                        // Record the payment atomically: the balance guard and the insert are
+                        // one conditional UPDATE, so a concurrent callback with a different
+                        // payment_intent cannot also pass a stale balance and double-credit
+                        // the invoice (CWE-362/367 TOCTOU) — including a stale oversized
+                        // capture, since the UPDATE's own WHERE clause refuses an amount the
+                        // current balance no longer covers.
                         $recorded = $this->mdl_payments->record_external_payment([
                             'invoice_id'          => $invoice->invoice_id,
                             'payment_date'        => date('Y-m-d'),
@@ -220,11 +222,13 @@ class Stripe extends Base_Controller
             log_message('error', sanitize_for_logging(strtr($response . ' user_msg: ' . $user_msg, ['<br>' => ' ']))); // No br's
         } finally {
             $paid = is_bool($paid) ? ($paid ? 'success' : 'info') : $paid; // Tweak to reuse (flashdata alert_*)
-            // Check stripe server ok
-            $ok = $session !== null && $session->status !== null; // Stripe is accessible?
+            // Check stripe server ok — this session was retrieved, so it answered.
+            $ok = $session !== null && ($session->status ?? null) !== null;
             // Record a succeeded/canceled and other merchant response (This helps you keep track of incomplete attempts).
-            // Without a resolved invoice there is nothing to attach it to (ip_merchant_responses.invoice_id is NOT NULL).
-            if ($invoice !== null) {
+            // $invoice is null when the lookup above never found one (invalid/inaccessible
+            // client_reference_id) — ip_merchant_responses.invoice_id is NOT NULL and there's
+            // no real invoice to attach a row to, so skip it; the failure is already logged above.
+            if ( ! empty($invoice)) {
                 $this->db->insert('ip_merchant_responses', [
                     'invoice_id'                   => $invoice->invoice_id,
                     'merchant_response_successful' => (int) $ok, // response server API (no)ok
@@ -238,7 +242,57 @@ class Stripe extends Base_Controller
             // Notify user
             $this->session->set_flashdata('alert_' . $paid, $user_msg);
             // Attempt to redirect them to the invoice. invoice_url_key? No, return to invoices view
-            redirect('guest/view/invoice' . (empty($invoice->invoice_url_key ?? null) ? 's' : '/' . $invoice->invoice_url_key));
+            redirect('guest/view/invoice' . (empty($invoice?->invoice_url_key) ? 's' : '/' . $invoice?->invoice_url_key));
         }
+    }
+
+    /**
+     * Built lazily, after guard clauses have already run — the Stripe SDK
+     * validates the API key format in its constructor, so building this
+     * eagerly meant every request to this controller (including a plain
+     * method/invoice guard check) 500'd whenever Stripe isn't configured.
+     */
+    private function stripeClient(): StripeClient
+    {
+        if ($this->stripe === null) {
+            $this->stripe = new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
+        }
+
+        return $this->stripe;
+    }
+
+    /**
+     * In the test environment only, replay a queue of canned HTTP responses
+     * instead of calling the real Stripe API. \Stripe\ApiRequestor::setHttpClient()
+     * is process-global by design (the SDK has no per-client HTTP override), which
+     * is safe here because the test harness runs each request in its own PHP
+     * subprocess. The queue is supplied by the test as a JSON-encoded array (via
+     * AbstractTestCase::withEnvironment()) under STRIPE_MOCK_RESPONSES, each entry
+     * shaped like ['status' => int, 'body' => string]. Responses are consumed in
+     * the order this controller calls the Stripe SDK.
+     */
+    private function useTestHttpClientIfConfigured(): void
+    {
+        if (ENVIRONMENT !== 'testing') {
+            return;
+        }
+
+        $fixture = getenv('STRIPE_MOCK_RESPONSES');
+
+        if ($fixture === false || $fixture === '') {
+            return;
+        }
+
+        $queue = json_decode($fixture, true);
+
+        if ( ! is_array($queue)) {
+            return;
+        }
+
+        if ( ! class_exists(\Tests\Fakes\Payments\FakeStripeHttpClient::class)) {
+            throw new \RuntimeException('Stripe test HTTP client is unavailable.');
+        }
+
+        \Stripe\ApiRequestor::setHttpClient(new \Tests\Fakes\Payments\FakeStripeHttpClient($queue));
     }
 }

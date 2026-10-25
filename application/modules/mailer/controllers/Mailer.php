@@ -165,7 +165,7 @@ class Mailer extends Admin_Controller
 
         $this->load->model('invoices/mdl_invoices');
         $invoice = $this->mdl_invoices->get_by_id($invoice_id);
-        if (! $invoice) {
+        if ( ! $invoice) {
             show_404();
         }
 
@@ -191,8 +191,12 @@ class Mailer extends Admin_Controller
             $body = nl2br($body);
         }
 
-        $cc  = $this->input->post('cc');
-        $bcc = $this->input->post('bcc');
+        $copies = $this->authorized_copy_recipients((string) $this->input->post('cc'), (string) $this->input->post('bcc'), (string) $invoice->user_email);
+        if ($copies === null) {
+            $this->session->set_flashdata('alert_error', trans('mailer_copy_recipients_not_authorized'));
+            redirect('mailer/invoice/' . $invoice_id);
+        }
+        [$cc, $bcc] = $copies;
 
         $this->load->model('upload/mdl_uploads');
         $attachment_files = $this->mdl_uploads->get_invoice_uploads($invoice_id);
@@ -223,7 +227,7 @@ class Mailer extends Admin_Controller
 
         $this->load->model('quotes/mdl_quotes');
         $quote = $this->mdl_quotes->get_by_id($quote_id);
-        if (! $quote) {
+        if ( ! $quote) {
             show_404();
         }
 
@@ -249,8 +253,12 @@ class Mailer extends Admin_Controller
             $body = nl2br($body);
         }
 
-        $cc  = $this->input->post('cc');
-        $bcc = $this->input->post('bcc');
+        $copies = $this->authorized_copy_recipients((string) $this->input->post('cc'), (string) $this->input->post('bcc'), (string) $quote->user_email);
+        if ($copies === null) {
+            $this->session->set_flashdata('alert_error', trans('mailer_copy_recipients_not_authorized'));
+            redirect('mailer/quote/' . $quote_id);
+        }
+        [$cc, $bcc] = $copies;
 
         $this->load->model('upload/mdl_uploads');
         $attachment_files = $this->mdl_uploads->get_quote_uploads($quote_id);
@@ -265,5 +273,99 @@ class Mailer extends Admin_Controller
         }
 
         redirect('mailer/quote/' . $quote_id);
+    }
+
+    /**
+     * Normalises and authorises the CC and BCC fields of a send.
+     *
+     * Without this check an administrator could copy a branded invoice or quote to any outside address
+     * (GHSA-qw48-r3gw-gc45, the CC/BCC part). Every address must belong to the organisation's own domain:
+     * the mailer_internal_domain setting, else the domain of smtp_mail_from, else the domain of the
+     * document owner's address. When none of them yields a domain, copies are refused outright, so a
+     * missing setting can never switch the check off.
+     *
+     * Addresses may be separated by commas or semicolons and surrounded by spaces. The returned lists
+     * are trimmed and comma-separated, which is the form the mailer expects.
+     *
+     * @return array{0: string, 1: string}|null [cc, bcc], or null when any address is refused
+     */
+    private function authorized_copy_recipients(string $cc, string $bcc, string $owner_email): ?array
+    {
+        $cc_list  = $this->split_address_list($cc);
+        $bcc_list = $this->split_address_list($bcc);
+
+        if ($cc_list === null || $bcc_list === null) {
+            return null;
+        }
+
+        if ($cc_list === [] && $bcc_list === []) {
+            return ['', ''];
+        }
+
+        $domain = $this->address_domain((string) get_setting('mailer_internal_domain'), true)
+            ?? $this->address_domain((string) get_setting('smtp_mail_from'))
+            ?? $this->address_domain($owner_email);
+
+        if ($domain === null) {
+            return null;
+        }
+
+        foreach (array_merge($cc_list, $bcc_list) as $address) {
+            if ($this->address_domain($address) !== $domain) {
+                return null;
+            }
+        }
+
+        return [implode(',', $cc_list), implode(',', $bcc_list)];
+    }
+
+    /**
+     * @return list<string>|null the trimmed, syntactically valid addresses, or null if any is not valid
+     */
+    private function split_address_list(string $list): ?array
+    {
+        $addresses = [];
+
+        foreach (preg_split('/[,;]/', $list) ?: [] as $address) {
+            $address = trim($address);
+
+            if ($address === '') {
+                continue;
+            }
+
+            if ( ! filter_var($address, FILTER_VALIDATE_EMAIL)) {
+                return null;
+            }
+
+            $addresses[] = $address;
+        }
+
+        return $addresses;
+    }
+
+    /**
+     * Lower-cased domain of an address, or of a bare domain when $is_domain is set.
+     */
+    private function address_domain(string $value, bool $is_domain = false): ?string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if ( ! $is_domain) {
+            $at = mb_strrpos($value, '@');
+
+            if ($at === false) {
+                return null;
+            }
+
+            $value = mb_substr($value, $at + 1);
+        }
+
+        $value = mb_strtolower(ltrim($value, '@'));
+
+        return $value === '' ? null : $value;
     }
 }

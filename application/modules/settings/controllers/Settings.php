@@ -69,7 +69,7 @@ class Settings extends Admin_Controller
 
                 if (isset($settings[$key . '_field_is_password']) && $value !== '') {
                     // Encrypt passwords but don't save empty passwords
-                    $batch_settings[$key] = $this->crypt->encode(mb_trim($value));
+                    $batch_settings[$key] = $this->crypt->encode(trim($value));
                 } elseif (isset($settings[$key . '_field_is_amount'])) {
                     // Format amount inputs
                     $batch_settings[$key] = standardize_amount($value);
@@ -94,30 +94,67 @@ class Settings extends Admin_Controller
                             redirect('settings');
                         }
                     }
-                    // Security: Validate system_theme to prevent stored XSS (CWE-79) -- this
-                    // setting was previously persisted with no server-side allowlist and echoed
-                    // unescaped by _theme_asset() on every view, including the unauthenticated
-                    // login page. Validate against the same theme list the <select> itself is
-                    // built from.
-                    //
-                    // array_key_exists(), not in_array(..., array_keys(...), true): PHP
-                    // normalizes a purely-numeric string array key (e.g. a theme directory
-                    // literally named "42") to an int, so array_keys() would return 42 (int)
-                    // and strict in_array('42', [42], true) would never match -- rejecting a
-                    // real, legitimately-shipped theme. array_key_exists('42', $themes) looks
-                    // the submitted string up against the array directly, so PHP's own key
-                    // normalization works for it instead of against it. is_string() is checked
-                    // first because array_key_exists() throws a TypeError for a non-int/string
-                    // key (e.g. a crafted settings[system_theme][]=x array), where in_array()
-                    // would have just returned false.
-                    if ($key === 'system_theme') {
+
+                    // Security: these settings are already HTML-escaped at every output sink
+                    // (htmlsc()/get_setting(..., true)), and most are also constrained to a
+                    // <select> in the settings form. This is a second, defense-in-depth layer:
+                    // the POST handler above accepts any key in the submitted settings array
+                    // with no server-side allowlist, so a crafted request (bypassing the <select>
+                    // entirely) could otherwise still persist an unexpected value, consumed later
+                    // by any sink that does NOT escape — e.g. a future change, a reporting view,
+                    // or an export path that was missed.
+                    if ($key === 'decimal_point' || $key === 'thousands_separator') {
+                        $other_key = $key === 'decimal_point' ? 'thousands_separator' : 'decimal_point';
+                        $other     = $settings[$other_key] ?? get_setting($other_key);
+                        if ( ! $this->isValidSeparatorChar($value) || $value === $other) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'currency_symbol') {
+                        if ( ! $this->isValidCurrencySymbol($value)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'date_format') {
+                        if ( ! in_array($value, array_keys(date_formats()), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'number_format') {
+                        if ( ! in_array($value, array_keys($number_formats), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'system_theme') {
+                        // Security: Stored XSS (CWE-79) -- system_theme was persisted with no
+                        // server-side allowlist and echoed unescaped by _theme_asset() on 18
+                        // views, including the unauthenticated login page. Validate against the
+                        // same theme list the <select> itself is built from.
+                        //
+                        // array_key_exists(), not in_array(..., array_keys(...), true): PHP
+                        // normalizes a purely-numeric string array key (e.g. a theme directory
+                        // literally named "42") to an int, so array_keys() would return 42 (int)
+                        // and strict in_array('42', [42], true) would never match -- rejecting a
+                        // real, legitimately-shipped theme. array_key_exists('42', $themes)
+                        // looks the submitted string up against the array directly, so PHP's own
+                        // key normalization works for it instead of against it. is_string() is
+                        // checked first because array_key_exists() throws a TypeError for a
+                        // non-int/string key (e.g. a crafted settings[system_theme][]=x array),
+                        // where in_array() would have just returned false.
                         if ( ! is_string($value) || ! array_key_exists($value, $this->mdl_settings->get_themes())) {
-                            $safe_value = is_scalar($value) ? sanitize_for_logging((string) $value) : '[non-scalar]';
-                            log_message('error', sprintf('Invalid system_theme value attempted by user %d: %s', $this->session->userdata('user_id'), $safe_value));
-                            $this->session->set_flashdata('alert_error', trans('invalid_value_for_field'));
-                            redirect('settings');
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'pdf_watermark') {
+                        if ( ! in_array($value, ['0', '1'], true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'default_language') {
+                        if ( ! in_array($value, get_available_languages(), true)) {
+                            $this->rejectInvalidSetting($key, $value);
+                        }
+                    } elseif ($key === 'default_country') {
+                        $country_value = is_scalar($value) ? (string) $value : null;
+                        if ($country_value === null || ($country_value !== '' && ! isset(get_country_list(trans('cldr'))[$country_value]))) {
+                            $this->rejectInvalidSetting($key, $value);
                         }
                     }
+
                     $batch_settings[$key] = $value;
                 }
 
@@ -206,10 +243,10 @@ class Settings extends Admin_Controller
         ]);
 
         // Collect the list of templates
-        $pdf_invoice_templates    = $this->mdl_templates->get_invoice_templates('pdf');
-        $public_invoice_templates = $this->mdl_templates->get_invoice_templates('public');
-        $pdf_quote_templates      = $this->mdl_templates->get_quote_templates('pdf');
-        $public_quote_templates   = $this->mdl_templates->get_quote_templates('public');
+        $pdf_invoice_templates                 = $this->mdl_templates->get_invoice_templates('pdf');
+        $public_invoice_templates              = $this->mdl_templates->get_invoice_templates('public');
+        $pdf_quote_templates                   = $this->mdl_templates->get_quote_templates('pdf');
+        $public_quote_templates                = $this->mdl_templates->get_quote_templates('public');
         $missing_allowlisted_template_settings = $this->mdl_templates->get_missing_allowlisted_template_settings();
 
         // Get all themes
@@ -218,27 +255,27 @@ class Settings extends Admin_Controller
         // Set data in the layout
         $this->layout->set(
             [
-                'invoice_groups'           => $this->mdl_invoice_groups->get()->result(),
-                'tax_rates'                => $this->mdl_tax_rates->get()->result(),
-                'payment_methods'          => $this->mdl_payment_methods->get()->result(),
-                'public_invoice_templates' => $public_invoice_templates,
-                'pdf_invoice_templates'    => $pdf_invoice_templates,
-                'public_quote_templates'   => $public_quote_templates,
-                'pdf_quote_templates'      => $pdf_quote_templates,
+                'invoice_groups'                        => $this->mdl_invoice_groups->get()->result(),
+                'tax_rates'                             => $this->mdl_tax_rates->get()->result(),
+                'payment_methods'                       => $this->mdl_payment_methods->get()->result(),
+                'public_invoice_templates'              => $public_invoice_templates,
+                'pdf_invoice_templates'                 => $pdf_invoice_templates,
+                'public_quote_templates'                => $public_quote_templates,
+                'pdf_quote_templates'                   => $pdf_quote_templates,
                 'missing_allowlisted_template_settings' => $missing_allowlisted_template_settings,
-                'languages'                => get_available_languages(),
-                'countries'                => get_country_list(trans('cldr')),
-                'date_formats'             => date_formats(),
-                'current_date'             => new DateTime(),
-                'available_themes'         => $available_themes,
-                'email_templates_quote'    => $this->mdl_email_templates->where('email_template_type', 'quote')->get()->result(),
-                'email_templates_invoice'  => $this->mdl_email_templates->where('email_template_type', 'invoice')->get()->result(),
-                'custom_fields'            => ['ip_invoice_custom' => $this->mdl_custom_fields->by_table('ip_invoice_custom')->get()->result()],
-                'gateway_drivers'          => $gateways,
-                'number_formats'           => $number_formats,
-                'gateway_currency_codes'   => get_currencies(),
-                'first_days_of_weeks'      => ['0' => lang('sunday'), '1' => lang('monday')],
-                'legacy_calculation'       => config_item('legacy_calculation'),
+                'languages'                             => get_available_languages(),
+                'countries'                             => get_country_list(trans('cldr')),
+                'date_formats'                          => date_formats(),
+                'current_date'                          => new DateTime(),
+                'available_themes'                      => $available_themes,
+                'email_templates_quote'                 => $this->mdl_email_templates->where('email_template_type', 'quote')->get()->result(),
+                'email_templates_invoice'               => $this->mdl_email_templates->where('email_template_type', 'invoice')->get()->result(),
+                'custom_fields'                         => ['ip_invoice_custom' => $this->mdl_custom_fields->by_table('ip_invoice_custom')->get()->result()],
+                'gateway_drivers'                       => $gateways,
+                'number_formats'                        => $number_formats,
+                'gateway_currency_codes'                => get_currencies(),
+                'first_days_of_weeks'                   => ['0' => lang('sunday'), '1' => lang('monday')],
+                'legacy_calculation'                    => config_item('legacy_calculation'),
             ]
         );
 
@@ -376,6 +413,37 @@ class Settings extends Admin_Controller
      *
      * @return array settings array, with tax_rate_decimal_places removed if it was processed
      */
+    /**
+     * A single-character separator with no HTML/JS metacharacters. Used for both
+     * decimal_point and thousands_separator, which share the same constraint.
+     */
+    private function isValidSeparatorChar(mixed $value): bool
+    {
+        $value = is_scalar($value) ? (string) $value : '';
+
+        return $value !== '' && mb_strlen($value) === 1 && ! preg_match('/[<>]|javascript:|on\w+\s*=/i', $value);
+    }
+
+    private function isValidCurrencySymbol(mixed $value): bool
+    {
+        $value = is_scalar($value) ? (string) $value : '';
+
+        return mb_strlen($value) <= 4 && ! preg_match('/[<>]|javascript:|on\w+\s*=|script|iframe|svg/i', $value);
+    }
+
+    /**
+     * Logs the rejected attempt, flashes the generic error (never the attacker-controlled
+     * value), and redirects back to the settings form without saving anything from this
+     * request — matching the existing first_day_of_week/logo-filename validation above.
+     */
+    private function rejectInvalidSetting(string $key, mixed $value): void
+    {
+        $safe_value = is_scalar($value) ? sanitize_for_logging((string) $value) : '[non-scalar]';
+        log_message('error', sprintf('Invalid %s value attempted by user %d: %s', $key, (int) $this->session->userdata('user_id'), $safe_value));
+        $this->session->set_flashdata('alert_error', trans('invalid_value_for_field'));
+        redirect('settings');
+    }
+
     private function handleTaxRateDecimalPlaces(array $settings): array
     {
         if ( ! array_key_exists('tax_rate_decimal_places', $settings)) {

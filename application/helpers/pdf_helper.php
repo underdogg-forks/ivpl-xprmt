@@ -38,7 +38,7 @@ function discount_global_print_in_pdf($obj, $show_item_discounts, string $is = '
         ?>
             <tr>
                 <td class="text-right" colspan="<?php echo $show_item_discounts ? '5' : '4'; ?>"><?php
-                            echo mb_rtrim(trans('discount'), ' '); // Rem not space char (in French ip_lang & maybe other)
+                            echo rtrim(trans('discount'), ' '); // Rem not space char (in French ip_lang & maybe other)
         ?></td>
                 <td class="text-right"><?php echo $discount; ?></td>
             </tr>
@@ -57,7 +57,6 @@ function discount_global_print_in_pdf($obj, $show_item_discounts, string $is = '
 function generate_invoice_pdf($invoice_id, $stream = true, $invoice_template = null, $is_guest = null)
 {
     $CI = & get_instance();
-    $CI->load->helper('file_security');
 
     $CI->load->model(
         [
@@ -218,7 +217,6 @@ function generate_invoice_pdf($invoice_id, $stream = true, $invoice_template = n
 function generate_invoice_sumex($invoice_id, $stream = true, $invoice_template = null, $client = false)
 {
     $CI = & get_instance();
-    $CI->load->helper('file_security');
 
     $CI->load->model('invoices/mdl_items');
     $invoice                   = $CI->mdl_invoices->get_by_id($invoice_id);
@@ -294,7 +292,6 @@ function generate_invoice_sumex($invoice_id, $stream = true, $invoice_template =
 function generate_quote_pdf($quote_id, $stream = true, $quote_template = null)
 {
     $CI = &get_instance();
-    $CI->load->helper('file_security');
 
     $CI->load->model(
         [
