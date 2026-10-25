@@ -122,13 +122,49 @@ final class MailerCcBccAuthorizationTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_still_refuses_outside_addresses_when_no_sender_domain_is_configured(): void
+    public function it_falls_back_to_the_document_owners_domain_when_smtp_mail_from_is_empty(): void
     {
-        /* Act: no mailer_internal_domain and no smtp_mail_from; the sender falls back to the document owner's address */
-        [, $envelope] = $this->send('invoice', ['cc' => 'someone@evil.test'], ['smtp_mail_from' => '']);
+        /* Act: no mailer_internal_domain and no smtp_mail_from, so the owner's address decides */
+        [, $inside] = $this->send('invoice', ['cc' => 'team@owner.test'], ['smtp_mail_from' => ''], 'owner@owner.test');
+        $this->stopSmtpRecorder();
+        [, $outside] = $this->send('invoice', ['cc' => 'someone@evil.test'], ['smtp_mail_from' => ''], 'owner@owner.test');
 
-        /* Assert: an unconfigured domain must not switch the check off */
+        /* Assert */
+        self::assertContains('team@owner.test', $inside['to']);
+        self::assertSame([], $outside['to']);
+    }
+
+    #[Test]
+    public function it_refuses_every_copy_when_no_domain_can_be_determined_at_all(): void
+    {
+        /* Act: no setting and no owner address, so there is nothing to compare against */
+        [$response, $envelope] = $this->send('invoice', ['cc' => 'someone@company.test'], ['smtp_mail_from' => ''], '');
+
+        /* Assert: an unconfigured domain must not switch the check off, even for a plausible address */
         self::assertSame([], $envelope['to']);
+        self::assertStringContainsString('own domain', (string) ($response->session()['alert_error'] ?? ''));
+    }
+
+    #[Test]
+    public function it_delivers_a_semicolon_separated_internal_list(): void
+    {
+        /* Act */
+        [, $envelope] = $this->send('invoice', ['cc' => 'a@company.test;b@company.test']);
+
+        /* Assert */
+        self::assertContains('a@company.test', $envelope['to']);
+        self::assertContains('b@company.test', $envelope['to']);
+    }
+
+    #[Test]
+    public function it_refuses_a_malformed_address_with_the_organisation_message(): void
+    {
+        /* Act: the last "@" belongs to the internal domain, but the address as a whole is not valid */
+        [$response, $envelope] = $this->send('invoice', ['cc' => 'evil@evil.test@company.test']);
+
+        /* Assert: refused by the authorisation, not left for the mailer to trip over */
+        self::assertSame([], $envelope['to']);
+        self::assertStringContainsString('own domain', (string) ($response->session()['alert_error'] ?? ''));
     }
 
     #[Test]
@@ -147,9 +183,13 @@ final class MailerCcBccAuthorizationTest extends AbstractTestCase
      *
      * @return array{0: HttpResponse, 1: array{to: list<string>, from: list<string>}}
      */
-    private function send(string $kind, array $override, array $settings = []): array
+    private function send(string $kind, array $override, array $settings = [], ?string $ownerEmail = null): array
     {
         $this->startSmtpRecorder($settings);
+
+        if ($ownerEmail !== null) {
+            $this->databaseUpdate('ip_users', ['user_email' => $ownerEmail], ['user_id' => 1]);
+        }
 
         $clientId = $this->databaseInsert('ip_clients', [
             'client_date_created'  => date('Y-m-d H:i:s'),
