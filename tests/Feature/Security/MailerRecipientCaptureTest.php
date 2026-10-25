@@ -60,12 +60,25 @@ final class MailerRecipientCaptureTest extends AbstractTestCase
         self::assertNotContains('ceo@spoofed.test', $envelope['from'], 'A POSTed from_email must never become the sender.');
     }
 
+    #[Test]
+    public function it_binds_a_quote_mail_to_the_quote_client_and_the_configured_sender(): void
+    {
+        /* Act */
+        $envelope = $this->sendInvoiceWith(['to_email' => 'attacker@evil.test', 'from_email' => 'ceo@spoofed.test'], 'quote');
+
+        /* Assert */
+        self::assertContains('client@legit.test', $envelope['to']);
+        self::assertNotContains('attacker@evil.test', $envelope['to']);
+        self::assertContains('billing@company.test', $envelope['from']);
+        self::assertNotContains('ceo@spoofed.test', $envelope['from']);
+    }
+
     /**
      * @param array<string, string> $override
      *
      * @return array{to: list<string>, from: list<string>}
      */
-    private function sendInvoiceWith(array $override): array
+    private function sendInvoiceWith(array $override, string $kind = 'invoice'): array
     {
         $this->logFile = sys_get_temp_dir() . '/smtp-envelope-' . bin2hex(random_bytes(6)) . '.log';
         $pipes         = [];
@@ -98,10 +111,10 @@ final class MailerRecipientCaptureTest extends AbstractTestCase
             'client_name'          => 'Legit Client',
             'client_email'         => 'client@legit.test',
         ]);
-        $invoiceId = $this->seedInvoice($clientId);
+        $documentId = $kind === 'quote' ? $this->seedQuote($clientId) : $this->seedInvoice($clientId);
         $this->actingAsAdmin();
 
-        $this->postWithValidCsrfToken("/mailer/send_invoice/{$invoiceId}", array_merge([
+        $this->postWithValidCsrfToken("/mailer/send_{$kind}/{$documentId}", array_merge([
             'to_email'     => 'client@legit.test',
             'from_email'   => 'billing@company.test',
             'from_name'    => 'Billing',
@@ -126,5 +139,21 @@ final class MailerRecipientCaptureTest extends AbstractTestCase
         self::assertNotEmpty($to, 'The controller must have sent a mail through the recording SMTP server.');
 
         return ['to' => $to, 'from' => $from];
+    }
+
+    private function seedQuote(int $clientId): int
+    {
+        return $this->databaseInsert('ip_quotes', [
+            'user_id'             => 1,
+            'client_id'           => $clientId,
+            'invoice_id'          => 0,
+            'invoice_group_id'    => 1,
+            'quote_status_id'     => 1,
+            'quote_date_created'  => date('Y-m-d'),
+            'quote_date_modified' => date('Y-m-d H:i:s'),
+            'quote_date_expires'  => date('Y-m-d', time() + 86400 * 30),
+            'quote_number'        => 'Q-' . uniqid(),
+            'quote_url_key'       => md5(uniqid('', true)),
+        ]);
     }
 }
