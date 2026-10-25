@@ -45,6 +45,24 @@ trait PerformsCsrfProtectedRequests
     }
 
     /**
+     * Same as postWithValidCsrfToken() but sent as an XMLHttpRequest, the way scripts.js posts to the
+     * Ajax controllers.
+     *
+     * @param array<string, mixed> $data
+     */
+    protected function ajaxPostWithValidCsrfToken(string $uri, array $data = []): HttpResponse
+    {
+        return $this->request(
+            'POST',
+            $uri,
+            [],
+            $data + ['_ip_csrf' => $this->csrfToken],
+            true,
+            ['ip_csrf_cookie' => $this->csrfToken]
+        );
+    }
+
+    /**
      * POST with no CSRF token at all. CodeIgniter rejects it during bootstrap,
      * before any controller code runs.
      *

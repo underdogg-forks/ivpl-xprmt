@@ -101,8 +101,8 @@ class Base_Controller extends MX_Controller
         $output = $response;
         if ($this->config->item('csrf_protection') && $this->config->item('csrf_regenerate')) {
             $csrfTokenName = $this->config->item('csrf_token_name');
-            // Call csrf_verify to ensure CSRF hash is generated (handles regeneration)
-            $this->security->csrf_verify();
+            // The bootstrap already verified this request and, because regeneration is on, rotated the
+            // hash. Verifying again would find the token already stripped from $_POST and answer 403.
             $csrfHash = $this->security->get_csrf_hash();
 
             if (is_array($output) && $csrfHash) {
