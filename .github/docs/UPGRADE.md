@@ -78,7 +78,7 @@ affected — this change only affects the in-browser preview.
 **Action required:** None. Existing templates continue to send as HTML. If you need to
 visually check HTML formatting, send a test email instead of relying on the preview panel.
 
-#### 3. Custom templates are added via an explicit allowlist (no filesystem scan)
+#### 3. Custom templates can be listed via an explicit allowlist (no filesystem scan)
 
 **Who is affected:** Installations that add their own invoice or quote templates.
 
@@ -89,7 +89,7 @@ the same dynamic scan that caused the RCE vulnerability (see #4 below).
 **After:** The filesystem is **never** scanned. The selector is built from the built-in
 templates plus **only** the custom template names you explicitly allowlist. Built-in templates
 always appear in the selector. Adding a custom template is a **two-step** operation — both steps
-are required:
+are required, and setting `CUSTOM_TEMPLATES_FOLDER` alone lists nothing:
 
 1. **Place the `.php` file** under `CUSTOM_TEMPLATES_FOLDER`, in the sub-path that matches the
    template's type and scope:
@@ -99,8 +99,8 @@ are required:
    <CUSTOM_TEMPLATES_FOLDER>/quote_templates/pdf/MyTemplate.php
    <CUSTOM_TEMPLATES_FOLDER>/quote_templates/public/MyTemplate.php
    ```
-   `CUSTOM_TEMPLATES_FOLDER` only tells InvoicePlane where the file lives on disk at render
-   time. On its own it adds **nothing** to the selector.
+   `CUSTOM_TEMPLATES_FOLDER` only tells InvoicePlane **where the file lives** at render time.
+   It does not add the template to the selector.
 
 2. **Add the template name** (without `.php`) to the matching allowlist variable in
    `ipconfig.php`. Only names listed in these variables appear in the selector:
@@ -179,7 +179,7 @@ before applying the upgrade, especially if you are upgrading from v1.7.0 or v1.7
 2. Copy all new files to your InvoicePlane installation root, but **do not overwrite**:
    - `ipconfig.php`
    - Custom templates in `application/views/` (better: move them to `CUSTOM_TEMPLATES_FOLDER`)
-   - Custom styles: `assets/core/css/custom.css`, `assets/core/css/custom-pdf.css`
+   - Custom styles: `resources/assets/core/css/custom.css`, `resources/assets/core/css/custom-pdf.css`
    - Uploaded images in `uploads/`
    - Custom language keys: `application/language/COUNTRY/custom_lang.php`
 
@@ -232,7 +232,7 @@ Follow the procedure outlined in [Upgrade 1.6.0 from 1.5.11](#1-preliminary-oper
 1. Copy all files to the root directory of your InvoicePlane installation but **do not** overwrite the following files:
    - The `ipconfig.php` file
    - Customized templates in the `application/views/` folder
-   - The files for custom styles: `assets/core/css/custom.css` and `assets/core/css/custom-pdf.css`
+   - The files for custom styles: `resources/assets/core/css/custom.css` and `resources/assets/core/css/custom-pdf.css`
    - Uploaded images in the `uploads/` folder (e.g. your company logo)
    - Custom language keys at `application/language/COUNTRY/custom_lang.php`
 
@@ -258,7 +258,7 @@ Follow the procedure outlined in [Upgrade 1.6.0 from 1.5.11](#1-preliminary-oper
 1. Copy all files to the root directory of your InvoicePlane installation but **do not** overwrite the following files:
    - The `ipconfig.php` file
    - Customized templates in the `application/views/` folder
-   - The files for custom styles: `assets/core/css/custom.css` and `assets/core/css/custom-pdf.css`
+   - The files for custom styles: `resources/assets/core/css/custom.css` and `resources/assets/core/css/custom-pdf.css`
    - Uploaded images in the `uploads/` folder (e.g. your company logo)
    - Custom language keys at `application/language/COUNTRY/custom_lang.php`
 
