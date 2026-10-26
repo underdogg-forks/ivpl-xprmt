@@ -273,6 +273,36 @@ For a REST provider, extend `AbstractRestProvider` (`libraries/AbstractRestProvi
 and the settings form are a persistence contract: `ProviderSettingsContractTest` pins them for the
 bundled providers, so a changed default or field type needs a deliberate fixture update.
 
+## Multi-PR workflow (prep/v180 + upstream)
+
+When creating paired PRs (tests for prep/v180, implementation for upstream):
+
+1. **Clarify requirements upfront**:
+   - prep/v180 PR needs BOTH implementation + comprehensive tests
+   - upstream PR needs ONLY implementation (no tests)
+
+2. **Study existing patterns before writing code**:
+   - Read similar test files to understand conventions (`#[Test]` per method, not just class)
+   - Know that adding tests requires regenerating `tests/Support/class-coverage-inventory.md`
+   - Verify all code patterns match the codebase style
+
+3. **Batch the work (single-go approach)**:
+   - Checkout both branches locally
+   - Add implementation code to both branches
+   - Add comprehensive tests to prep/v180 branch only
+   - On prep/v180: regenerate class coverage inventory
+   - `php -l` syntax check on all changed PHP files
+   - Commit both branches with complete, verified code
+   - Create both PRs in parallel
+
+4. **Verify before pushing**:
+   - `php -l application/**/*.php tests/**/*.php` — catch syntax errors
+   - Review test file structure against existing tests in repo
+   - Ensure generated files (`class-coverage-inventory.md`) are updated
+   - Don't push until tests have proper `#[Test]` attributes per method
+
+**Avoids iterative failures**: Complete, tested code on first PR creation means no CI red → fix → push cycles.
+
 ## Common pitfalls
 
 - **Do NOT call `php artisan`** — InvoicePlane is not Laravel.

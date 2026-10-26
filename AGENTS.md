@@ -124,6 +124,38 @@ php /tmp/punit/vendor/bin/phpunit --bootstrap tests/bootstrap.php
 
 This is the **only reliable method** in the web sandbox. See `CLAUDE.md` for detailed rationale.
 
+## Multi-PR workflow (prep/v180 + upstream)
+
+When implementing features that need to land on both `prep/v180` (with tests) and upstream `develop` (implementation only):
+
+**Requirements clarity:**
+- `prep/v180` PR: BOTH implementation + comprehensive tests
+- upstream PR: ONLY implementation (no tests)
+
+**Efficient single-pass approach:**
+
+1. **Read similar test files first** to understand conventions:
+   - `#[Test]` attribute goes on **each method**, not just the class
+   - Test method names: `it_<snake_case>()`
+   - Pattern: Arrange / Act / Assert (explicit sections)
+
+2. **Batch implementation and tests**:
+   - Checkout both branches locally
+   - Write implementation code (to both branches)
+   - Write comprehensive tests (prep/v180 only)
+   - On prep/v180: regenerate `tests/Support/class-coverage-inventory.md`
+   
+3. **Verify before any push**:
+   - `php -l application/**/*.php tests/**/*.php` — catch syntax errors
+   - Verify test file structure matches repo conventions
+   - Confirm generated files (inventory) are updated
+   
+4. **Commit and push together**:
+   - Commit both branches with complete, tested code
+   - Create both PRs in parallel
+
+**Why this matters**: Pushing incomplete code (tests without implementation, or wrong test structure) leads to iterative CI failures and multiple push/fix cycles. Complete code on first PR creation avoids this.
+
 ## Common pitfalls
 
 - **Do not call `php artisan`** — this command does not exist in InvoicePlane.
