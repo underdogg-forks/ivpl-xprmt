@@ -5,6 +5,7 @@ namespace Tests\Feature\Core\Security;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Concerns\PerformsCsrfProtectedRequests;
 
 /**
  * Stored XSS via the system_theme setting (CWE-79, leading to CWE-116/CWE-20/CWE-693).
@@ -29,6 +30,8 @@ use Tests\AbstractTestCase;
 #[Group('security')]
 class ThemeAssetStoredXssTest extends AbstractTestCase
 {
+    use PerformsCsrfProtectedRequests;
+
     #[Test]
     public function it_escapes_a_malicious_system_theme_value_on_the_unauthenticated_login_page(): void
     {
@@ -44,6 +47,37 @@ class ThemeAssetStoredXssTest extends AbstractTestCase
         $this->assertResponseOk($response);
         $this->assertResponseBodyNotContains($response, 'x" onerror="alert(1)" x="');
         $this->assertResponseBodyContains($response, 'x&quot; onerror=&quot;alert(1)&quot; x=&quot;');
+    }
+
+    #[Test]
+    public function it_refuses_a_system_theme_outside_the_installed_themes_and_saves_none_of_the_batch(): void
+    {
+        /* Arrange: the POST-time allowlist, independent of the view-layer escaping above */
+        $this->actingAsAdmin();
+        $this->setSettingDirectly('system_theme', 'invoiceplane_blue');
+        $this->setSettingDirectly('cron_key', 'original-cron-key');
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => ['system_theme' => 'x" onerror="alert(1)" x="', 'cron_key' => 'must-not-be-saved'], 'btn_submit' => '1']);
+
+        /* Assert: rejected before the batch write, so the harmless sibling field is not persisted either */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'system_theme', 'setting_value' => 'invoiceplane_blue']);
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'original-cron-key']);
+    }
+
+    #[Test]
+    public function it_accepts_an_installed_system_theme(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+        $this->setSettingDirectly('system_theme', 'invoiceplane');
+
+        /* Act */
+        $this->post('/settings', ['settings' => ['system_theme' => 'invoiceplane_blue'], 'btn_submit' => '1']);
+
+        /* Assert: positive control, the allowlist does not block legitimate themes */
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'system_theme', 'setting_value' => 'invoiceplane_blue']);
     }
 
     private function setSettingDirectly(string $key, string $value): void
