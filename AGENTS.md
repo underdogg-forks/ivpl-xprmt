@@ -96,6 +96,13 @@ There is no `quickstart.yml`. InvoicePlane does not have `php artisan` commands.
 - Method names: `it_<snake_case>`, annotated with `#[Test]`.
 - Pattern: Arrange / Act / Assert.
 - Run: `vendor/bin/phpunit` (requires `phpunit.xml` to be present).
+- **No hollow tests**: Every test must verify the right thing happened, not just that the endpoint
+  doesn't crash. Example of hollow test: checking "is a redirect + not 404" without verifying the
+  redirect destination or that state actually changed. Instead:
+  - **Arrange**: seed preconditions (CSRF token, existing data, auth state)
+  - **Act**: perform operation
+  - **Assert**: verify specific outcomes (state change in DB, file deleted, correct redirect
+    destination, success message). Breaking production code should fail the test.
 
 ### PHPUnit installation in Claude Code web sandbox
 
