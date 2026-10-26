@@ -90,6 +90,7 @@ final class UserClientsIdorTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_user_clients', ['user_id' => $targetId, 'client_id' => $clientId]);
     }
 
+    /** GHSA-h4xh-4jwc-485r: a user-client mapping may only be deleted by its owner or the primary administrator. */
     #[Test]
     public function it_denies_a_secondary_admin_deleting_another_users_client_mapping(): void
     {
@@ -108,6 +109,7 @@ final class UserClientsIdorTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_user_clients', ['user_client_id' => $mappingId]);
     }
 
+    /** GHSA-h4xh-4jwc-485r: user_all_clients exposes every client, so only the primary administrator may grant it. */
     #[Test]
     public function it_denies_a_secondary_admin_granting_themselves_all_clients(): void
     {
