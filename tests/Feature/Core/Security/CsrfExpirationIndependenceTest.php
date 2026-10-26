@@ -54,7 +54,7 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
         /* Arrange */
         $this->withEnvironment(['SESS_EXPIRATION' => '0']);
 
-        /* Act */
+        /* Act: Get login form and extract CSRF token */
         $loginResponse = $this->request('GET', '/sessions/login');
         preg_match(
             '/<input[^>]*name="' . preg_quote(config_item('csrf_token_name')) . '"[^>]*value="([^"]*)"/',
@@ -64,6 +64,7 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
         $csrfToken = $matches[1] ?? null;
         $this->assertNotNull($csrfToken, 'CSRF token should be in login form');
 
+        /* Post login with SESS_EXPIRATION=0 */
         $response = $this->request('POST', '/sessions/login', [
             'post' => [
                 config_item('csrf_token_name') => $csrfToken,
@@ -78,6 +79,29 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
             [200, 302, 303],
             'Login should succeed (200/302/303 redirect) when SESS_EXPIRATION=0, not 403 CSRF error'
         );
+
+        /* Positive control: Also verify login works with normal SESS_EXPIRATION */
+        $normalLoginResponse = $this->request('GET', '/sessions/login', [], ['SESS_EXPIRATION' => '864000']);
+        preg_match(
+            '/<input[^>]*name="' . preg_quote(config_item('csrf_token_name')) . '"[^>]*value="([^"]*)"/',
+            $normalLoginResponse->body(),
+            $normalMatches
+        );
+        $normalCsrfToken = $normalMatches[1] ?? null;
+
+        $normalResponse = $this->request('POST', '/sessions/login', [
+            'post' => [
+                config_item('csrf_token_name') => $normalCsrfToken,
+                'email' => 'admin@test.local',
+                'password' => 'password',
+            ],
+        ]);
+
+        $this->assertIn(
+            $normalResponse->status(),
+            [200, 302, 303],
+            'Login should also succeed with normal SESS_EXPIRATION (positive control)'
+        );
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -87,7 +111,7 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
         $this->actingAsAdmin();
         $this->withEnvironment(['SESS_EXPIRATION' => '0']);
 
-        /* Act */
+        /* Act: POST with SESS_EXPIRATION=0 */
         $response = $this->postWithValidCsrfToken('/settings');
 
         /* Assert */
@@ -95,6 +119,18 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
             $response->status(),
             [200, 302, 303, 307],
             'POST with valid CSRF token should succeed (200/302/303/307) when SESS_EXPIRATION=0, not 403'
+        );
+
+        /* Positive control: Also verify POST works with normal SESS_EXPIRATION */
+        $this->actingAsAdmin();
+        $this->withEnvironment(['SESS_EXPIRATION' => '864000']);
+
+        $normalResponse = $this->postWithValidCsrfToken('/settings');
+
+        $this->assertIn(
+            $normalResponse->status(),
+            [200, 302, 303, 307],
+            'POST with valid CSRF token should also succeed with normal SESS_EXPIRATION (positive control)'
         );
     }
 
