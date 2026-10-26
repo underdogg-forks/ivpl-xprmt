@@ -309,52 +309,66 @@ function check_items_tax_usages(e) {
      }
 }
 
-// Get CSRF configuration from meta tags - since v1.6.3
-const csrf_token_name = document.querySelector('meta[name="csrf_token_name"]').getAttribute('content');   // Default: _ip_csrf
+// Robust CSRF extraction helpers
+function get_csrf_token_name() {
+    const meta = document.querySelector('meta[name="csrf_token_name"]');
+    return meta ? meta.getAttribute('content') : '_ip_csrf';
+}
 
-// The server rotates this value on each page load and POST (And It's updated by ajaxComplete) - since v1.7.2
+function get_csrf_token_value() {
+    const meta = document.querySelector('meta[name="csrf_token_value"]');
+    if (meta && meta.getAttribute('content')) {
+        return meta.getAttribute('content');
+    }
+    const cookieMatch = document.cookie.match(/ip_csrf_cookie=([^;]+)/);
+    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+}
+
+var csrf_token_name = get_csrf_token_name();
+var csrf_token_value = get_csrf_token_value();
 const csrf_meta = document.querySelector('meta[name="csrf_token_value"]');
-// Get CSRF token value from meta tag (became false when meta tag missing)
-var csrf_token_value = csrf_meta ? csrf_meta.getAttribute('content') : false;
 
 $(function () {
-    // Automatic CSRF protection for all jQuery POST requests
-    // Uses meta tag value or header X-' + csrf_token_name'
-    $.ajaxPrefilter(function (options) {
-        if (typeof options.type !== 'string' || options.type.toUpperCase() !== 'POST') {
-            return;
-        }
+    // Automatic CSRF injection for all jQuery POST calls
+    $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+        if (options.type && options.type.toLowerCase() === 'post') {
+            const tokenName = get_csrf_token_name();
+            const tokenVal = get_csrf_token_value();
 
-        // File uploads: jQuery hands over the FormData itself; turning it into a string would drop
-        // every field, so the token goes in as one more field.
-        if (typeof FormData !== 'undefined' && options.data instanceof FormData) {
-            if (!options.data.has(csrf_token_name)) {
-                options.data.append(csrf_token_name, csrf_token_value);
+            if (!tokenVal || tokenVal === 'undefined') {
+                return;
             }
-            return;
-        }
 
-        // Any other non-string body (processData: false with a raw object) is left untouched.
-        if (options.data !== undefined && options.data !== null && typeof options.data !== 'string') {
-            return;
-        }
+            // Set the custom header
+            jqXHR.setRequestHeader('X-' + tokenName, tokenVal);
 
-        const token_pair = encodeURIComponent(csrf_token_name) + '=' + encodeURIComponent(csrf_token_value);
-        options.data = options.data ? options.data + '&' + token_pair : token_pair;
+            // Append safely to serialized query strings without duplicates
+            if (typeof options.data === 'string') {
+                const encodedName = encodeURIComponent(tokenName);
+                if (options.data.indexOf(encodedName + '=') === -1 && options.data.indexOf(tokenName + '=') === -1) {
+                    options.data += (options.data.length > 0 ? '&' : '') + encodedName + '=' + encodeURIComponent(tokenVal);
+                }
+            } else if ($.isPlainObject(options.data)) {
+                if (!options.data[tokenName]) {
+                    options.data[tokenName] = tokenVal;
+                }
+            }
+        }
     });
 
     // javascript get header in $(document).ajaxComplete
     $(document).ajaxComplete(function (event, xhr, settings) {
         // Update csrf_token_value + meta by response header from all completed xhr request
-        const csrf_value = xhr.getResponseHeader('X-' + csrf_token_name); // header names are case-insensitive
-        csrf_token_value = csrf_value ? csrf_value : csrf_token_value;
-        // If the meta tag is ever absent, and don't breaks all of scripts.js.
-        // The guard fails soft instead and report on console.
-        if (csrf_meta !== null) {
-            csrf_meta.setAttribute('content', csrf_token_value);
-        } else {
-            console.log('⚠️ The "meta" tag "csrf_token_value" seem missing in layout of:', window.location.href,
-                        'ajaxComplete called by:', settings.url);
+        const tokenName = get_csrf_token_name();
+        const csrf_value = xhr.getResponseHeader('X-' + tokenName);
+        if (csrf_value) {
+            csrf_token_value = csrf_value;
+            if (csrf_meta !== null) {
+                csrf_meta.setAttribute('content', csrf_token_value);
+            } else {
+                console.log('⚠️ The "meta" tag "csrf_token_value" seem missing in layout of:', window.location.href,
+                            'ajaxComplete called by:', settings.url);
+            }
         }
     });
 
