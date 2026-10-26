@@ -15,6 +15,7 @@ use Tests\AbstractTestCase;
 #[\PHPUnit\Framework\Attributes\Test]
 final class LogoRemovalTest extends AbstractTestCase
 {
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_removes_invoice_logo_as_admin(): void
     {
         /* Arrange */
@@ -31,6 +32,7 @@ final class LogoRemovalTest extends AbstractTestCase
         $this->assertIsRedirect($response);
     }
 
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_removes_login_logo_as_admin(): void
     {
         /* Arrange */
@@ -47,6 +49,7 @@ final class LogoRemovalTest extends AbstractTestCase
         $this->assertIsRedirect($response);
     }
 
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_rejects_logo_removal_without_auth(): void
     {
         /* Arrange */
@@ -60,6 +63,7 @@ final class LogoRemovalTest extends AbstractTestCase
         $this->assertEquals(307, $response->status());
     }
 
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_uses_site_url_not_base_url(): void
     {
         /* Arrange */
