@@ -375,6 +375,19 @@ trait InteractsWithDatabase
     {
         $db = $this->db();
 
+        // The stock SQL migrations create MyISAM tables, which ignore transactions: the rollback paths
+        // under test would silently do nothing. Convert once per process.
+        static $converted = false;
+        if ( ! $converted) {
+            $myisam = $db->query(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND engine = 'MyISAM'"
+            )->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($myisam as $table) {
+                $db->exec('ALTER TABLE ' . $this->qi((string) $table) . ' ENGINE=InnoDB');
+            }
+            $converted = true;
+        }
+
         $db->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $db->query(
             'SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()'

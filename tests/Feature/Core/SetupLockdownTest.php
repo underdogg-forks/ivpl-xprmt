@@ -135,7 +135,7 @@ final class SetupLockdownTest extends AbstractTestCase
 
         /* Assert */
         $this->assertResponseStatusCode($response, 403);
-        $this->assertResponseBodyContains($response, 'setup has already been completed');
+        $this->assertResponseBodyContains($response, 'installation has already been completed');
         $this->assertResponseBodyNotContains($response, 'btn_continue');
     }
 

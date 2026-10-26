@@ -32,6 +32,7 @@ class Settings extends Admin_Controller
         $this->load->library('form_validation');
         $this->load->helper('payments_helper');
         $this->load->helper('file_security');
+        $this->load->helper('country');
 
         // Security: Check for SVG logos and display warnings
         $this->check_svg_logos();
@@ -52,6 +53,13 @@ class Settings extends Admin_Controller
             $settings = $this->input->post('settings');
 
             $settings = $this->handleTaxRateDecimalPlaces($settings);
+
+            $invalid_key = $this->find_invalid_setting($settings, $number_formats);
+            if ($invalid_key !== null) {
+                log_message('error', sprintf('Invalid %s value attempted by user %d', sanitize_for_logging($invalid_key), (int) $this->session->userdata('user_id')));
+                $this->session->set_flashdata('alert_error', trans('invalid_value_for_field'));
+                redirect('settings');
+            }
 
             // Build array of all settings to save in a single batch operation
             $batch_settings = [];
@@ -350,6 +358,70 @@ class Settings extends Admin_Controller
      * Check for SVG logos and display security warnings
      * This provides a soft migration path for existing SVG logos.
      */
+    /**
+     * Server-side allowlist for settings that are echoed into HTML/JS contexts or used to build paths.
+     * Returns the first offending key, or null when the whole batch is acceptable.
+     *
+     * @param array $settings
+     * @param array $number_formats
+     */
+    private function find_invalid_setting(array $settings, array $number_formats): ?string
+    {
+        $is_separator = static fn ($v, bool $required): bool => is_string($v)
+            && mb_strlen($v) <= 1
+            && ( ! $required || $v !== '')
+            && preg_match('/^[^<>"\'&\\\\\w]?$/u', $v) === 1;
+
+        foreach (['decimal_point' => true, 'thousands_separator' => false] as $key => $required) {
+            if (array_key_exists($key, $settings) && ! $is_separator($settings[$key], $required)) {
+                return $key;
+            }
+        }
+
+        $decimal   = $settings['decimal_point'] ?? $this->mdl_settings->setting('decimal_point');
+        $thousands = $settings['thousands_separator'] ?? $this->mdl_settings->setting('thousands_separator');
+        if ((array_key_exists('decimal_point', $settings) || array_key_exists('thousands_separator', $settings))
+            && $decimal !== null && $decimal === $thousands) {
+            return 'decimal_point';
+        }
+
+        if (array_key_exists('currency_symbol', $settings)
+            && ( ! is_string($settings['currency_symbol'])
+                || mb_strlen($settings['currency_symbol']) > 4
+                || $settings['currency_symbol'] !== strip_tags($settings['currency_symbol'])
+                || preg_match('/[<>"\'&]/', $settings['currency_symbol']) === 1)) {
+            return 'currency_symbol';
+        }
+
+        if (array_key_exists('date_format', $settings)
+            && ( ! is_string($settings['date_format']) || ! array_key_exists($settings['date_format'], date_formats()))) {
+            return 'date_format';
+        }
+
+        if (array_key_exists('number_format', $settings)
+            && ( ! is_string($settings['number_format']) || ! array_key_exists($settings['number_format'], $number_formats))) {
+            return 'number_format';
+        }
+
+        if (array_key_exists('pdf_watermark', $settings)
+            && ! in_array($settings['pdf_watermark'], ['0', '1'], true)) {
+            return 'pdf_watermark';
+        }
+
+        if (array_key_exists('default_language', $settings)
+            && ( ! is_string($settings['default_language']) || ! in_array($settings['default_language'], get_available_languages(), true))) {
+            return 'default_language';
+        }
+
+        if (array_key_exists('default_country', $settings)
+            && $settings['default_country'] !== ''
+            && ( ! is_string($settings['default_country']) || ! array_key_exists($settings['default_country'], get_country_list('en')))) {
+            return 'default_country';
+        }
+
+        return null;
+    }
+
     private function check_svg_logos()
     {
         $logos_to_check = ['login_logo', 'invoice_logo'];

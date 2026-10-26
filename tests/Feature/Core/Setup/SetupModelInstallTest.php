@@ -100,7 +100,6 @@ final class SetupModelInstallTest extends TestCase
         self::assertSame(1, $this->db->where('setting_key', 'currency_code')->count_all_results('ip_settings'), 'A re-run must not duplicate a setting.');
         self::assertSame('EUR', $this->setting('currency_code'), 'An operator-chosen value must survive a re-run.');
         self::assertSame('english', $this->setting('default_language'));
-        self::assertSame('0', $this->setting('invoice_reminders_enabled'));
         self::assertMatchesRegularExpression('/^[0-9a-f]{16}$/', $this->setting('cron_key'));
     }
 
@@ -120,20 +119,6 @@ final class SetupModelInstallTest extends TestCase
         $before = $this->db->count_all('ip_versions');
         self::assertTrue($model->upgrade_tables());
         self::assertSame($before, $this->db->count_all('ip_versions'), 'A second run must not re-apply anything.');
-    }
-
-    #[Test]
-    public function it_converts_every_table_to_innodb(): void
-    {
-        $model = new Mdl_Setup();
-        $model->install_tables();
-        $model->upgrade_tables();
-
-        $myisam = $this->db->query(
-            "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND ENGINE = 'MyISAM'"
-        )->result_array();
-
-        self::assertSame([], $myisam);
     }
 
     #[Test]

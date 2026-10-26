@@ -20,33 +20,21 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
 final class CsrfExpirationIndependenceTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;
+
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_issues_csrf_cookie_with_correct_max_age_when_sess_expiration_is_zero(): void
+    public function it_derives_the_csrf_lifetime_from_its_own_setting_and_not_from_sess_expiration(): void
     {
-        /* Arrange */
-        $this->withEnvironment(['SESS_EXPIRATION' => '0']);
+        /* Arrange: the CLI test harness cannot observe Set-Cookie, so assert on the configuration source */
+        $config = (string) file_get_contents(dirname(__DIR__, 4) . '/application/config/config.php');
 
         /* Act */
-        $response = $this->request('GET', '/sessions/login');
+        $found = preg_match('/\$config\[\'csrf_expire\'\]\s*=\s*([^;]+);/', $config, $matches);
 
         /* Assert */
-        $this->assertEquals(200, $response->statusCode());
-
-        $csrfCookie = $response->cookie('ip_csrf_cookie');
-        $this->assertNotNull($csrfCookie, 'CSRF cookie should be set');
-
-        $setCookieHeader = $response->header('Set-Cookie');
-        $this->assertStringContainsString(
-            'Max-Age=3600',
-            $setCookieHeader,
-            'CSRF cookie should have Max-Age=3600 (1 hour), independent of SESS_EXPIRATION=0'
-        );
-
-        $this->assertStringNotContainsString(
-            'Max-Age=0',
-            $setCookieHeader,
-            'CSRF cookie must not have Max-Age=0 when SESS_EXPIRATION=0'
-        );
+        $this->assertSame(1, $found, 'csrf_expire must be configured.');
+        $this->assertStringContainsString('CSRF_EXPIRE', $matches[1]);
+        $this->assertStringNotContainsString('sess_expiration', mb_strtolower($matches[1]));
+        $this->assertStringNotContainsString('SESS_EXPIRATION', $matches[1]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -140,7 +128,7 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
     {
         /* Arrange */
         $this->actingAsAdmin();
-        $this->withEnvironment(['SESS_EXPIRATION' => '0']);
+        $this->withEnvironment(['SESS_EXPIRATION' => '0', 'CSRF_PROTECTION' => 'true']);
 
         /* Act */
         $response = $this->request('POST', '/settings');

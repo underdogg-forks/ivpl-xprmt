@@ -615,6 +615,7 @@ class SettingsControllerTest extends AbstractTestCase
         /* Arrange */
         $this->setSetting('login_logo', 'login-logo.png');
         $this->setSetting('invoice_logo', 'invoice-logo.png');
+        $this->withEnvironment(['REMOVE_INDEXPHP' => 'true']);
 
         /* Act */
         $response = $this->get('/settings');
