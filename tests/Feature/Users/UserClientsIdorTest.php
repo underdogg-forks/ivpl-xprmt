@@ -53,6 +53,47 @@ final class UserClientsIdorTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_denies_a_secondary_admin_saving_a_client_for_another_user_through_the_users_ajax_endpoint(): void
+    {
+        /* Arrange: GHSA-5rqm-w9p8-gp7w -- Users/Ajax::save_user_client() must apply the same self-or-primary-admin rule */
+        $secondaryId = $this->seedAdmin();
+        $victimId    = $this->seedAdmin();
+        $clientId    = $this->seedClient();
+        $this->actingAsAdmin($secondaryId);
+
+        /* Act */
+        $response = $this->request('POST', '/users/ajax/save_user_client', [], [
+            'user_id'   => (string) $victimId,
+            'client_id' => (string) $clientId,
+            '_ip_csrf'  => $this->csrfToken,
+        ], true, ['ip_csrf_cookie' => $this->csrfToken]);
+
+        /* Assert */
+        self::assertSame(403, $response->statusCode(), 'Body: ' . $response->body());
+        $this->assertDatabaseMissing('ip_user_clients', ['user_id' => $victimId]);
+    }
+
+    #[Test]
+    public function it_allows_an_admin_to_save_a_client_for_their_own_account_through_the_users_ajax_endpoint(): void
+    {
+        /* Arrange: positive control */
+        $secondaryId = $this->seedAdmin();
+        $clientId    = $this->seedClient();
+        $this->actingAsAdmin($secondaryId);
+
+        /* Act */
+        $response = $this->request('POST', '/users/ajax/save_user_client', [], [
+            'user_id'   => (string) $secondaryId,
+            'client_id' => (string) $clientId,
+            '_ip_csrf'  => $this->csrfToken,
+        ], true, ['ip_csrf_cookie' => $this->csrfToken]);
+
+        /* Assert */
+        self::assertNotSame(403, $response->statusCode(), 'Body: ' . $response->body());
+        $this->assertDatabaseHas('ip_user_clients', ['user_id' => $secondaryId, 'client_id' => $clientId]);
+    }
+
+    #[Test]
     public function it_still_collects_clients_in_the_session_while_a_new_user_has_no_id_yet(): void
     {
         /* Arrange: the new-user form has no user_id, so the integer guard must not apply to it */
