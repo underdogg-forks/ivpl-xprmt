@@ -104,6 +104,13 @@ php -r 'require "tests/Support/ClassCoverageInventory.php"; $r = getcwd();
   - when editing an existing test, re-read the whole method afterward, not just the diff —
     delete or rewrite any comment that still describes the behavior you just replaced. A stale
     comment claiming the test does less than it now does is worse than no comment at all.
+  - **No hollow tests**: A test that checks "is a redirect" + "not a 404" without verifying the
+    destination or state change is hollow — it passes even if the endpoint does nothing. Every
+    test must verify the *right* thing happened:
+    - **Arrange**: seed/set preconditions (logo exists, user is authorized, CSRF token valid)
+    - **Act**: perform the operation
+    - **Assert**: verify specific outcomes (state changed in DB, file deleted, correct redirect,
+      success message present). Do not skip the state-change assertion.
 - Every test method has explicit `/* Arrange */` / `/* Act */` / `/* Assert */` sections (or
   `/* Arrange: ... */`-style inline documentation on each). A test without them is not valid,
   full stop — not even for a one-line test.
