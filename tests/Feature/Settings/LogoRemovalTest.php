@@ -62,7 +62,10 @@ final class LogoRemovalTest extends AbstractTestCase
     public function it_rejects_logo_removal_without_auth(): void
     {
         /* Arrange */
-        // Not authenticated
+        $this->databaseInsert('ip_settings', [
+            'setting_key' => 'invoice_logo',
+            'setting_value' => 'test_invoice_logo.png',
+        ]);
 
         /* Act */
         $response = $this->request('POST', '/settings/remove_logo/invoice');
@@ -70,6 +73,10 @@ final class LogoRemovalTest extends AbstractTestCase
         /* Assert */
         $this->assertEquals(307, $response->status());
         $this->assertStringContainsString('/sessions/login', $response->header('Location'));
+        $this->assertDatabaseHas('ip_settings', [
+            'setting_key' => 'invoice_logo',
+            'setting_value' => 'test_invoice_logo.png',
+        ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -117,8 +124,20 @@ final class LogoRemovalTest extends AbstractTestCase
             'setting_value' => 'logo.png',
         ]);
 
-        /* Act */
-        $response = $this->postWithValidCsrfToken('/settings/remove_logo/invoice');
+        /* Act: Render settings page and extract the removal URL from button */
+        $this->withEnvironment(['REMOVE_INDEXPHP' => 'false']);
+        $settingsResponse = $this->request('GET', '/settings');
+        $this->assertEquals(200, $settingsResponse->status());
+
+        preg_match(
+            '/formaction="([^"]*settings\/remove_logo\/invoice[^"]*)"/',
+            $settingsResponse->body(),
+            $matches
+        );
+        $this->assertNotEmpty($matches, 'Could not find remove_logo button in settings page');
+        $removalUrl = $matches[1];
+
+        $response = $this->postWithValidCsrfToken($removalUrl);
 
         /* Assert */
         $this->assertEquals(302, $response->status());
@@ -126,5 +145,13 @@ final class LogoRemovalTest extends AbstractTestCase
             'setting_key' => 'invoice_logo',
             'setting_value' => '',
         ]);
+
+        /* Also test direct route access works */
+        $this->databaseInsert('ip_settings', [
+            'setting_key' => 'invoice_logo',
+            'setting_value' => 'logo2.png',
+        ]);
+        $directResponse = $this->postWithValidCsrfToken('/settings/remove_logo/invoice');
+        $this->assertEquals(302, $directResponse->status());
     }
 }
