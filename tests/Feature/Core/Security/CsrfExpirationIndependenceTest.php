@@ -35,16 +35,16 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
         $this->assertNotNull($csrfCookie, 'CSRF cookie should be set');
 
         $setCookieHeader = $response->header('Set-Cookie');
+        $this->assertStringContainsString(
+            'Max-Age=3600',
+            $setCookieHeader,
+            'CSRF cookie should have Max-Age=3600 (1 hour), independent of SESS_EXPIRATION=0'
+        );
+
         $this->assertStringNotContainsString(
             'Max-Age=0',
             $setCookieHeader,
-            'CSRF cookie should not have Max-Age=0 when SESS_EXPIRATION=0'
-        );
-
-        $this->assertStringContainsString(
-            'Max-Age=',
-            $setCookieHeader,
-            'CSRF cookie should have a positive Max-Age value'
+            'CSRF cookie must not have Max-Age=0 when SESS_EXPIRATION=0'
         );
     }
 
@@ -73,10 +73,10 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
         ]);
 
         /* Assert */
-        $this->assertNotEquals(
-            403,
+        $this->assertIn(
             $response->status(),
-            'Login should not be rejected with 403 CSRF error when SESS_EXPIRATION=0'
+            [200, 302, 303],
+            'Login should succeed (200/302/303 redirect) when SESS_EXPIRATION=0, not 403 CSRF error'
         );
     }
 
@@ -91,10 +91,10 @@ final class CsrfExpirationIndependenceTest extends AbstractTestCase
         $response = $this->postWithValidCsrfToken('/settings');
 
         /* Assert */
-        $this->assertNotEquals(
-            403,
+        $this->assertIn(
             $response->status(),
-            'POST with valid CSRF token should succeed even when SESS_EXPIRATION=0'
+            [200, 302, 303, 307],
+            'POST with valid CSRF token should succeed (200/302/303/307) when SESS_EXPIRATION=0, not 403'
         );
     }
 
