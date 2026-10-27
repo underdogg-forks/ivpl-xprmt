@@ -47,9 +47,9 @@ final class Php82CompatibilityTest extends TestCase
 
             $ast = $parser->parse((string) file_get_contents($file->getPathname())) ?? [];
             foreach ($finder->find($ast, static fn (Node $n): bool => $n instanceof FuncCall && $n->name instanceof Node\Name) as $call) {
-                $name = mb_strtolower($call->name->toString());
+                $name = strtolower($call->name->toString());
                 if (in_array($name, self::AFTER_PHP_82, true)) {
-                    $found[] = mb_substr($file->getPathname(), mb_strlen($root) + 1) . ':' . $call->getStartLine() . ' ' . $name . '()';
+                    $found[] = substr($file->getPathname(), strlen($root) + 1) . ':' . $call->getStartLine() . ' ' . $name . '()';
                 }
             }
         }
