@@ -41,6 +41,6 @@ final class GatewayMissingUrlSegmentTest extends AbstractTestCase
         $response = $this->request($method, $uri);
 
         /* Assert */
-        self::assertSame(404, $response->statusCode(), 'Body: ' . mb_substr($response->body(), 0, 300));
+        self::assertSame(404, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
     }
 }
