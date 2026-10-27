@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Security;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -336,6 +337,43 @@ class SecurityHelperTest extends TestCase
     /**
      * @param list<string> $excludeUris
      */
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function nearMissReferers(): array
+    {
+        return [
+            'same host, http'       => ['http://invoiceplane.example/invoices'],
+            'same host, other port' => ['https://invoiceplane.example:8443/invoices'],
+            'host as a suffix'      => ['https://invoiceplane.example.evil.test/x'],
+            'control character'     => ["https://invoiceplane.example/a\x01b"],
+            'line feed'             => ["https://invoiceplane.example/a\nb"],
+            'delete character'      => ["https://invoiceplane.example/a\x7Fb"],
+            'markup'                => ['https://invoiceplane.example/a<script>'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('nearMissReferers')]
+    public function it_replaces_a_near_miss_referer_with_the_safe_default(string $referer): void
+    {
+        /* Act */
+        $result = get_safe_referer($referer, 'sessions/login');
+
+        /* Assert: scheme, port and characters are checked, not only the host */
+        self::assertSame('sessions/login', $result);
+    }
+
+    #[Test]
+    public function it_keeps_a_same_origin_referer_with_a_query_string(): void
+    {
+        /* Arrange: positive control for the near misses above */
+        $referer = 'https://invoiceplane.example/invoices/index?page=2';
+
+        /* Act and assert */
+        self::assertSame($referer, get_safe_referer($referer, 'sessions/login'));
+    }
+
     private function setRequestUri(string $uriString, array $excludeUris): void
     {
         $GLOBALS['unitCiConfig']['csrf_exclude_uris'] = $excludeUris;
