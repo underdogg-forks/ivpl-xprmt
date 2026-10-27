@@ -18,7 +18,7 @@ use Stripe\StripeClient;
 #[AllowDynamicProperties]
 class Stripe extends Base_Controller
 {
-    protected StripeClient $stripe;
+    protected ?StripeClient $stripe = null;
 
     protected $Mdl_settings;
 
@@ -30,7 +30,7 @@ class Stripe extends Base_Controller
         $this->load->helper('file_security');
         $this->load->helper(['currency', 'stripe']);
 
-        $this->stripe = new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
+        $this->useTestHttpClientIfConfigured();
     }
 
     /**
@@ -41,7 +41,7 @@ class Stripe extends Base_Controller
      *
      * @return json the client secret in a json format
      */
-    public function create_checkout_session($invoice_url_key)
+    public function create_checkout_session($invoice_url_key = null)
     {
         // Require POST request to prevent CSRF attacks
         if ($this->input->method() !== 'post') {
@@ -52,7 +52,7 @@ class Stripe extends Base_Controller
 
         // Security: Verify the invoice exists and is guest-visible
         if ( ! $invoice) {
-            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted checkout session creation for non-public or non-existent invoice with key: ' . sanitize_for_logging($invoice_url_key));
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted checkout session creation for non-public or non-existent invoice with key: ' . sanitize_for_logging((string) $invoice_url_key));
             show_404();
         }
 
@@ -63,7 +63,7 @@ class Stripe extends Base_Controller
             redirect(site_url('guest/view/invoice/' . $invoice->invoice_url_key));
         }
 
-        $checkout_session = $this->stripe->checkout->sessions->create([
+        $checkout_session = $this->stripeClient()->checkout->sessions->create([
             'mode'                => 'payment',
             'ui_mode'             => 'embedded',
             'return_url'          => site_url('guest/gateways/stripe/callback/{CHECKOUT_SESSION_ID}'),
@@ -112,7 +112,7 @@ class Stripe extends Base_Controller
 
         try {
             // Retrieve the Checkout Session from Stripe
-            $session = $this->stripe->checkout->sessions->retrieve($checkout_session_id);
+            $session = $this->stripeClient()->checkout->sessions->retrieve($checkout_session_id);
 
             // Debug logging
             log_message('debug', __CLASS__ . '::' . __FUNCTION__ . ' reached, status: ' . $session->status . ' payment_status: ' . $session->payment_status . ', checkout_session_id: ' . sanitize_for_logging($checkout_session_id));
@@ -239,6 +239,34 @@ class Stripe extends Base_Controller
             $this->session->set_flashdata('alert_' . $paid, $user_msg);
             // Attempt to redirect them to the invoice. invoice_url_key? No, return to invoices view
             redirect('guest/view/invoice' . (empty($invoice->invoice_url_key ?? null) ? 's' : '/' . $invoice->invoice_url_key));
+        }
+    }
+
+    /**
+     * In the testing environment only, replay a queue of canned HTTP responses instead of calling the real Stripe
+     * API. The queue is a JSON array of ['status' => int, 'body' => string] entries in the STRIPE_MOCK_RESPONSES
+     * environment variable, consumed in the order the Stripe SDK calls out.
+     */
+    /**
+     * The Stripe SDK client, built on first use: constructing it throws when no API key is configured, which
+     * must not turn a request that is rejected before any Stripe call into a 500.
+     */
+    protected function stripeClient(): StripeClient
+    {
+        return $this->stripe ??= new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
+    }
+
+    private function useTestHttpClientIfConfigured(): void
+    {
+        if ((defined('ENVIRONMENT') ? ENVIRONMENT : '') !== 'testing' && ! defined('CI_TESTING')) {
+            return;
+        }
+
+        $fixture = getenv('STRIPE_MOCK_RESPONSES');
+        $queue   = $fixture === false || $fixture === '' ? null : json_decode($fixture, true);
+
+        if (is_array($queue) && class_exists(\Tests\Fakes\Payments\FakeStripeHttpClient::class)) {
+            \Stripe\ApiRequestor::setHttpClient(new \Tests\Fakes\Payments\FakeStripeHttpClient($queue));
         }
     }
 }
