@@ -113,30 +113,18 @@ class Ajax extends Admin_Controller
         $user_id   = $this->input->post('user_id');
         $client_id = $this->input->post('client_id');
 
-        // Object-level authorization: only the primary administrator may assign
-        // clients to other users. A peer administrator is limited to their own
-        // account (CWE-862 / CWE-269).
-        if ( ! empty($user_id)) {
-            // Only a plain integer id may pass: "2.9" is authorised as user 2 by the (int) cast below,
-            // but the INT column it is stored in rounds it to user 3.
-            if ( ! ctype_digit((string) $user_id)) {
-                show_error(trans('access_denied'), 403);
+        $this->load->model('user_clients/mdl_user_clients');
 
-                return;
-            }
+        // Object-level authorization (CWE-639 / CWE-862): the primary administrator may assign clients to anyone,
+        // everybody else only to their own account. Empty means a user that is still being created, whose
+        // assignments are collected in the session until the user is saved.
+        if ( ! empty($user_id) && ! $this->mdl_user_clients->can_manage_user_clients($user_id)) {
+            show_error(trans('access_denied'), 403);
 
-            $current_user_id = (int) $this->session->userdata('user_id');
-            $target_user_id  = (int) $user_id;
-
-            if ($target_user_id !== $current_user_id && ! Mdl_Users::is_primary_administrator($current_user_id)) {
-                show_error(trans('access_denied'), 403);
-
-                return;
-            }
+            return;
         }
 
         $this->load->model('clients/mdl_clients');
-        $this->load->model('user_clients/mdl_user_clients');
 
         $client = $this->mdl_clients->get_by_id($client_id);
         if ($client) {
@@ -162,8 +150,38 @@ class Ajax extends Admin_Controller
         }
     }
 
+    /**
+     * Whether the request names an existing user (a non-empty id) that the acting user may not manage. An empty id is a
+     * user that is still being created, whose assignments live in the session; a non-empty id is always authorised,
+     * before it is used to choose between the session and the stored assignments (CWE-639 / CWE-862).
+     *
+     * @param mixed $user_id
+     */
+    private function denies_user_client_access($user_id): bool
+    {
+        if ($user_id === null || $user_id === '') {
+            return false;
+        }
+
+        $this->load->model('user_clients/mdl_user_clients');
+
+        if ($this->mdl_user_clients->can_manage_user_clients($user_id)) {
+            return false;
+        }
+
+        show_error(trans('access_denied'), 403);
+
+        return true;
+    }
+
     public function load_user_client_table()
     {
+        $user_id = $this->input->post('user_id');
+
+        if ($this->denies_user_client_access($user_id)) {
+            return;
+        }
+
         $session_user_clients = $this->session->userdata('user_clients');
 
         if ($session_user_clients) {
@@ -173,12 +191,15 @@ class Ajax extends Admin_Controller
                 'id'           => null,
                 'user_clients' => $this->mdl_clients->where_in('ip_clients.client_id', $session_user_clients)->get()->result(),
             ];
+        } elseif ($user_id === null || $user_id === '') {
+            // A user that is still being created and has nothing staged yet; there is nothing to read.
+            $data = ['id' => null, 'user_clients' => []];
         } else {
             $this->load->model('user_clients/mdl_user_clients');
 
             $data = [
-                'id'           => $this->input->post('user_id'),
-                'user_clients' => $this->mdl_user_clients->where('ip_user_clients.user_id', $this->input->post('user_id'))->get()->result(),
+                'id'           => (int) $user_id,
+                'user_clients' => $this->mdl_user_clients->where('ip_user_clients.user_id', (int) $user_id)->get()->result(),
             ];
         }
 
@@ -187,15 +208,25 @@ class Ajax extends Admin_Controller
 
     public function modal_add_user_client($user_id = null)
     {
+        if ($this->denies_user_client_access($user_id)) {
+            return;
+        }
+
         $this->load->model('clients/mdl_clients');
 
         if ($session_user_clients = $this->session->userdata('user_clients')) {
             $clients          = $this->mdl_clients->where_not_in('ip_clients.client_id', $session_user_clients)->get()->result();
             $assigned_clients = [];
         } else {
-            $this->load->model('user_clients/mdl_user_clients');
-            $assigned_clients_query = $this->mdl_user_clients->where('ip_user_clients.user_id', $user_id)->get()->result();
-            $assigned_clients       = [];
+            $assigned_clients_query = [];
+
+            // No user id: a user that is still being created and has nothing staged yet; offer every client.
+            if ($user_id !== null && $user_id !== '') {
+                $this->load->model('user_clients/mdl_user_clients');
+                $assigned_clients_query = $this->mdl_user_clients->where('ip_user_clients.user_id', (int) $user_id)->get()->result();
+            }
+
+            $assigned_clients = [];
 
             foreach ($assigned_clients_query as $assigned_client) {
                 $assigned_clients[] = (int) $assigned_client->client_id;

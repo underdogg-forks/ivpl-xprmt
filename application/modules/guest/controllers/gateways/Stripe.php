@@ -44,7 +44,7 @@ class Stripe extends Base_Controller
     public function create_checkout_session($invoice_url_key = null)
     {
         // Require POST request to prevent CSRF attacks
-        if ($this->input->method() !== 'post') {
+        if ($this->input->method() !== 'post' || $invoice_url_key === null) {
             show_404();
         }
 
@@ -93,8 +93,12 @@ class Stripe extends Base_Controller
      *
      * @return void
      */
-    public function callback(string $checkout_session_id)
+    public function callback(?string $checkout_session_id = null)
     {
+        if ($checkout_session_id === null) {
+            show_404();
+        }
+
         // A Checkout Session id is "cs_" + alphanumerics. Reject anything else before it costs a Stripe API call.
         if ( ! preg_match('/^cs_[A-Za-z0-9_]{8,250}$/', $checkout_session_id)) {
             log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected malformed checkout session id: ' . sanitize_for_logging($checkout_session_id));
@@ -243,11 +247,6 @@ class Stripe extends Base_Controller
     }
 
     /**
-     * In the testing environment only, replay a queue of canned HTTP responses instead of calling the real Stripe
-     * API. The queue is a JSON array of ['status' => int, 'body' => string] entries in the STRIPE_MOCK_RESPONSES
-     * environment variable, consumed in the order the Stripe SDK calls out.
-     */
-    /**
      * The Stripe SDK client, built on first use: constructing it throws when no API key is configured, which
      * must not turn a request that is rejected before any Stripe call into a 500.
      */
@@ -256,6 +255,11 @@ class Stripe extends Base_Controller
         return $this->stripe ??= new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
     }
 
+    /**
+     * In the testing environment only, replay a queue of canned HTTP responses instead of calling the real Stripe
+     * API. The queue is a JSON array of ['status' => int, 'body' => string] entries in the STRIPE_MOCK_RESPONSES
+     * environment variable, consumed in the order the Stripe SDK calls out.
+     */
     private function useTestHttpClientIfConfigured(): void
     {
         if ((defined('ENVIRONMENT') ? ENVIRONMENT : '') !== 'testing' && ! defined('CI_TESTING')) {

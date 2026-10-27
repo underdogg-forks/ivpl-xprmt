@@ -36,7 +36,7 @@ class Paypal extends Base_Controller
     public function paypal_create_order($invoice_url_key = null)
     {
         // Require POST request to prevent CSRF attacks
-        if ($this->input->method() !== 'post') {
+        if ($this->input->method() !== 'post' || $invoice_url_key === null) {
             show_404();
         }
 
