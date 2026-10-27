@@ -568,6 +568,7 @@ $lang = [
     'run_report'                                    => 'Run Report',
     'svg_logo_blocked_security'                     => 'SVG logo files are blocked for security reasons. Please remove this logo and upload a PNG, JPG, or GIF file instead.',
     'svg_upload_blocked_security'                   => 'SVG file upload blocked for security reasons. Please upload a PNG, JPG, or GIF file instead.',
+    'cc_bcc_own_domain_only'                        => 'CC and BCC addresses must belong to your own domain.',
     'security_warning'                              => 'Security Warning',
     'setup_completed_flag_false'                    => 'SETUP_COMPLETED is set to false',
     'disable_setup_flag_false'                      => 'DISABLE_SETUP is set to false',
@@ -859,7 +860,7 @@ $lang = [
     'user_iban'                                => 'IBAN',
     'user_subscriber_number'                   => 'Subscriber Number',
 
-    // Clients/Enums/ClientTitleEnum
+    // libraries/ClientTitleEnum
     'mr'        => 'mr',
     'mrs'       => 'mrs',
     'doctor'    => 'doctor',

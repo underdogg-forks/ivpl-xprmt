@@ -128,6 +128,45 @@ class ClientsControllerTest extends AbstractTestCase
         $this->assertDatabaseMissing('ip_clients', ['client_name' => 'Original Client']);
     }
 
+    #[Test]
+    public function it_saves_an_existing_client_whose_email_is_a_comma_separated_list(): void
+    {
+        /* Arrange: the mailer accepts "a@x, b@x" for the client address, and records saved before the
+         * valid_email rule (1e74c032) hold such lists */
+        $emails = 'billing@example.test, owner@example.test';
+        $id     = $this->seedClient(['client_name' => 'Two Mailboxes Ltd', 'client_email' => $emails]);
+
+        /* Act: re-save the unchanged record, as the edit form does */
+        $response = $this->post('/clients/form/' . $id, [
+            'client_name'  => 'Two Mailboxes Ltd',
+            'client_email' => $emails,
+            'is_update'    => '1',
+            'btn_submit'   => '1',
+        ]);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect(), 'A client with a comma separated email list must still save.');
+        $this->assertDatabaseHas('ip_clients', ['client_id' => $id, 'client_email' => $emails]);
+    }
+
+    #[Test]
+    public function it_still_refuses_markup_hidden_in_a_comma_separated_email_list(): void
+    {
+        /* Arrange */
+        $id = $this->seedClient(['client_name' => 'Safe Client', 'client_email' => 'safe@example.test']);
+
+        /* Act: one valid address does not excuse a second, hostile one */
+        $this->post('/clients/form/' . $id, [
+            'client_name'  => 'Safe Client',
+            'client_email' => 'ok@example.test, "><script>alert(1)</script>@example.test',
+            'is_update'    => '1',
+            'btn_submit'   => '1',
+        ]);
+
+        /* Assert */
+        $this->assertDatabaseHas('ip_clients', ['client_id' => $id, 'client_email' => 'safe@example.test']);
+    }
+
     // -------------------------------------------------------------------------
     // Update — validation (one omitted required field per test)
     // -------------------------------------------------------------------------
