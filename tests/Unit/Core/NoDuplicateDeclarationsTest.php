@@ -34,7 +34,7 @@ final class NoDuplicateDeclarationsTest extends TestCase
             foreach ((new NodeFinder())->findInstanceOf($ast, Class_::class) as $class) {
                 $seen = [];
                 foreach ($class->getMethods() as $method) {
-                    $name = mb_strtolower($method->name->toString());
+                    $name = strtolower($method->name->toString());
                     if (isset($seen[$name])) {
                         $duplicates[] = $file . ': ' . ($class->name?->toString() ?? 'anonymous') . '::' . $method->name->toString() . '() on lines ' . $seen[$name] . ' and ' . $method->getStartLine();
                     }
@@ -60,11 +60,11 @@ final class NoDuplicateDeclarationsTest extends TestCase
             $finder = new NodeFinder();
             foreach ($finder->findInstanceOf($ast, Class_::class) as $class) {
                 if ($class->name !== null) {
-                    $declaredIn['class ' . mb_strtolower($class->name->toString())][] = $file;
+                    $declaredIn['class ' . strtolower($class->name->toString())][] = $file;
                 }
             }
             foreach ($finder->findInstanceOf($ast, Function_::class) as $function) {
-                $declaredIn['function ' . mb_strtolower($function->name->toString())][] = $file;
+                $declaredIn['function ' . strtolower($function->name->toString())][] = $file;
             }
         }
 
@@ -90,7 +90,7 @@ final class NoDuplicateDeclarationsTest extends TestCase
 
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS)) as $file) {
             if ($file->getExtension() === 'php') {
-                yield ['file' => mb_substr($file->getPathname(), mb_strlen($root) + 1), 'ast' => $parser->parse((string) file_get_contents($file->getPathname())) ?? []];
+                yield ['file' => substr($file->getPathname(), strlen($root) + 1), 'ast' => $parser->parse((string) file_get_contents($file->getPathname())) ?? []];
             }
         }
     }
