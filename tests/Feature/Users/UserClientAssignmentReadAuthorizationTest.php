@@ -122,6 +122,23 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         self::assertSame(403, $response->statusCode());
     }
 
+    #[Test]
+    public function it_opens_the_new_user_client_modal_before_any_assignment_is_staged(): void
+    {
+        /* Arrange: Users::form requests the modal without a user id while a user is being created */
+        $this->actingAsAdmin($this->seedAdmin());
+        $this->seedClient(['client_name' => self::SECRET_CLIENT]);
+
+        /* Act */
+        $modal = $this->ajax('GET', '/users/ajax/modal_add_user_client');
+        $table = $this->ajax('POST', '/users/ajax/load_user_client_table', ['user_id' => '']);
+
+        /* Assert: nothing stored is read, the modal offers the clients to choose from */
+        self::assertSame(200, $modal->statusCode(), 'Body: ' . mb_substr($modal->body(), 0, 300));
+        $this->assertResponseBodyContains($modal, self::SECRET_CLIENT);
+        self::assertSame(200, $table->statusCode(), 'Body: ' . mb_substr($table->body(), 0, 300));
+    }
+
     /**
      * @return array{0: int, 1: int}
      */
