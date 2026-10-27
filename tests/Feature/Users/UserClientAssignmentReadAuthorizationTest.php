@@ -12,9 +12,9 @@ use Tests\Integration\Support\HttpResponse;
  * GHSA-5rqm-w9p8-gp7w (completion) and GHSA-ppgp-rvmx-2wp5: the rule "the primary administrator may read or change
  * anyone's client assignments, everybody else only their own" (Mdl_user_clients::can_manage_user_clients) was applied
  * to the endpoints that change assignments but not to the ones that list them. A secondary administrator could read
- * the assignments of the primary administrator or a peer through three endpoints:
+ * the assignments of the primary administrator or a peer through these endpoints (a fourth, users/ajax/load_user_client_table,
+ * was dead code and has been removed):
  *
- *  - POST users/ajax/load_user_client_table  (assigned clients of the posted user_id)
  *  - GET  users/ajax/modal_add_user_client/<user_id>  (the complement: clients not yet assigned)
  *  - GET  user_clients/user/<user_id>  (the assignment page itself)
  *
@@ -33,7 +33,6 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
     public static function endpoints(): array
     {
         return [
-            'load_user_client_table' => ['table'],
             'modal_add_user_client'  => ['modal'],
             'user_clients/user page' => ['page'],
         ];
@@ -45,7 +44,6 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
     public static function sessionBackedEndpoints(): array
     {
         return [
-            'load_user_client_table' => ['table'],
             'modal_add_user_client'  => ['modal'],
         ];
     }
@@ -135,8 +133,11 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         /* Act */
         $response = $this->read($endpoint, '1.5');
 
-        /* Assert: "1.5" is authorised as user 1 by an (int) cast but would be stored and queried as 2 */
-        self::assertSame(403, $response->statusCode());
+        /* Assert: "1.5" is authorised as user 1 by an (int) cast but would be stored and queried as 2. The assignment
+         * page redirects an id that matches no user before the authorisation, the others answer 403; nothing is served. */
+        self::assertContains($response->statusCode(), [403, 307]);
+        self::assertFalse($response->statusCode() === 200, 'A non-integer user id must never be served.');
+        $this->assertResponseBodyNotContains($response, self::SECRET_CLIENT);
     }
 
     #[Test]
@@ -148,12 +149,10 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
 
         /* Act */
         $modal = $this->ajax('GET', '/users/ajax/modal_add_user_client');
-        $table = $this->ajax('POST', '/users/ajax/load_user_client_table', ['user_id' => '']);
 
         /* Assert: nothing stored is read, the modal offers the clients to choose from */
         self::assertSame(200, $modal->statusCode(), 'Body: ' . substr($modal->body(), 0, 300));
         $this->assertResponseBodyContains($modal, self::SECRET_CLIENT);
-        self::assertSame(200, $table->statusCode(), 'Body: ' . substr($table->body(), 0, 300));
     }
 
     #[Test]
@@ -175,6 +174,34 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
     /**
      * @return array{0: int, 1: int}
      */
+    #[Test]
+    public function it_no_longer_routes_the_removed_load_user_client_table_endpoint(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+
+        /* Act */
+        $response = $this->ajax('POST', '/users/ajax/load_user_client_table', ['user_id' => '1']);
+
+        /* Assert: the endpoint listed assignments and rendered a view that no longer exists */
+        self::assertSame(404, $response->statusCode());
+    }
+
+    #[Test]
+    public function it_does_not_reference_the_removed_endpoint_from_the_modal(): void
+    {
+        /* Arrange */
+        $this->actingAsAdmin();
+
+        /* Act */
+        $response = $this->ajax('GET', '/users/ajax/modal_add_user_client/1');
+
+        /* Assert: the modal only posts the assignment; the reload target #div_user_client_table does not exist */
+        self::assertSame(200, $response->statusCode());
+        $this->assertResponseBodyNotContains($response, 'load_user_client_table');
+        $this->assertResponseBodyNotContains($response, 'div_user_client_table');
+    }
+
     private function victimWithOneClient(): array
     {
         $userId   = $this->seedAdmin();
@@ -187,7 +214,6 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
     private function read(string $endpoint, string $userId): HttpResponse
     {
         return match ($endpoint) {
-            'table' => $this->ajax('POST', '/users/ajax/load_user_client_table', ['user_id' => $userId]),
             'modal' => $this->ajax('GET', '/users/ajax/modal_add_user_client/' . $userId),
             'page'  => $this->get('/user_clients/user/' . $userId),
         };
