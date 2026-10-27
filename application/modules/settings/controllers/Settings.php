@@ -368,7 +368,7 @@ class Settings extends Admin_Controller
     private function find_invalid_setting(array $settings, array $number_formats): ?string
     {
         $is_separator = static fn ($v, bool $required): bool => is_string($v)
-            && mb_strlen($v) <= 1
+            && preg_match('/^.?\z/su', $v) === 1
             && ( ! $required || $v !== '')
             && preg_match('/^[^<>"\'&\\\\\w]?$/u', $v) === 1;
 
@@ -387,7 +387,7 @@ class Settings extends Admin_Controller
 
         if (array_key_exists('currency_symbol', $settings)
             && ( ! is_string($settings['currency_symbol'])
-                || mb_strlen($settings['currency_symbol']) > 4
+                || preg_match('/^.{0,4}\z/su', $settings['currency_symbol']) !== 1
                 || $settings['currency_symbol'] !== strip_tags($settings['currency_symbol'])
                 || preg_match('/[<>"\'&]/', $settings['currency_symbol']) === 1)) {
             return 'currency_symbol';

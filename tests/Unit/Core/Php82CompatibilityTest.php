@@ -33,23 +33,19 @@ final class Php82CompatibilityTest extends TestCase
     #[Test]
     public function it_calls_no_function_that_only_exists_after_php_82(): void
     {
-        /* Arrange */
+        /* Arrange: every place PHP is executed, not only application/ (the entry point and the CI scripts ran 8.4-only calls) */
         $parser = (new ParserFactory())->createForHostVersion();
         $finder = new NodeFinder();
-        $root   = dirname(__DIR__, 3) . '/application';
+        $root   = dirname(__DIR__, 3);
         $found  = [];
 
         /* Act */
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS)) as $file) {
-            if ($file->getExtension() !== 'php') {
-                continue;
-            }
-
-            $ast = $parser->parse((string) file_get_contents($file->getPathname())) ?? [];
+        foreach ($this->phpFiles($root) as $path) {
+            $ast = $parser->parse((string) file_get_contents($path)) ?? [];
             foreach ($finder->find($ast, static fn (Node $n): bool => $n instanceof FuncCall && $n->name instanceof Node\Name) as $call) {
                 $name = strtolower($call->name->toString());
                 if (in_array($name, self::AFTER_PHP_82, true)) {
-                    $found[] = substr($file->getPathname(), strlen($root) + 1) . ':' . $call->getStartLine() . ' ' . $name . '()';
+                    $found[] = substr($path, strlen($root) + 1) . ':' . $call->getStartLine() . ' ' . $name . '()';
                 }
             }
         }
@@ -57,5 +53,27 @@ final class Php82CompatibilityTest extends TestCase
         /* Assert */
         sort($found);
         self::assertSame([], $found, "These calls need PHP 8.3/8.4 but the supported baseline is PHP 8.2:\n" . implode("\n", $found));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function phpFiles(string $root): array
+    {
+        $files = glob($root . '/*.php') ?: [];
+
+        foreach (['application', 'bootstrap', 'public', '.github/scripts', 'tests'] as $directory) {
+            if ( ! is_dir($root . '/' . $directory)) {
+                continue;
+            }
+
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $directory, RecursiveDirectoryIterator::SKIP_DOTS)) as $file) {
+                if ($file->getExtension() === 'php') {
+                    $files[] = $file->getPathname();
+                }
+            }
+        }
+
+        return $files;
     }
 }
