@@ -203,7 +203,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         $invoiceId = $this->seedInvoice($clientId, ['invoice_number' => 'SAVE-REQ-004']);
         $payload   = $this->validSavePayload($invoiceId);
 
-        $payload['invoice_number'] = 'INV<script>alert(1)</script>';
+        $payload['invoice_number'] = 'INV" onmouseover="x';
 
         /* Act */
         $response = $this->ajax('POST', '/invoices/ajax/save', $payload);
@@ -212,6 +212,39 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         $json = json_decode($response->body(), true);
         self::assertSame(0, $json['success'] ?? null);
         $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'SAVE-REQ-004']);
+    }
+
+    #[Test]
+    public function it_saves_an_invoice_when_the_edit_form_posts_no_creation_time(): void
+    {
+        /* Arrange: only the create modals post invoice_time_created; the edit page does not */
+        $clientId  = $this->seedClient();
+        $invoiceId = $this->seedInvoice($clientId, ['invoice_number' => 'SAVE-NOTIME-001']);
+        $payload   = $this->validSavePayload($invoiceId);
+        unset($payload['invoice_time_created']);
+
+        /* Act */
+        $response = $this->ajax('POST', '/invoices/ajax/save', $payload);
+
+        /* Assert */
+        self::assertSame(1, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . substr($response->body(), 0, 300));
+    }
+
+    #[Test]
+    public function it_saves_an_invoice_whose_number_contains_an_ampersand_and_a_semicolon(): void
+    {
+        /* Arrange: invoice group formats are free text, so such numbers exist and must stay saveable */
+        $clientId  = $this->seedClient();
+        $invoiceId = $this->seedInvoice($clientId, ['invoice_number' => 'A&B;2026-001']);
+        $payload   = $this->validSavePayload($invoiceId);
+        $payload['invoice_number'] = 'A&B;2026-001';
+
+        /* Act */
+        $response = $this->ajax('POST', '/invoices/ajax/save', $payload);
+
+        /* Assert */
+        self::assertSame(1, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . substr($response->body(), 0, 300));
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_number' => 'A&B;2026-001']);
     }
 
     // -------------------------------------------------------------------------
