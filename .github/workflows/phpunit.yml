@@ -158,6 +158,9 @@ jobs:
           echo 'CSRF_PROTECTION=false' >> ipconfig.php
 
       - name: Config-parity guard (release gate)
+        # The audit script is not part of every branch; without it the step used to fail every run with
+        # "Could not open input file", which blocked PRs that have nothing to do with configuration.
+        if: hashFiles('.claude/skills/config-parity-guard/audit.php') != ''
         run: php .claude/skills/config-parity-guard/audit.php
 
       - name: Run PHPUnit
