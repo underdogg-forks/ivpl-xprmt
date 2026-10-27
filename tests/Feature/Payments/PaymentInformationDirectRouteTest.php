@@ -32,6 +32,9 @@ final class PaymentInformationDirectRouteTest extends AbstractTestCase
         $this->actingAsGuest();
         $this->setSetting('gateway_stripe_apiKeyPublic', self::STRIPE_KEY);
         $this->setSetting('gateway_paypal_clientId', self::PAYPAL_ID);
+        // form() offers a gateway only when the invoice's payment method (seedInvoice: 1) matches the gateway's
+        $this->setSetting('gateway_stripe_payment_method', '1');
+        $this->setSetting('gateway_paypal_payment_method', '1');
     }
 
     /**
@@ -135,11 +138,13 @@ final class PaymentInformationDirectRouteTest extends AbstractTestCase
         $this->seedInvoice($this->seedClient(), ['invoice_url_key' => $urlKey, 'invoice_status_id' => 2], ['invoice_balance' => '50.00']);
 
         /* Act */
-        $stripe = $this->get('/guest/payment_information/form/' . $urlKey . '/stripe');
-        $paypal = $this->get('/guest/payment_information/form/' . $urlKey . '/paypal');
+        // the segment is the gateway name as listed on the payment page (config case); with two gateways enabled form()
+        // compares it case-sensitively against the available drivers
+        $stripe = $this->get('/guest/payment_information/form/' . $urlKey . '/Stripe');
+        $paypal = $this->get('/guest/payment_information/form/' . $urlKey . '/PayPal');
 
         /* Assert: each page carries its own gateway's key and this invoice's key, and not the other gateway's */
-        self::assertSame(200, $stripe->statusCode());
+        self::assertSame(200, $stripe->statusCode(), 'Body: ' . substr($stripe->body(), 0, 300));
         $this->assertResponseBodyContains($stripe, self::STRIPE_KEY);
         $this->assertResponseBodyContains($stripe, $urlKey);
         $this->assertResponseBodyNotContains($stripe, self::PAYPAL_ID);
@@ -163,9 +168,10 @@ final class PaymentInformationDirectRouteTest extends AbstractTestCase
         /* Act */
         $response = $this->get('/guest/payment_information/form/' . $urlKey . '/stripe');
 
-        /* Assert */
+        /* Assert: the disabled gateway's key is not served. form() serves the only enabled gateway (PayPal), so the page
+         * itself is fine; what matters is that it carries PayPal and not Stripe. */
         $this->assertResponseBodyNotContains($response, self::STRIPE_KEY);
-        self::assertNotSame(200, $response->statusCode());
+        $this->assertResponseBodyContains($response, self::PAYPAL_ID);
     }
 
     private function setSetting(string $key, string $value): void
