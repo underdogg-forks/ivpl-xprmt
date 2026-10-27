@@ -29,7 +29,7 @@ final class JavascriptStringContextEscapingTest extends AbstractTestCase
         $response = $this->get('/guest/payment_information/form/' . rawurlencode($urlKey) . '/stripe');
 
         /* Assert: the raw quote never ends a JavaScript string, the encoded one is there */
-        self::assertSame(200, $response->statusCode(), 'Body: ' . mb_substr($response->body(), 0, 300));
+        self::assertSame(200, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
         $this->assertResponseBodyNotContains($response, "create_checkout_session/ab'cd");
         $this->assertResponseBodyContains($response, 'create_checkout_session\/ab\u0027cd');
     }
@@ -45,7 +45,7 @@ final class JavascriptStringContextEscapingTest extends AbstractTestCase
         $response = $this->ajax('GET', '/users/ajax/modal_add_user_client/ab%27cd');
 
         /* Assert */
-        self::assertSame(200, $response->statusCode(), 'Body: ' . mb_substr($response->body(), 0, 300));
+        self::assertSame(200, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
         $this->assertResponseBodyNotContains($response, "user_id: 'ab'cd'");
         $this->assertResponseBodyContains($response, 'user_id: "ab\u0027cd"');
     }
