@@ -174,6 +174,29 @@ final class PaymentInformationDirectRouteTest extends AbstractTestCase
         $this->assertResponseBodyContains($response, self::PAYPAL_ID);
     }
 
+    #[Test]
+    public function it_serves_the_gateway_named_in_lower_case_when_two_gateways_are_enabled(): void
+    {
+        /* Arrange: the PayPal page links back to form/<key>/paypal in lower case */
+        $this->setSetting('enable_online_payments', '1');
+        $this->setSetting('gateway_stripe_enabled', '1');
+        $this->setSetting('gateway_paypal_enabled', '1');
+        $urlKey = bin2hex(random_bytes(16));
+        $this->seedInvoice($this->seedClient(), ['invoice_url_key' => $urlKey, 'invoice_status_id' => 2], ['invoice_balance' => '50.00']);
+
+        /* Act */
+        $stripe = $this->get('/guest/payment_information/form/' . $urlKey . '/stripe');
+        $paypal = $this->get('/guest/payment_information/form/' . $urlKey . '/paypal');
+
+        /* Assert */
+        self::assertSame(200, $stripe->statusCode());
+        $this->assertResponseBodyContains($stripe, self::STRIPE_KEY);
+        $this->assertResponseBodyNotContains($stripe, self::PAYPAL_ID);
+        self::assertSame(200, $paypal->statusCode());
+        $this->assertResponseBodyContains($paypal, self::PAYPAL_ID);
+        $this->assertResponseBodyNotContains($paypal, self::STRIPE_KEY);
+    }
+
     private function setSetting(string $key, string $value): void
     {
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => $key, 'setting_value' => '']);
