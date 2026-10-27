@@ -39,6 +39,17 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         ];
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function sessionBackedEndpoints(): array
+    {
+        return [
+            'load_user_client_table' => ['table'],
+            'modal_add_user_client'  => ['modal'],
+        ];
+    }
+
     #[Test]
     #[DataProvider('endpoints')]
     public function it_refuses_a_secondary_admin_reading_another_users_assignments(string $endpoint): void
@@ -137,6 +148,22 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         self::assertSame(200, $modal->statusCode(), 'Body: ' . substr($modal->body(), 0, 300));
         $this->assertResponseBodyContains($modal, self::SECRET_CLIENT);
         self::assertSame(200, $table->statusCode(), 'Body: ' . substr($table->body(), 0, 300));
+    }
+
+    #[Test]
+    #[DataProvider('sessionBackedEndpoints')]
+    public function it_checks_a_non_empty_user_id_even_when_assignments_are_staged_in_the_session(string $endpoint): void
+    {
+        /* Arrange: a user is being created (clients staged in the session) while the request names another user's id */
+        [$victimId] = $this->victimWithOneClient();
+        $this->actingAsAdmin($this->seedAdmin());
+        $this->sessionData['user_clients'] = [1 => 1];
+
+        /* Act */
+        $response = $this->read($endpoint, (string) $victimId);
+
+        /* Assert: the id is authorised before the session-backed branch is chosen */
+        self::assertSame(403, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
     }
 
     /**
