@@ -52,7 +52,7 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         $response = $this->read($endpoint, (string) $victimId);
 
         /* Assert */
-        self::assertSame(403, $response->statusCode(), 'Body: ' . mb_substr($response->body(), 0, 300));
+        self::assertSame(403, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
         $this->assertResponseBodyNotContains($response, self::SECRET_CLIENT);
     }
 
@@ -84,7 +84,7 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         $response = $this->read($endpoint, (string) $victimId);
 
         /* Assert */
-        self::assertSame(200, $response->statusCode(), 'Body: ' . mb_substr($response->body(), 0, 300));
+        self::assertSame(200, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
         if ($endpoint !== 'modal') {
             $this->assertResponseBodyContains($response, self::SECRET_CLIENT);
         }
@@ -102,7 +102,7 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         $response = $this->read($endpoint, (string) $ownId);
 
         /* Assert */
-        self::assertSame(200, $response->statusCode(), 'Body: ' . mb_substr($response->body(), 0, 300));
+        self::assertSame(200, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
         if ($endpoint !== 'modal') {
             $this->assertResponseBodyContains($response, self::SECRET_CLIENT);
         }
@@ -134,9 +134,9 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         $table = $this->ajax('POST', '/users/ajax/load_user_client_table', ['user_id' => '']);
 
         /* Assert: nothing stored is read, the modal offers the clients to choose from */
-        self::assertSame(200, $modal->statusCode(), 'Body: ' . mb_substr($modal->body(), 0, 300));
+        self::assertSame(200, $modal->statusCode(), 'Body: ' . substr($modal->body(), 0, 300));
         $this->assertResponseBodyContains($modal, self::SECRET_CLIENT);
-        self::assertSame(200, $table->statusCode(), 'Body: ' . mb_substr($table->body(), 0, 300));
+        self::assertSame(200, $table->statusCode(), 'Body: ' . substr($table->body(), 0, 300));
     }
 
     /**
