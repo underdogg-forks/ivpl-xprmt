@@ -496,13 +496,14 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_reports_an_unknown_quote_in_the_conversion_modal(): void
+    public function it_answers_404_for_an_unknown_quote_in_the_conversion_modal(): void
     {
         /* Act */
         $response = $this->ajax('POST', '/quotes/ajax/modal_quote_to_invoice/999999');
 
         /* Assert */
-        self::assertSame(0, json_decode($response->body(), true)['success'] ?? null);
+        self::assertSame(404, $response->statusCode());
+        $this->assertResponseBodyNotContains($response, '"success"');
     }
 
     #[Test]
