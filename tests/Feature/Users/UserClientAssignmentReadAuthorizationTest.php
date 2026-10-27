@@ -64,6 +64,7 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
 
         /* Assert */
         self::assertSame(403, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
+        $this->assertResponseBodyContains($response, 'Access denied');
         $this->assertResponseBodyNotContains($response, self::SECRET_CLIENT);
     }
 
@@ -79,8 +80,13 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
         /* Act */
         $response = $this->read($endpoint, '1');
 
-        /* Assert */
+        /* Assert: refused by the authorisation (not a login redirect), with the reason shown and nothing of the
+         * primary administrator's assignments in the body or changed in the database */
         self::assertSame(403, $response->statusCode());
+        self::assertFalse($response->isRedirect(), 'A refusal is a 403, not a redirect to the login page.');
+        $this->assertResponseBodyContains($response, 'Access denied');
+        $this->assertResponseBodyNotContains($response, self::SECRET_CLIENT);
+        $this->assertDatabaseCount('ip_user_clients', 1, ['user_id' => 1, 'client_id' => $clientId]);
     }
 
     #[Test]
