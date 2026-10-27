@@ -142,14 +142,6 @@ function parse_template($object, $body, bool $escape_values = false)
         'sumex_casenumber',
     ];
 
-    if ($body === null) {
-        return;
-    }
-
-    if ($body === '') {
-        return '';
-    }
-
     if (preg_match_all('/{{{([^{|}]*)}}}/', $body, $template_vars)) {
         foreach ($template_vars[1] as $var) {
             switch ($var) {

@@ -340,7 +340,7 @@ class Clients extends Admin_Controller
         }
 
         $this->mdl_clients->delete($client_id);
-        redirect('clients/status/active');
+        redirect('clients');
     }
 
     private function get_client_title_choices(): array

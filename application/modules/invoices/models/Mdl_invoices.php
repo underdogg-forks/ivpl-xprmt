@@ -157,8 +157,6 @@ class Mdl_Invoices extends Response_Model
                 'rules' => 'required',
             ],
             'invoice_time_created' => [
-                'field' => 'invoice_time_created',
-                'label' => trans('date'),
                 'rules' => 'required',
             ],
             'invoice_group_id' => [
@@ -173,7 +171,7 @@ class Mdl_Invoices extends Response_Model
             'user_id' => [
                 'field' => 'user_id',
                 'label' => trans('user'),
-                'rules' => 'required',
+                'rule'  => 'required',
             ],
             'payment_method' => [
                 'field' => 'payment_method',
@@ -191,7 +189,7 @@ class Mdl_Invoices extends Response_Model
             'invoice_number' => [
                 'field' => 'invoice_number',
                 'label' => trans('invoice') . ' #',
-                'rules' => 'regex_match[/^[^<>"\x00-\x1F]*$/]|is_unique[ip_invoices.invoice_number' . (($this->id) ? '.invoice_id.' . $this->id : '') . ']',
+                'rules' => 'is_unique[ip_invoices.invoice_number' . (($this->id) ? '.invoice_id.' . $this->id : '') . ']',
             ],
             'invoice_date_created' => [
                 'field' => 'invoice_date_created',
@@ -201,6 +199,9 @@ class Mdl_Invoices extends Response_Model
             'invoice_date_due' => [
                 'field' => 'invoice_date_due',
                 'label' => trans('due_date'),
+                'rules' => 'required',
+            ],
+            'invoice_time_created' => [
                 'rules' => 'required',
             ],
             'invoice_password' => [
@@ -549,12 +550,7 @@ class Mdl_Invoices extends Response_Model
         $invoice_array = [];
 
         if ( ! empty($invoice_number)) {
-            // Match literally: the query is user input and must not act as a glob pattern.
-            $pattern       = '/_.*' . preg_quote((string) $invoice_number, '/') . '/';
-            $invoice_array = array_values(array_filter(
-                glob(UPLOADS_ARCHIVE_FOLDER . '*.pdf') ?: [],
-                static fn (string $file): bool => preg_match($pattern, basename($file)) === 1
-            ));
+            $invoice_array = glob(UPLOADS_ARCHIVE_FOLDER . '*_*' . $invoice_number . '*.pdf');
         } else {
             foreach (glob(UPLOADS_ARCHIVE_FOLDER . '*.pdf') as $file) {
                 $invoice_array[] = $file;

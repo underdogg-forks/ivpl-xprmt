@@ -24,14 +24,6 @@ class Ajax extends Admin_Controller
 
         $id = $this->input->post('email_template_id');
 
-        $result = $this->mdl_email_templates->get_by_id($id);
-
-        if ($result === null) {
-            echo json_encode(null);
-
-            return;
-        }
-
-        $this->json_encode_ajax($result);
+        $this->json_encode_ajax($this->mdl_email_templates->get_by_id($id));
     }
 }

@@ -18,7 +18,7 @@ use Stripe\StripeClient;
 #[AllowDynamicProperties]
 class Stripe extends Base_Controller
 {
-    protected ?StripeClient $stripe = null;
+    protected StripeClient $stripe;
 
     protected $Mdl_settings;
 
@@ -29,6 +29,8 @@ class Stripe extends Base_Controller
         $this->load->model('invoices/mdl_invoices');
         $this->load->helper('file_security');
         $this->load->helper(['currency', 'stripe']);
+
+        $this->stripe = new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
 
         $this->useTestHttpClientIfConfigured();
     }
@@ -44,7 +46,7 @@ class Stripe extends Base_Controller
     public function create_checkout_session($invoice_url_key = null)
     {
         // Require POST request to prevent CSRF attacks
-        if ($this->input->method() !== 'post' || $invoice_url_key === null) {
+        if ($this->input->method() !== 'post') {
             show_404();
         }
 
@@ -52,7 +54,7 @@ class Stripe extends Base_Controller
 
         // Security: Verify the invoice exists and is guest-visible
         if ( ! $invoice) {
-            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted checkout session creation for non-public or non-existent invoice with key: ' . sanitize_for_logging((string) $invoice_url_key));
+            log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Attempted checkout session creation for non-public or non-existent invoice with key: ' . sanitize_for_logging($invoice_url_key));
             show_404();
         }
 
@@ -63,7 +65,7 @@ class Stripe extends Base_Controller
             redirect(site_url('guest/view/invoice/' . $invoice->invoice_url_key));
         }
 
-        $checkout_session = $this->stripeClient()->checkout->sessions->create([
+        $checkout_session = $this->stripe->checkout->sessions->create([
             'mode'                => 'payment',
             'ui_mode'             => 'embedded',
             'return_url'          => site_url('guest/gateways/stripe/callback/{CHECKOUT_SESSION_ID}'),
@@ -93,12 +95,8 @@ class Stripe extends Base_Controller
      *
      * @return void
      */
-    public function callback(?string $checkout_session_id = null)
+    public function callback(string $checkout_session_id)
     {
-        if ($checkout_session_id === null) {
-            show_404();
-        }
-
         // A Checkout Session id is "cs_" + alphanumerics. Reject anything else before it costs a Stripe API call.
         if ( ! preg_match('/^cs_[A-Za-z0-9_]{8,250}$/', $checkout_session_id)) {
             log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Rejected malformed checkout session id: ' . sanitize_for_logging($checkout_session_id));
@@ -116,7 +114,7 @@ class Stripe extends Base_Controller
 
         try {
             // Retrieve the Checkout Session from Stripe
-            $session = $this->stripeClient()->checkout->sessions->retrieve($checkout_session_id);
+            $session = $this->stripe->checkout->sessions->retrieve($checkout_session_id);
 
             // Debug logging
             log_message('debug', __CLASS__ . '::' . __FUNCTION__ . ' reached, status: ' . $session->status . ' payment_status: ' . $session->payment_status . ', checkout_session_id: ' . sanitize_for_logging($checkout_session_id));
@@ -244,15 +242,6 @@ class Stripe extends Base_Controller
             // Attempt to redirect them to the invoice. invoice_url_key? No, return to invoices view
             redirect('guest/view/invoice' . (empty($invoice->invoice_url_key ?? null) ? 's' : '/' . $invoice->invoice_url_key));
         }
-    }
-
-    /**
-     * The Stripe SDK client, built on first use: constructing it throws when no API key is configured, which
-     * must not turn a request that is rejected before any Stripe call into a 500.
-     */
-    protected function stripeClient(): StripeClient
-    {
-        return $this->stripe ??= new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
     }
 
     /**
