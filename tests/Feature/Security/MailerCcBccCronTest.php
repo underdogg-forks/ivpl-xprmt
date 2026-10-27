@@ -74,6 +74,24 @@ final class MailerCcBccCronTest extends AbstractTestCase
         self::assertContains('boss@company.test', $to);
     }
 
+    #[Test]
+    public function it_does_not_abort_the_cron_run_for_a_recurring_invoice_with_an_invalid_client_address(): void
+    {
+        /* Arrange: one client address is not an e-mail address; the other invoice must still be processed */
+        $this->prepareCron('boss@company.test', 'tpl@external.test');
+        $bad  = $this->seedRecurringInvoice('not-an-email');
+        $good = $this->seedRecurringInvoice();
+
+        /* Act */
+        $response = $this->get('/invoices/cron/recur/the-real-key');
+
+        /* Assert: redirect() would have exited the run after the first failure */
+        $this->assertResponseHasNoPhpErrors($response);
+        $this->assertDatabaseCount('ip_invoices', 2, ['client_id' => $bad]);
+        $this->assertDatabaseCount('ip_invoices', 2, ['client_id' => $good]);
+        self::assertContains('client@legit.test', array_map('strtolower', $this->recordedEnvelope()['to']));
+    }
+
     private function prepareCron(string $templateCc, string $templateFrom): void
     {
         $this->startSmtpRecorder();
@@ -98,13 +116,13 @@ final class MailerCcBccCronTest extends AbstractTestCase
         }
     }
 
-    private function seedRecurringInvoice(): int
+    private function seedRecurringInvoice(string $clientEmail = 'client@legit.test'): int
     {
         $clientId = $this->databaseInsert('ip_clients', [
             'client_date_created'  => date('Y-m-d H:i:s'),
             'client_date_modified' => date('Y-m-d H:i:s'),
             'client_name'          => 'Legit Client ' . bin2hex(random_bytes(3)),
-            'client_email'         => 'client@legit.test',
+            'client_email'         => $clientEmail,
         ]);
         $invoiceId = $this->seedInvoice($clientId, ['invoice_number' => 'CRON-SRC-' . bin2hex(random_bytes(4))]);
         $this->databaseInsert('ip_invoices_recurring', [
