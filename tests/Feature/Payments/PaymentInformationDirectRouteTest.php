@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Payments;
 
+use PhpParser\Node\Stmt\Class_;
+use PhpParser\NodeFinder;
+use PhpParser\ParserFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
@@ -30,38 +34,98 @@ final class PaymentInformationDirectRouteTest extends AbstractTestCase
         $this->setSetting('gateway_paypal_clientId', self::PAYPAL_ID);
     }
 
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function directRoutes(): array
+    {
+        return [
+            'stripe'             => ['stripe', self::STRIPE_KEY],
+            'paypal'             => ['paypal', self::PAYPAL_ID],
+            'stripe, upper case' => ['STRIPE', self::STRIPE_KEY],
+            'paypal, mixed case' => ['PayPal', self::PAYPAL_ID],
+        ];
+    }
+
     #[Test]
-    public function it_does_not_route_stripe_directly_even_with_online_payments_and_the_gateway_disabled(): void
+    #[DataProvider('directRoutes')]
+    public function it_does_not_route_a_gateway_helper_directly_with_online_payments_and_the_gateway_disabled(string $segment, string $secret): void
     {
         /* Arrange */
         $this->setSetting('enable_online_payments', '0');
         $this->setSetting('gateway_stripe_enabled', '0');
-
-        /* Act: no valid invoice key at all */
-        $response = $this->get('/guest/payment_information/stripe/not-a-real-key');
-
-        /* Assert */
-        self::assertSame(404, $response->statusCode());
-        $this->assertResponseBodyNotContains($response, self::STRIPE_KEY);
-    }
-
-    #[Test]
-    public function it_does_not_route_paypal_directly_even_with_online_payments_and_the_gateway_disabled(): void
-    {
-        /* Arrange */
-        $this->setSetting('enable_online_payments', '0');
         $this->setSetting('gateway_paypal_enabled', '0');
 
-        /* Act */
-        $response = $this->get('/guest/payment_information/paypal/not-a-real-key');
+        /* Act: no valid invoice key at all */
+        $response = $this->get('/guest/payment_information/' . $segment . '/not-a-real-key');
 
-        /* Assert */
+        /* Assert: a 404 that discloses nothing of the gateway view, the settings or a CSRF token */
         self::assertSame(404, $response->statusCode());
-        $this->assertResponseBodyNotContains($response, self::PAYPAL_ID);
+        $this->assertResponseBodyNotContains($response, $secret);
+        $this->assertResponseBodyNotContains($response, '_ip_csrf');
+        $this->assertResponseBodyNotContains($response, 'create_checkout_session');
+        $this->assertResponseBodyNotContains($response, 'paypal.com/sdk');
     }
 
     #[Test]
-    public function it_still_renders_the_enabled_gateways_through_form_for_a_payable_invoice(): void
+    #[DataProvider('directRoutes')]
+    public function it_does_not_route_a_gateway_helper_directly_even_with_a_valid_invoice_key_and_the_gateway_disabled(string $segment, string $secret): void
+    {
+        /* Arrange: form() would refuse this combination, so the direct route must not be a way around it */
+        $this->setSetting('enable_online_payments', '1');
+        $this->setSetting('gateway_stripe_enabled', '0');
+        $this->setSetting('gateway_paypal_enabled', '0');
+        $urlKey = bin2hex(random_bytes(16));
+        $this->seedInvoice($this->seedClient(), ['invoice_url_key' => $urlKey, 'invoice_status_id' => 2], ['invoice_balance' => '50.00']);
+
+        /* Act */
+        $response = $this->get('/guest/payment_information/' . $segment . '/' . $urlKey);
+
+        /* Assert */
+        self::assertSame(404, $response->statusCode());
+        $this->assertResponseBodyNotContains($response, $secret);
+    }
+
+    #[Test]
+    #[DataProvider('directRoutes')]
+    public function it_does_not_route_a_gateway_helper_directly_whatever_the_request_method(string $segment, string $secret): void
+    {
+        /* Arrange */
+        $this->setSetting('enable_online_payments', '1');
+        $this->setSetting('gateway_stripe_enabled', '1');
+        $this->setSetting('gateway_paypal_enabled', '1');
+
+        /* Act */
+        $post = $this->post('/guest/payment_information/' . $segment . '/not-a-real-key');
+
+        /* Assert: a POST is no different, and the gateways being enabled does not make the helpers public */
+        self::assertSame(404, $post->statusCode());
+        $this->assertResponseBodyNotContains($post, $secret);
+    }
+
+    #[Test]
+    public function it_exposes_nothing_but_the_constructor_and_form_as_public_methods(): void
+    {
+        /* Arrange */
+        $code = (string) file_get_contents(dirname(__DIR__, 3) . '/application/modules/guest/controllers/Payment_information.php');
+        $ast  = (new ParserFactory())->createForHostVersion()->parse($code) ?? [];
+
+        /* Act */
+        $class  = (new NodeFinder())->findFirstInstanceOf($ast, Class_::class);
+        $public = [];
+        foreach ($class->getMethods() as $method) {
+            if ($method->isPublic()) {
+                $public[] = $method->name->toString();
+            }
+        }
+
+        /* Assert: every other public method of this controller is a URL anyone can request */
+        sort($public);
+        self::assertSame(['__construct', 'form'], $public);
+    }
+
+    #[Test]
+    public function it_still_renders_each_enabled_gateway_through_form_for_its_own_invoice_only(): void
     {
         /* Arrange: positive control, the helpers stay reachable from form() */
         $this->setSetting('enable_online_payments', '1');
@@ -74,11 +138,34 @@ final class PaymentInformationDirectRouteTest extends AbstractTestCase
         $stripe = $this->get('/guest/payment_information/form/' . $urlKey . '/stripe');
         $paypal = $this->get('/guest/payment_information/form/' . $urlKey . '/paypal');
 
-        /* Assert */
+        /* Assert: each page carries its own gateway's key and this invoice's key, and not the other gateway's */
         self::assertSame(200, $stripe->statusCode());
         $this->assertResponseBodyContains($stripe, self::STRIPE_KEY);
+        $this->assertResponseBodyContains($stripe, $urlKey);
+        $this->assertResponseBodyNotContains($stripe, self::PAYPAL_ID);
+
         self::assertSame(200, $paypal->statusCode());
         $this->assertResponseBodyContains($paypal, self::PAYPAL_ID);
+        $this->assertResponseBodyContains($paypal, $urlKey);
+        $this->assertResponseBodyNotContains($paypal, self::STRIPE_KEY);
+    }
+
+    #[Test]
+    public function it_still_refuses_a_disabled_gateway_through_form(): void
+    {
+        /* Arrange: the check the direct route used to bypass is still enforced where it belongs */
+        $this->setSetting('enable_online_payments', '1');
+        $this->setSetting('gateway_stripe_enabled', '0');
+        $this->setSetting('gateway_paypal_enabled', '1');
+        $urlKey = bin2hex(random_bytes(16));
+        $this->seedInvoice($this->seedClient(), ['invoice_url_key' => $urlKey, 'invoice_status_id' => 2], ['invoice_balance' => '50.00']);
+
+        /* Act */
+        $response = $this->get('/guest/payment_information/form/' . $urlKey . '/stripe');
+
+        /* Assert */
+        $this->assertResponseBodyNotContains($response, self::STRIPE_KEY);
+        self::assertNotSame(200, $response->statusCode());
     }
 
     private function setSetting(string $key, string $value): void
