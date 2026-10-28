@@ -226,9 +226,10 @@ function verify_csrf_token(): bool
     // CodeIgniter's global CSRF check already ran and passed for this POST
     // (it consumes $_POST[$token_name] on success). Anything that failed its
     // check never reaches a controller. Trust that instead of re-validating a
-    // token the framework deliberately cleared.
+    // token the framework deliberately cleared — but only when this URI isn't
+    // CSRF-excluded, since an excluded URI never went through that check.
     $request_method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
-    if ($request_method === 'POST' && $submitted_token === null && isset($CI->security)) {
+    if ($request_method === 'POST' && $submitted_token === null && ! _is_uri_csrf_excluded($CI)) {
         return true;
     }
 
@@ -257,6 +258,35 @@ function verify_csrf_token(): bool
         $safe_ip = 'invalid-ip';
     }
     log_message('error', 'CSRF token mismatch from IP: ' . $safe_ip);
+
+    return false;
+}
+
+/**
+ * Check whether the current request URI matches a CSRF-excluded pattern.
+ *
+ * Mirrors CI3's Security::csrf_verify() exclusion logic so that
+ * verify_csrf_token() only takes the "trust the framework" shortcut for URIs
+ * that actually went through the framework's CSRF check. Excluded URIs fall
+ * through to the explicit double-submit comparison below.
+ *
+ * @return bool True if the current URI is CSRF-excluded
+ */
+function _is_uri_csrf_excluded($CI): bool
+{
+    $exclude_uris = config_item('csrf_exclude_uris');
+
+    if (empty($exclude_uris)) {
+        return false;
+    }
+
+    $uri_string = $CI->uri->uri_string();
+
+    foreach ($exclude_uris as $excluded) {
+        if (preg_match('#^' . $excluded . '$#i' . (defined('UTF8_ENABLED') && UTF8_ENABLED ? 'u' : ''), $uri_string)) {
+            return true;
+        }
+    }
 
     return false;
 }
