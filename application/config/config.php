@@ -465,6 +465,7 @@ $config['cookie_path']     = '/';
 $config['cookie_secure']   = env_bool('COOKIE_SECURE', true);
 $config['cookie_httponly'] = true;
 $config['cookie_samesite'] = 'Lax';
+$config['sess_samesite']   = 'Lax';
 
 /*
 |--------------------------------------------------------------------------
