@@ -333,3 +333,30 @@ function verify_get_csrf_token(): bool
     // Timing-safe comparison
     return hash_equals($expected_token, $submitted_token);
 }
+
+/**
+ * Encode a string for safe embedding inside a JavaScript string literal.
+ *
+ * Wraps json_encode() with strict hex-encoding flags and strips the surrounding
+ * quotes so the result can be interpolated directly into a JS single- or
+ * double-quoted string without breaking out of the literal.
+ *
+ * @param string $string The value to encode
+ *
+ * @return string The JS-safe string value (without surrounding quotes)
+ */
+function encode_for_javascript_string($string)
+{
+    return substr(
+        json_encode(
+            (string) $string,
+            JSON_THROW_ON_ERROR
+                | JSON_HEX_TAG
+                | JSON_HEX_AMP
+                | JSON_HEX_APOS
+                | JSON_HEX_QUOT
+        ),
+        1,
+        -1
+    );
+}
