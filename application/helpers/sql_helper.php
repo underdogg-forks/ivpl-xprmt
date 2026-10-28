@@ -20,7 +20,11 @@ if ( ! function_exists('split_sql_statements')) {
     {
         $statements = [];
         $buffer     = '';
-        $length     = mb_strlen($sql);
+        // Use strlen() (byte length), not mb_strlen(): we iterate byte-by-byte
+        // with $sql[$i], so multi-byte characters (e.g. em-dash in migration
+        // comments) must not cause the loop to stop early and truncate the
+        // final SQL statement.
+        $length     = strlen($sql);
 
         $in_single = false; // '...'
         $in_double = false; // "..."
