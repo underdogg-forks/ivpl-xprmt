@@ -597,10 +597,23 @@ function validate_db_config_parameter(string $value, string $type): array
 
         case 'password':
             // Password can contain most printable characters, but no control characters
+            // and no single quote (which would break out of the single-quoted
+            // DB_PASSWORD value in ipconfig.php).
             // Empty passwords are explicitly allowed (some databases support passwordless auth)
             if ($value === '') {
                 // Empty password is valid - return early to skip control character check
                 break;
+            }
+
+            // A literal single quote breaks out of the single-quoted value.
+            if (str_contains($value, "'")) {
+                log_message('error', 'Password contains a single quote');
+
+                return [
+                    'valid'     => false,
+                    'error'     => 'password_contains_quote',
+                    'sanitized' => '',
+                ];
             }
 
             // Check for control characters in non-empty passwords
