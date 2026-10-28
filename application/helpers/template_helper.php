@@ -123,7 +123,7 @@ function parse_template($object, $body, bool $escape_values = false)
         'sumex_casenumber',
     ];
 
-    if (preg_match_all('/{{{([^{|}]*)}}}/', $body, $template_vars)) {
+    if (preg_match_all('/{{{([^{|}]*)}}}/', (string) $body, $template_vars)) {
         foreach ($template_vars[1] as $var) {
             switch ($var) {
                 case 'invoice_guest_url':

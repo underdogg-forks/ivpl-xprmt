@@ -191,14 +191,19 @@ function pdf_create(
     }
 
     if ($isInvoice) {
-        $pdfFiles = glob(UPLOADS_ARCHIVE_FOLDER . '*' . $filename . '.pdf');
+        // Archive names are "<32 hex token>_<filename>.pdf": the token keeps the URL unguessable, the
+        // suffix keeps the copy findable. Match the suffix literally - the filename is free text.
+        $archiveSuffix = '_' . $filename . '.pdf';
+        $invoice_array = [];
 
-        foreach ($pdfFiles as $file) {
-            $invoice_array[] = $file;
+        foreach (glob(UPLOADS_ARCHIVE_FOLDER . '*.pdf') ?: [] as $file) {
+            if (str_ends_with(basename($file), $archiveSuffix)) {
+                $invoice_array[] = $file;
+            }
         }
 
         if ($invoice_array !== [] && null !== $is_guest) {
-            rsort($invoice_array);
+            usort($invoice_array, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
 
             if ($stream) {
                 return $mpdf->Output($filename . '.pdf', 'I');
@@ -207,7 +212,8 @@ function pdf_create(
             return $invoice_array[0];
         }
 
-        $archived_file = UPLOADS_ARCHIVE_FOLDER . date('Y-m-d') . '_' . $filename . '.pdf';
+        $random_token  = bin2hex(random_bytes(16));
+        $archived_file = UPLOADS_ARCHIVE_FOLDER . $random_token . $archiveSuffix;
         $mpdf->Output($archived_file, 'F');
 
         if ($stream) {
