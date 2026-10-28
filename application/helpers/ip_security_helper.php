@@ -138,3 +138,30 @@ function hash_password_reset_token(string $token): string
 {
     return hash('sha256', $token);
 }
+
+if ( ! function_exists('security_frame_headers')) {
+    /**
+     * The clickjacking headers, derived from X_FRAME_OPTIONS.
+     *
+     * Only SAMEORIGIN and DENY are valid values; anything else (ALLOWALL, ALLOW-FROM ..., a typo)
+     * falls back to SAMEORIGIN so a bad setting can never produce an invalid X-Frame-Options that
+     * browsers ignore. The CSP frame-ancestors follows the same choice, so DENY blocks framing in
+     * browsers that read the CSP instead of X-Frame-Options.
+     *
+     * @return string[] complete header lines
+     */
+    function security_frame_headers(): array
+    {
+        $ancestors = ['SAMEORIGIN' => "'self'", 'DENY' => "'none'"];
+        $option    = mb_strtoupper(trim((string) env('X_FRAME_OPTIONS', 'SAMEORIGIN')));
+
+        if ( ! isset($ancestors[$option])) {
+            $option = 'SAMEORIGIN';
+        }
+
+        return [
+            'X-Frame-Options: ' . $option,
+            "Content-Security-Policy: frame-ancestors {$ancestors[$option]}; object-src 'none'; base-uri 'self'",
+        ];
+    }
+}
