@@ -29,14 +29,14 @@ function format_currency($amount): string
     $amount                    = (float) (is_numeric($amount) ? $amount : standardize_amount($amount)); // prevent null format
 
     if ($currency_symbol_placement == 'before') {
-        return $currency_symbol . number_format($amount, $decimals, $decimal_point, $thousands_separator);
+        return htmlsc($currency_symbol) . number_format($amount, $decimals, $decimal_point, $thousands_separator);
     }
 
     if ($currency_symbol_placement == 'afterspace') {
-        return number_format($amount, $decimals, $decimal_point, $thousands_separator) . '&nbsp;' . $currency_symbol;
+        return number_format($amount, $decimals, $decimal_point, $thousands_separator) . '&nbsp;' . htmlsc($currency_symbol);
     }
 
-    return number_format($amount, $decimals, $decimal_point, $thousands_separator) . $currency_symbol;
+    return number_format($amount, $decimals, $decimal_point, $thousands_separator) . htmlsc($currency_symbol);
 }
 
 /**
