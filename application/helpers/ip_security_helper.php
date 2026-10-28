@@ -123,3 +123,18 @@ function generate_secure_salt(): string
         throw new RuntimeException('Unable to generate secure salt');
     }
 }
+
+/**
+ * Hash a password-reset token with SHA-256 for storage/comparison.
+ *
+ * The raw token is never stored; only its digest is. Use hash_equals() to
+ * compare a submitted token against the stored digest.
+ *
+ * @param string $token The raw password-reset token
+ *
+ * @return string The SHA-256 digest of the token
+ */
+function hash_password_reset_token(string $token): string
+{
+    return hash('sha256', $token);
+}

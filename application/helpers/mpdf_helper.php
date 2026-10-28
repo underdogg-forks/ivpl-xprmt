@@ -227,3 +227,18 @@ function pdf_create(
 
     return UPLOADS_TEMP_FOLDER . $filename . '.pdf';
 }
+
+/**
+ * Sanitise a filename for use in a PDF footer.
+ *
+ * Replaces underscores with spaces and HTML-escapes the result so the footer
+ * text cannot inject attributes or break out of the footer element.
+ *
+ * @param string $filename The raw filename
+ *
+ * @return string The sanitised footer text
+ */
+function pdf_footer_filename(string $filename): string
+{
+    return htmlspecialchars(str_replace('_', ' ', $filename), ENT_QUOTES, 'UTF-8');
+}
