@@ -107,7 +107,7 @@ function _csrf_query(): string
 {
     $CI = & get_instance();
 
-    return rawurlencode($CI->config->item('csrf_token_name')) . '=' . rawurlencode($CI->security->get_csrf_hash());
+    return rawurlencode((string) $CI->config->item('csrf_token_name')) . '=' . rawurlencode($CI->security->get_csrf_hash());
 }
 
 /**
