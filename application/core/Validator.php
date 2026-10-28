@@ -253,7 +253,7 @@ class Validator extends MY_Model
         $string = [];
 
         foreach ($errors as $error) {
-            $string[] = sprintf(lang('validator_fail'), $error['label'], $error['error_msg']);
+            $string[] = sprintf(lang('validator_fail'), htmlsc($error['label']), htmlsc($error['error_msg']));
         }
 
         return nl2br(implode("\n", $string));
