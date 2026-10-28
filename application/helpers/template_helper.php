@@ -33,14 +33,33 @@ function render_template_view(string $template_subpath, array $data, bool $retur
         $has_ext   = (bool) pathinfo($template_subpath, PATHINFO_EXTENSION);
         $file_path = CUSTOM_TEMPLATES_FOLDER . $template_subpath . ($has_ext ? '' : '.php');
         if (file_exists($file_path)) {
-            extract($data);
-            ob_start();
-            include $file_path;
-            $output = ob_get_clean();
+            $CI = &get_instance();
+
+            // Bind the include to the controller instance: a custom template copied from a
+            // built-in one (e.g. InvoicePlane_Web.php) calls $this->layout->load_view(...),
+            // and $this is otherwise undefined inside this plain function.
+            //
+            // The include target is read via func_get_arg() rather than `use`, so no $file_path
+            // local exists before extract() runs; $_ci_path is then the only pre-existing local,
+            // and EXTR_SKIP leaves it alone no matter what key $data carries -- including a
+            // '_ci_path' key, which a plain extract($data) (even with the target renamed) would
+            // still let hijack the include. $data's own keys, 'file_path' included, still reach
+            // the template exactly as the caller provided them.
+            $render = Closure::bind(function () {
+                $_ci_path = func_get_arg(0);
+                extract(func_get_arg(1), EXTR_SKIP);
+                ob_start();
+                include $_ci_path;
+
+                return ob_get_clean();
+            }, $CI, $CI);
+
+            $output = $render($file_path, $data);
+
             if ($return) {
                 return $output;
             }
-            $CI = &get_instance();
+
             $CI->output->append_output($output);
 
             return;
