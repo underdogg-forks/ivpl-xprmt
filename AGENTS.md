@@ -90,6 +90,16 @@ There is no `quickstart.yml`. InvoicePlane does not have `php artisan` commands.
 
 ## Testing
 
+
+## Testing Environment (Shared Standard)
+- PHPUnit **must** run inside Docker. The verified working command is `make docker-test` (runs `docker exec ivpldock-workspace-1 bash -c 'cd /var/www/projects/invoiceplane/ivpl-xprmt && vendor/bin/phpunit'`), using the shared `ivpldock` stack's `workspace` container where the project code and `vendor/bin/phpunit` are mounted. `ipconfig.php` is already configured for `DB_HOSTNAME=mariadb`, `DB_DATABASE=invoiceplane_test`; ensure the `invoiceplane_test` schema is loaded (`make docker-db-prepare`) before running DB-backed tests.
+- The shared testing standard (`/data/Projects/shared-testing-standard-2026-10-29.md`) defines the mandatory Docker execution policy and verification procedures.
+- Before running PHPUnit, verify the Docker stack is up: `docker ps` should show `ivpldock-workspace-1` and `ivpldock-mariadb-1` `Up`/healthy.
+- The recommended `compose.yml` path builds `c8n.io/mpldr/invoiceplane` with `composer install --no-dev`, so `vendor/bin/phpunit` is **not** present in the `app` image and `docker compose exec app vendor/bin/phpunit` cannot run PHPUnit; it is kept for running the built application, not the test suite. The legacy `docker-compose.yml` (`php`/`nginx`/`db`) is kept for individual Dockerfile reuse.
+- `vendor/bin/phpunit` must NOT be used directly on the host — the host PHP lacks the database drivers required by CodeIgniter, and integration tests will be silently skipped due to MariaDB unresolvable hostname from the host.
+- If a test must run on the host, it must be explicitly documented as an exception with justification.
+- CI uses MariaDB as a service with `DB_HOSTNAME=127.0.0.1`, `DB_USERNAME=root`, `DB_PASSWORD=root` — local Docker setup must match these credentials.
+
 - Use **PHPUnit** directly (`vendor/bin/phpunit`).
 - No Laravel `TestCase` — extend plain `\PHPUnit\Framework\TestCase`.
 - Method names: `it_<snake_case>`, annotated with `#[Test]`.
