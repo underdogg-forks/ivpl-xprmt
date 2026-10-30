@@ -58,7 +58,7 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
         /* Assert */
         self::assertSame(200, $response->statusCode());
         self::assertStringContainsString(
-            'invoice_level_taxes_not_supported_in_einvoice',
+            'Invoice-level taxes are not supported in e-invoices',
             $response->body(),
             'The invoice view must show the warning about invoice-level taxes.'
         );
@@ -96,7 +96,7 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
         /* Assert */
         self::assertSame(200, $response->statusCode());
         self::assertStringNotContainsString(
-            'invoice_level_taxes_not_supported_in_einvoice',
+            'Invoice-level taxes are not supported in e-invoices',
             $response->body(),
             'The warning must not appear when no invoice-level taxes exist.'
         );
@@ -125,7 +125,7 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
         /* Assert */
         self::assertSame(200, $response->statusCode());
         self::assertStringNotContainsString(
-            'invoice_level_taxes_not_supported_in_einvoice',
+            'Invoice-level taxes are not supported in e-invoices',
             $response->body(),
             'The warning must not appear when e-invoicing is not active.'
         );
