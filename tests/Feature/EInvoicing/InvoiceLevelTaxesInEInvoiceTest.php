@@ -41,10 +41,13 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
             'item_discount' => '0.00',
             'item_total' => '119.00',
         ]);
+        $taxRateId = $this->databaseInsert('ip_tax_rates', [
+            'tax_rate_name' => 'VAT',
+            'tax_rate_percent' => 19,
+        ]);
         $this->databaseInsert('ip_invoice_tax_rates', [
             'invoice_id' => $invoiceId,
-            'invoice_tax_rate_name' => 'VAT',
-            'invoice_tax_rate_percent' => 19,
+            'tax_rate_id' => $taxRateId,
             'invoice_tax_rate_amount' => 19,
             'include_item_tax' => 0,
         ]);
@@ -105,10 +108,13 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
         /* Arrange */
         $clientId = $this->seedClient();
         $invoiceId = $this->seedInvoice($clientId);
+        $taxRateId = $this->databaseInsert('ip_tax_rates', [
+            'tax_rate_name' => 'VAT',
+            'tax_rate_percent' => 19,
+        ]);
         $this->databaseInsert('ip_invoice_tax_rates', [
             'invoice_id' => $invoiceId,
-            'invoice_tax_rate_name' => 'VAT',
-            'invoice_tax_rate_percent' => 19,
+            'tax_rate_id' => $taxRateId,
             'invoice_tax_rate_amount' => 19,
             'include_item_tax' => 0,
         ]);

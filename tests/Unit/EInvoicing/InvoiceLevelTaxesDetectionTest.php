@@ -5,14 +5,17 @@ namespace Tests\Unit\EInvoicing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Concerns\UsesCodeIgniterModels;
 
 #[Group('einvoicing')]
 final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
 {
+    use UsesCodeIgniterModels;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->setUpDatabase();
+        $this->bootCodeIgniter();
     }
 
     #[Test]
@@ -21,10 +24,10 @@ final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
         /* Arrange: create invoice with invoice-level tax */
         $clientId = $this->seedClient();
         $invoiceId = $this->seedInvoice($clientId);
+        $taxRateId = $this->insertTaxRate('VAT', 19);
         $this->databaseInsert('ip_invoice_tax_rates', [
             'invoice_id' => $invoiceId,
-            'invoice_tax_rate_name' => 'VAT',
-            'invoice_tax_rate_percent' => 19,
+            'tax_rate_id' => $taxRateId,
             'invoice_tax_rate_amount' => 19,
             'include_item_tax' => 0,
         ]);
@@ -36,7 +39,7 @@ final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
         $result = invoice_has_invoice_level_taxes($invoiceId);
 
         /* Assert */
-        self::assertTrue($result, 'Should detect invoice-level taxes.');
+        self::assertTrue($result, 'Should detect invoice-level taxes when ip_invoice_tax_rates has a row.');
     }
 
     #[Test]
@@ -53,7 +56,7 @@ final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
         $result = invoice_has_invoice_level_taxes($invoiceId);
 
         /* Assert */
-        self::assertFalse($result, 'Should return false when no invoice-level taxes exist.');
+        self::assertFalse($result, 'Should return false when no rows exist in ip_invoice_tax_rates.');
     }
 
     #[Test]
@@ -67,5 +70,19 @@ final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
 
         /* Assert */
         self::assertFalse($result, 'Should return false for non-existent invoices.');
+    }
+
+    /**
+     * Helper to insert a tax rate and return its ID.
+     */
+    private function insertTaxRate(string $name, float $percent): int
+    {
+        $CI = &get_instance();
+        $CI->db->insert('ip_tax_rates', [
+            'tax_rate_name' => $name,
+            'tax_rate_percent' => $percent,
+        ]);
+
+        return (int) $CI->db->insert_id();
     }
 }
