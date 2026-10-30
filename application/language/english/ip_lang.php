@@ -880,6 +880,7 @@ $lang = [
     'einvoice_test_connection_ok'      => 'Connection test succeeded',
     'einvoice_test_connection_running' => 'Testing connection…',
     'invoice_level_taxes_not_supported_in_einvoice' => 'Invoice-level taxes are not supported in e-invoices and will be excluded from the generated XML file.',
+    'remove_invoice_taxes_before_generating_einvoice' => 'Please remove all invoice-level taxes from this invoice before generating the e-invoice file to ensure PDF and XML totals match.',
     'incoming_invoices'                => 'Incoming Invoices',
     'integration_history'              => 'Integration History',
     'add_service'                      => 'Add Service',
