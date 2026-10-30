@@ -256,6 +256,7 @@ class Invoices extends Admin_Controller
                 'einvoice_provider'        => $einvoice_provider,
                 'einvoice_status'          => $einvoice_status,
                 'send_history'             => $send_history,
+                'invoice_level_taxes_present' => invoice_has_invoice_level_taxes($invoice_id),
             ]
         );
 
