@@ -4,11 +4,11 @@ namespace Tests\Unit\EInvoicing;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\AbstractTestCase;
 use Tests\Concerns\UsesCodeIgniterModels;
+use PHPUnit\Framework\TestCase;
 
 #[Group('einvoicing')]
-final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
+final class InvoiceLevelTaxesDetectionTest extends TestCase
 {
     use UsesCodeIgniterModels;
 
