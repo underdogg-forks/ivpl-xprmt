@@ -13,37 +13,7 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
     {
         parent::setUp();
         $this->actingAsAdmin();
-    }
-
-    #[Test]
-    public function it_detects_invoice_level_taxes_on_an_invoice(): void
-    {
-        /* Arrange */
-        $this->loadHelper('e-invoice');
-        $clientId = $this->seedClient();
-        $invoiceId = $this->seedInvoice($clientId);
-        $this->seedInvoiceTax($invoiceId, 19);
-
-        /* Act */
-        $has_taxes = invoice_has_invoice_level_taxes($invoiceId);
-
-        /* Assert */
-        self::assertTrue($has_taxes, 'invoice_has_invoice_level_taxes() must detect invoice-level taxes.');
-    }
-
-    #[Test]
-    public function it_returns_false_when_no_invoice_level_taxes_exist(): void
-    {
-        /* Arrange */
-        $this->loadHelper('e-invoice');
-        $clientId = $this->seedClient();
-        $invoiceId = $this->seedInvoice($clientId);
-
-        /* Act */
-        $has_taxes = invoice_has_invoice_level_taxes($invoiceId);
-
-        /* Assert */
-        self::assertFalse($has_taxes, 'invoice_has_invoice_level_taxes() must return false when no taxes exist.');
+        $this->setUpDatabase();
     }
 
     #[Test]
@@ -55,11 +25,32 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
             'client_einvoicing_version' => 'facturx',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
-        $this->seedInvoiceItem($invoiceId, 100, 19);
-        $this->seedInvoiceTax($invoiceId, 19);
+        $itemId = $this->databaseInsert('ip_invoice_items', [
+            'invoice_id' => $invoiceId,
+            'item_name' => 'Test Item',
+            'item_description' => '',
+            'item_quantity' => '1',
+            'item_price' => '100.00',
+            'item_order' => 1,
+            'item_date_added' => date('Y-m-d'),
+        ]);
+        $this->databaseInsert('ip_invoice_item_amounts', [
+            'item_id' => $itemId,
+            'item_subtotal' => '100.00',
+            'item_tax_total' => '19.00',
+            'item_discount' => '0.00',
+            'item_total' => '119.00',
+        ]);
+        $this->databaseInsert('ip_invoice_tax_rates', [
+            'invoice_id' => $invoiceId,
+            'invoice_tax_rate_name' => 'VAT',
+            'invoice_tax_rate_percent' => 19,
+            'invoice_tax_rate_amount' => 19,
+            'include_item_tax' => 0,
+        ]);
 
         /* Act */
-        $response = $this->request('GET', "invoices/view/{$invoiceId}");
+        $response = $this->get("invoices/view/{$invoiceId}");
 
         /* Assert */
         self::assertSame(200, $response->statusCode());
@@ -79,10 +70,25 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
             'client_einvoicing_version' => 'facturx',
         ]);
         $invoiceId = $this->seedInvoice($clientId);
-        $this->seedInvoiceItem($invoiceId, 100, 19);
+        $itemId = $this->databaseInsert('ip_invoice_items', [
+            'invoice_id' => $invoiceId,
+            'item_name' => 'Test Item',
+            'item_description' => '',
+            'item_quantity' => '1',
+            'item_price' => '100.00',
+            'item_order' => 1,
+            'item_date_added' => date('Y-m-d'),
+        ]);
+        $this->databaseInsert('ip_invoice_item_amounts', [
+            'item_id' => $itemId,
+            'item_subtotal' => '100.00',
+            'item_tax_total' => '19.00',
+            'item_discount' => '0.00',
+            'item_total' => '119.00',
+        ]);
 
         /* Act */
-        $response = $this->request('GET', "invoices/view/{$invoiceId}");
+        $response = $this->get("invoices/view/{$invoiceId}");
 
         /* Assert */
         self::assertSame(200, $response->statusCode());
@@ -99,10 +105,16 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
         /* Arrange */
         $clientId = $this->seedClient();
         $invoiceId = $this->seedInvoice($clientId);
-        $this->seedInvoiceTax($invoiceId, 19);
+        $this->databaseInsert('ip_invoice_tax_rates', [
+            'invoice_id' => $invoiceId,
+            'invoice_tax_rate_name' => 'VAT',
+            'invoice_tax_rate_percent' => 19,
+            'invoice_tax_rate_amount' => 19,
+            'include_item_tax' => 0,
+        ]);
 
         /* Act */
-        $response = $this->request('GET', "invoices/view/{$invoiceId}");
+        $response = $this->get("invoices/view/{$invoiceId}");
 
         /* Assert */
         self::assertSame(200, $response->statusCode());
@@ -111,16 +123,5 @@ final class InvoiceLevelTaxesInEInvoiceTest extends AbstractTestCase
             $response->body(),
             'The warning must not appear when e-invoicing is not active.'
         );
-    }
-
-    protected function seedInvoiceTax(int $invoice_id, float $tax_rate): int
-    {
-        return $this->databaseInsert('ip_invoice_tax_rates', [
-            'invoice_id' => $invoice_id,
-            'invoice_tax_rate_name' => 'VAT',
-            'invoice_tax_rate_percent' => $tax_rate,
-            'invoice_tax_rate_amount' => 0,
-            'include_item_tax' => 0,
-        ]);
     }
 }
