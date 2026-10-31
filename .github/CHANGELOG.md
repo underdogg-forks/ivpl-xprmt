@@ -35,8 +35,7 @@ Thanks to [@Iweisc](https://github.com/Iweisc), [@hariprakash6969-create](https:
 [@0raN9ewww](https://github.com/0raN9ewww), [@mattmumford-git](https://github.com/mattmumford-git),
 and [@ali-iltizar](https://github.com/ali-iltizar) for responsibly disclosing the issues resolved or
 in progress in this release. A special thanks to [@Iweisc](https://github.com/Iweisc) for the detailed,
-reproducible bug reports (payment status, recurring start date and item deletion discount) listed
-under "Bug fixes".
+reproducible report of the recurring start date bug listed under "Bug fixes".
 
 ### Security Vulnerability Summary
 
