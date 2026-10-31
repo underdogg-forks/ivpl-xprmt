@@ -113,6 +113,41 @@ final class DeleteItemKeepsGlobalDiscountTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '0.00']);
     }
 
+    #[Test]
+    public function it_refuses_the_delete_and_changes_nothing_when_the_discount_would_make_the_total_negative(): void
+    {
+        /* Arrange: 150.00 off two 100.00 items (75.00 each, total 50.00); one item alone could not carry it */
+        [$invoiceId, $first, $second] = $this->invoice(['invoice_discount_amount' => '150.00'], ['100.00', '100.00'], '75.00');
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '50.00']);
+
+        /* Act */
+        $response = $this->deleteItem($invoiceId, $second);
+
+        /* Assert: reported as a failure, and the whole delete was rolled back */
+        self::assertSame(0, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . $response->body());
+        $this->assertDatabaseHas('ip_invoice_items', ['item_id' => $second]);
+        $this->assertDatabaseHas('ip_invoice_item_amounts', ['item_id' => $second, 'item_total' => '25.00']);
+        $this->assertDatabaseHas('ip_invoice_item_amounts', ['item_id' => $first, 'item_total' => '25.00']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '50.00', 'invoice_balance' => '50.00']);
+    }
+
+    #[Test]
+    public function it_shares_the_discount_over_an_item_that_has_no_amount_row_yet(): void
+    {
+        /* Arrange: three 100.00 items, 60.00 off (20.00 each); the third lost its amount row, as after an interrupted save */
+        [$invoiceId, $first, $second, $third] = $this->invoice(['invoice_discount_amount' => '60.00'], ['100.00', '100.00', '100.00'], '20.00');
+        $this->databaseDelete('ip_invoice_item_amounts', ['item_id' => $third]);
+
+        /* Act: delete the second; 60.00 is shared over the two items that are left */
+        $response = $this->deleteItem($invoiceId, $second);
+
+        /* Assert: 200.00 - 60.00, not 200.00 - 120.00 */
+        self::assertSame(1, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . $response->body());
+        $this->assertDatabaseHas('ip_invoice_item_amounts', ['item_id' => $first, 'item_total' => '70.00']);
+        $this->assertDatabaseHas('ip_invoice_item_amounts', ['item_id' => $third, 'item_total' => '70.00']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '140.00']);
+    }
+
     /**
      * @param array<string, string> $invoice invoice columns (discounts)
      * @param list<string>          $prices  one 100.00-style subtotal per item
