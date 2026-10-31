@@ -15,9 +15,11 @@ use Tests\Integration\Support\HttpResponse;
 #[Group('payments')]
 final class PaymentEditReopensInvoiceTest extends AbstractTestCase
 {
-    private const STATUS_SENT   = 2;
+    private const STATUS_SENT = 2;
+
     private const STATUS_VIEWED = 3;
-    private const STATUS_PAID   = 4;
+
+    private const STATUS_PAID = 4;
 
     protected function setUp(): void
     {
