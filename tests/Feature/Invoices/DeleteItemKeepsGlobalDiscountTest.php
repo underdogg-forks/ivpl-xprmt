@@ -62,7 +62,7 @@ final class DeleteItemKeepsGlobalDiscountTest extends AbstractTestCase
     public function it_applies_the_tax_after_the_redistributed_discount(): void
     {
         /* Arrange: two 100.00 items at 20 % VAT, 50.00 off: (100 - 25) * 1.2 = 90.00 each */
-        $taxRateId = $this->databaseInsert('ip_tax_rates', ['tax_rate_name' => 'VAT20', 'tax_rate_percent' => '20.00']);
+        $taxRateId              = $this->databaseInsert('ip_tax_rates', ['tax_rate_name' => 'VAT20', 'tax_rate_percent' => '20.00']);
         [$invoiceId, , $second] = $this->invoice(['invoice_discount_amount' => '50.00'], ['100.00', '100.00'], '25.00', null, $taxRateId);
         $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '180.00']);
 
@@ -114,10 +114,10 @@ final class DeleteItemKeepsGlobalDiscountTest extends AbstractTestCase
     }
 
     /**
-     * @param array<string, string> $invoice  invoice columns (discounts)
-     * @param list<string>          $prices   one 100.00-style subtotal per item
-     * @param ?string               $share    discount share stored on every item, or
-     * @param ?list<string>         $shares   one stored share per item
+     * @param array<string, string> $invoice invoice columns (discounts)
+     * @param list<string>          $prices  one 100.00-style subtotal per item
+     * @param ?string               $share   discount share stored on every item, or
+     * @param ?list<string>         $shares  one stored share per item
      *
      * @return list<int> [invoiceId, itemId...]
      */

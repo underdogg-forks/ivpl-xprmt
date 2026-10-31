@@ -28,13 +28,13 @@ final class RecurringStartDateMonthEndTest extends AbstractTestCase
     public static function startDates(): array
     {
         return [
-            'oct 31 monthly'        => ['2026-10-31', '1M', '2026-11-30'],
-            'jan 31 monthly'        => ['2027-01-31', '1M', '2027-02-28'],
-            'jan 30 monthly'        => ['2027-01-30', '1M', '2027-02-28'],
-            'mar 31 quarterly'      => ['2027-03-31', '3M', '2027-06-30'],
-            'feb 29 yearly'         => ['2028-02-29', '1Y', '2029-02-28'],
+            'oct 31 monthly'         => ['2026-10-31', '1M', '2026-11-30'],
+            'jan 31 monthly'         => ['2027-01-31', '1M', '2027-02-28'],
+            'jan 30 monthly'         => ['2027-01-30', '1M', '2027-02-28'],
+            'mar 31 quarterly'       => ['2027-03-31', '3M', '2027-06-30'],
+            'feb 29 yearly'          => ['2028-02-29', '1Y', '2029-02-28'],
             'mid month is unchanged' => ['2026-10-15', '1M', '2026-11-15'],
-            'weekly is unchanged'   => ['2026-10-31', '1W', '2026-11-07'],
+            'weekly is unchanged'    => ['2026-10-31', '1W', '2026-11-07'],
         ];
     }
 

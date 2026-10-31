@@ -26,19 +26,19 @@ final class IncrementDateMonthEndTest extends TestCase
     public static function increments(): array
     {
         return [
-            'oct 31 + 1 month stops at nov 30'         => ['2026-10-31', '1M', '2026-11-30'],
-            'jan 31 + 1 month stops at feb 28'         => ['2027-01-31', '1M', '2027-02-28'],
-            'jan 31 + 1 month in a leap year'          => ['2028-01-31', '1M', '2028-02-29'],
-            'jan 30 + 1 month stops at feb 28'         => ['2027-01-30', '1M', '2027-02-28'],
-            'mar 31 + 3 months stops at jun 30'        => ['2027-03-31', '3M', '2027-06-30'],
-            'aug 31 + 6 months stops at feb 28'        => ['2026-08-31', '6M', '2027-02-28'],
-            'feb 29 + 1 year stops at feb 28'          => ['2028-02-29', '1Y', '2029-02-28'],
-            'dec 31 + 1 month crosses the year'        => ['2026-12-31', '1M', '2027-01-31'],
-            'jan 15 + 1 month is unchanged'            => ['2026-01-15', '1M', '2026-02-15'],
-            'oct 31 + 2 months exists in december'     => ['2026-10-31', '2M', '2026-12-31'],
-            'jan 31 + 1 week is plain day arithmetic'  => ['2027-01-31', '1W', '2027-02-07'],
-            'oct 31 + 1 day is plain day arithmetic'   => ['2026-10-31', '1D', '2026-11-01'],
-            'feb 28 + 1 year keeps the day'            => ['2027-02-28', '1Y', '2028-02-28'],
+            'oct 31 + 1 month stops at nov 30'        => ['2026-10-31', '1M', '2026-11-30'],
+            'jan 31 + 1 month stops at feb 28'        => ['2027-01-31', '1M', '2027-02-28'],
+            'jan 31 + 1 month in a leap year'         => ['2028-01-31', '1M', '2028-02-29'],
+            'jan 30 + 1 month stops at feb 28'        => ['2027-01-30', '1M', '2027-02-28'],
+            'mar 31 + 3 months stops at jun 30'       => ['2027-03-31', '3M', '2027-06-30'],
+            'aug 31 + 6 months stops at feb 28'       => ['2026-08-31', '6M', '2027-02-28'],
+            'feb 29 + 1 year stops at feb 28'         => ['2028-02-29', '1Y', '2029-02-28'],
+            'dec 31 + 1 month crosses the year'       => ['2026-12-31', '1M', '2027-01-31'],
+            'jan 15 + 1 month is unchanged'           => ['2026-01-15', '1M', '2026-02-15'],
+            'oct 31 + 2 months exists in december'    => ['2026-10-31', '2M', '2026-12-31'],
+            'jan 31 + 1 week is plain day arithmetic' => ['2027-01-31', '1W', '2027-02-07'],
+            'oct 31 + 1 day is plain day arithmetic'  => ['2026-10-31', '1D', '2026-11-01'],
+            'feb 28 + 1 year keeps the day'           => ['2027-02-28', '1Y', '2028-02-28'],
         ];
     }
 
