@@ -625,13 +625,13 @@ class SettingsControllerTest extends AbstractTestCase
         $formClose = strpos($body, '</form>', (int) $formOpen);
         self::assertNotFalse($formOpen);
         foreach (['login', 'invoice'] as $kind) {
-            $needle = 'formaction="http://localhost/settings/remove_logo/' . $kind . '"';
-            $at     = strpos($body, $needle);
-            self::assertNotFalse($at, "No remove-logo button for the {$kind} logo.");
+            $found = preg_match('#formaction="http://localhost/(?:index\.php/)?settings/remove_logo/' . $kind . '"#', $body, $match, PREG_OFFSET_CAPTURE);
+            self::assertSame(1, $found, "No remove-logo button for the {$kind} logo.");
+            $at = $match[0][1];
             self::assertGreaterThan($formOpen, $at);
             self::assertLessThan($formClose, $at, 'The button must sit inside the settings form, which carries the CSRF field.');
         }
-        self::assertStringNotContainsString('<form method="post" action="http://localhost/settings/remove_logo', $body, 'A nested form is dropped by browsers.');
+        self::assertSame(0, preg_match('#<form method="post" action="http://localhost/(?:index\.php/)?settings/remove_logo#', $body), 'A nested form is dropped by browsers.');
     }
 
     private function setSetting(string $key, string $value): void
