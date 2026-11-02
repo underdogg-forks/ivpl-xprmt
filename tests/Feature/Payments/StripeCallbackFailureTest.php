@@ -155,20 +155,18 @@ final class StripeCallbackFailureTest extends AbstractTestCase
     private function sessionResponse(array $overrides): array
     {
         return ['status' => 200, 'body' => json_encode(array_merge([
-            'id'                     => 'cs_test_callback',
-            'object'                 => 'checkout.session',
-            'status'                 => 'complete',
-            'mode'                   => 'payment',
-            'payment_status'         => 'unpaid',
-            'client_reference_id'    => null,
-            'payment_intent'         => null,
-            'currency'               => 'eur',
-            'amount_total'           => 5000,
-            'amount_received'        => 0,
-            'application_fee_amount' => 0,
-            'livemode'               => false,
-            'cancellation_reason'    => null,
-            'last_payment_error'     => null,
+            'id'                  => 'cs_test_callback',
+            'object'              => 'checkout.session',
+            'status'              => 'complete',
+            'mode'                => 'payment',
+            'payment_status'      => 'unpaid',
+            'client_reference_id' => null,
+            'payment_intent'      => null,
+            'currency'            => 'eur',
+            'amount_total'        => 5000,
+            'livemode'            => false,
+            'cancellation_reason' => null,
+            'last_payment_error'  => null,
         ], $overrides))];
     }
 }

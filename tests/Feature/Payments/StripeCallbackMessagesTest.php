@@ -115,6 +115,44 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_logs_the_amount_of_a_paid_checkout_session_taken_from_amount_total(): void
+    {
+        /* Arrange: a real Checkout Session has amount_total only; amount_received and application_fee_amount do not exist on it */
+        $invoiceId = $this->seedPayableInvoice();
+        $urlKey    = $this->urlKeyOf($invoiceId);
+        $this->mockStripe($this->paidSession($urlKey, 'pi_logged', 5000));
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert: the guest sees success, the payment is booked and the admin log carries amount and session */
+        self::assertNotNull($response->sessionValue('alert_success'), 'The paid callback must end in the success message, not the system error.');
+        self::assertNull($response->sessionValue('alert_error'));
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_logged', 'payment_amount' => '50.00']);
+        $logged = (string) $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId])['merchant_response'];
+        self::assertStringContainsString('currency: eur', $logged);
+        self::assertStringContainsString('amount: 50, session ID', $logged);
+        self::assertStringContainsString('session ID: cs_test_callback', $logged);
+        self::assertStringNotContainsString('fee:', $logged, 'A Checkout Session has no fee to report.');
+    }
+
+    #[Test]
+    public function it_logs_the_status_of_a_session_that_was_not_paid(): void
+    {
+        /* Arrange */
+        $invoiceId = $this->seedPayableInvoice();
+        $urlKey    = $this->urlKeyOf($invoiceId);
+        $this->mockStripe($this->paidSession($urlKey, 'pi_open', 5000, 'eur', 'unpaid'));
+
+        /* Act */
+        $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert */
+        $logged = (string) $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId])['merchant_response'];
+        self::assertStringContainsString('status: complete, payment_status: unpaid', $logged);
+    }
+
+    #[Test]
     public function it_falls_back_to_the_generic_message_when_a_session_was_not_paid_and_nothing_more_specific_applies(): void
     {
         /* Arrange: a checkout session that is still unpaid */
@@ -148,20 +186,18 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     private function paidSession(string $urlKey, string $paymentIntent, int $amountMinor, string $currency = 'eur', string $paymentStatus = 'paid'): array
     {
         return [['status' => 200, 'body' => json_encode([
-            'id'                     => 'cs_test_callback',
-            'object'                 => 'checkout.session',
-            'status'                 => 'complete',
-            'mode'                   => 'payment',
-            'payment_status'         => $paymentStatus,
-            'client_reference_id'    => $urlKey,
-            'payment_intent'         => $paymentIntent,
-            'currency'               => $currency,
-            'amount_total'           => $amountMinor,
-            'amount_received'        => $amountMinor,
-            'application_fee_amount' => 0,
-            'livemode'               => false,
-            'cancellation_reason'    => null,
-            'last_payment_error'     => null,
+            'id'                  => 'cs_test_callback',
+            'object'              => 'checkout.session',
+            'status'              => 'complete',
+            'mode'                => 'payment',
+            'payment_status'      => $paymentStatus,
+            'client_reference_id' => $urlKey,
+            'payment_intent'      => $paymentIntent,
+            'currency'            => $currency,
+            'amount_total'        => $amountMinor,
+            'livemode'            => false,
+            'cancellation_reason' => null,
+            'last_payment_error'  => null,
         ])]];
     }
 }
