@@ -382,7 +382,6 @@ class GatewayPaymentRaceTest extends AbstractTestCase
             'payment_intent'      => $paymentIntent,
             'currency'            => 'eur',
             'amount_total'        => $amountTotalMinor,
-            'amount_received'     => $amountTotalMinor,
             'livemode'            => false,
         ])];
 
