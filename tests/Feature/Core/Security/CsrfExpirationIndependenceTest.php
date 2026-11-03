@@ -2,153 +2,131 @@
 
 namespace Tests\Feature\Core\Security;
 
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Concerns\PerformsCsrfProtectedRequests;
 
 /**
- * CSRF cookie expiration independence tests.
+ * The CSRF cookie lifetime (csrf_expire) must not follow the session lifetime (SESS_EXPIRATION).
+ * With SESS_EXPIRATION=0 (session until the browser closes) csrf_expire used to become 0, the CSRF
+ * cookie got Max-Age=0 and was dropped at once, so every POST failed with a 403.
  *
- * Verifies that CSRF cookie lifetime (csrf_expire) is independent of session
- * lifetime (SESS_EXPIRATION). With SESS_EXPIRATION=0 (session until browser
- * closes), the CSRF cookie should NOT get Max-Age=0 and be discarded immediately.
- *
- * Issue: https://github.com/InvoicePlane/InvoicePlane/issues/...
- * When SESS_EXPIRATION=0, csrf_expire was incorrectly set to 0, causing the
- * CSRF cookie to have Max-Age=0 and be dropped by the browser, making all
- * POST requests fail with 403 CSRF validation error.
+ * headers_list() is empty under the CLI SAPI, so the cookie's Max-Age cannot be read from a response.
+ * The first group of tests therefore reads the booted config, the second proves a POST still passes
+ * (and an unprotected one is still refused) at SESS_EXPIRATION=0.
  */
-
+#[Group('security')]
 final class CsrfExpirationIndependenceTest extends AbstractTestCase
 {
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function it_issues_csrf_cookie_with_correct_max_age_when_sess_expiration_is_zero(): void
+    use PerformsCsrfProtectedRequests;
+
+    #[Test]
+    public function it_keeps_the_csrf_expiry_at_one_hour_when_sess_expiration_is_zero(): void
     {
         /* Arrange */
+        $env = ['SESS_EXPIRATION' => '0'];
+
+        /* Act */
+        $config = $this->bootConfig($env);
+
+        /* Assert */
+        self::assertSame(3600, (int) $config['csrf_expire'], 'csrf_expire must not follow SESS_EXPIRATION=0.');
+        self::assertSame(0, (int) $config['sess_expiration'], 'Positive control: the probe really applied SESS_EXPIRATION=0.');
+    }
+
+    #[Test]
+    public function it_keeps_the_csrf_expiry_at_one_hour_for_a_normal_session_lifetime(): void
+    {
+        /* Arrange: positive control, the default shape of the same probe */
+        $env = ['SESS_EXPIRATION' => '864000'];
+
+        /* Act */
+        $config = $this->bootConfig($env);
+
+        /* Assert */
+        self::assertSame(3600, (int) $config['csrf_expire']);
+        self::assertSame(864000, (int) $config['sess_expiration']);
+    }
+
+    #[Test]
+    public function it_lets_csrf_expire_be_set_on_its_own(): void
+    {
+        /* Arrange */
+        $env = ['SESS_EXPIRATION' => '0', 'CSRF_EXPIRE' => '120'];
+
+        /* Act */
+        $config = $this->bootConfig($env);
+
+        /* Assert */
+        self::assertSame(120, (int) $config['csrf_expire']);
+    }
+
+    #[Test]
+    public function it_renders_the_login_form_with_a_csrf_token_when_sess_expiration_is_zero(): void
+    {
+        /* Arrange */
+        $this->enableCsrfProtection();
         $this->withEnvironment(['SESS_EXPIRATION' => '0']);
 
         /* Act */
-        $response = $this->request('GET', '/sessions/login');
+        $response = $this->get('/sessions/login');
 
         /* Assert */
-        $this->assertEquals(200, $response->status());
-
-        $csrfCookie = $response->cookie('ip_csrf_cookie');
-        $this->assertNotNull($csrfCookie, 'CSRF cookie should be set');
-
-        $setCookieHeader = $response->header('Set-Cookie');
-        $this->assertStringContainsString(
-            'Max-Age=3600',
-            $setCookieHeader,
-            'CSRF cookie should have Max-Age=3600 (1 hour), independent of SESS_EXPIRATION=0'
-        );
-
-        $this->assertStringNotContainsString(
-            'Max-Age=0',
-            $setCookieHeader,
-            'CSRF cookie must not have Max-Age=0 when SESS_EXPIRATION=0'
-        );
+        self::assertSame(200, $response->statusCode());
+        self::assertMatchesRegularExpression('/<input[^>]*name="_ip_csrf"[^>]*value="[^"]+"/', $response->body(), 'The form must carry a CSRF token.');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function it_allows_login_with_sess_expiration_zero(): void
-    {
-        /* Arrange */
-        $this->withEnvironment(['SESS_EXPIRATION' => '0']);
-
-        /* Act: Get login form and extract CSRF token */
-        $loginResponse = $this->request('GET', '/sessions/login');
-        preg_match(
-            '/<input[^>]*name="' . preg_quote(config_item('csrf_token_name')) . '"[^>]*value="([^"]*)"/',
-            $loginResponse->body(),
-            $matches
-        );
-        $csrfToken = $matches[1] ?? null;
-        $this->assertNotNull($csrfToken, 'CSRF token should be in login form');
-
-        /* Post login with SESS_EXPIRATION=0 */
-        $response = $this->request('POST', '/sessions/login', [
-            'post' => [
-                config_item('csrf_token_name') => $csrfToken,
-                'email' => 'admin@test.local',
-                'password' => 'password',
-            ],
-        ]);
-
-        /* Assert */
-        $this->assertIn(
-            $response->status(),
-            [200, 302, 303],
-            'Login should succeed (200/302/303 redirect) when SESS_EXPIRATION=0, not 403 CSRF error'
-        );
-
-        /* Positive control: Also verify login works with normal SESS_EXPIRATION */
-        $normalLoginResponse = $this->request('GET', '/sessions/login', [], ['SESS_EXPIRATION' => '864000']);
-        preg_match(
-            '/<input[^>]*name="' . preg_quote(config_item('csrf_token_name')) . '"[^>]*value="([^"]*)"/',
-            $normalLoginResponse->body(),
-            $normalMatches
-        );
-        $normalCsrfToken = $normalMatches[1] ?? null;
-
-        $normalResponse = $this->request('POST', '/sessions/login', [
-            'post' => [
-                config_item('csrf_token_name') => $normalCsrfToken,
-                'email' => 'admin@test.local',
-                'password' => 'password',
-            ],
-        ]);
-
-        $this->assertIn(
-            $normalResponse->status(),
-            [200, 302, 303],
-            'Login should also succeed with normal SESS_EXPIRATION (positive control)'
-        );
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function it_validates_csrf_token_independently_of_session_expiration(): void
+    #[Test]
+    public function it_accepts_a_post_with_a_valid_csrf_token_when_sess_expiration_is_zero(): void
     {
         /* Arrange */
         $this->actingAsAdmin();
+        $this->enableCsrfProtection();
         $this->withEnvironment(['SESS_EXPIRATION' => '0']);
 
-        /* Act: POST with SESS_EXPIRATION=0 */
+        /* Act */
         $response = $this->postWithValidCsrfToken('/settings');
 
-        /* Assert */
-        $this->assertIn(
-            $response->status(),
-            [200, 302, 303, 307],
-            'POST with valid CSRF token should succeed (200/302/303/307) when SESS_EXPIRATION=0, not 403'
-        );
-
-        /* Positive control: Also verify POST works with normal SESS_EXPIRATION */
-        $this->actingAsAdmin();
-        $this->withEnvironment(['SESS_EXPIRATION' => '864000']);
-
-        $normalResponse = $this->postWithValidCsrfToken('/settings');
-
-        $this->assertIn(
-            $normalResponse->status(),
-            [200, 302, 303, 307],
-            'POST with valid CSRF token should also succeed with normal SESS_EXPIRATION (positive control)'
-        );
+        /* Assert: not the 403 of a refused token */
+        self::assertNotSame(403, $response->statusCode(), 'A valid CSRF token must pass at SESS_EXPIRATION=0.');
+        self::assertTrue($response->isRedirect() || $response->isSuccessful(), 'Unexpected status ' . $response->statusCode());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function it_rejects_posts_without_csrf_even_when_sess_expiration_is_zero(): void
+    #[Test]
+    public function it_rejects_a_post_without_a_csrf_token_when_sess_expiration_is_zero(): void
     {
         /* Arrange */
         $this->actingAsAdmin();
+        $this->enableCsrfProtection();
         $this->withEnvironment(['SESS_EXPIRATION' => '0']);
 
         /* Act */
-        $response = $this->request('POST', '/settings');
+        $response = $this->postWithoutCsrfToken('/settings');
 
         /* Assert */
-        $this->assertEquals(
-            403,
-            $response->status(),
-            'POST without CSRF token should be rejected (403) regardless of SESS_EXPIRATION value'
-        );
+        self::assertSame(403, $response->statusCode(), 'A POST without a CSRF token must be refused regardless of SESS_EXPIRATION.');
+    }
+
+    /**
+     * @param array<string, string> $env
+     *
+     * @return array<string, mixed>
+     */
+    private function bootConfig(array $env): array
+    {
+        $code = 'foreach (' . var_export($env, true) . ' as $k => $v) { $_ENV[$k] = $v; }'
+            . 'require ' . var_export(ROOT_PATH . '/bootstrap/kernel.php', true) . ';'
+            . '$config = [];'
+            . 'require ' . var_export(ROOT_PATH . '/application/config/config.php', true) . ';'
+            . 'echo json_encode($config);';
+
+        $output = [];
+        $status = 1;
+        exec(PHP_BINARY . ' -r ' . escapeshellarg($code), $output, $status);
+
+        self::assertSame(0, $status, 'config boot probe must exit cleanly.');
+
+        return json_decode(implode("\n", $output), true, 512, JSON_THROW_ON_ERROR);
     }
 }
