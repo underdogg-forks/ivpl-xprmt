@@ -33,19 +33,19 @@ final class StripeCallbackBookedPaymentTest extends AbstractTestCase
     }
 
     /**
-     * @return array<string, array{0: string}> a translation of the success message that sprintf() cannot fill with one argument
+     * @return array<string, array{0: string, 1: string}> a translation, and the message the customer must get from it of the success message that sprintf() cannot fill with one argument
      */
     public static function brokenTranslations(): array
     {
         return [
-            'plain placeholders'      => ['Payment %s for invoice %s'],
-            'positional placeholders' => ['Invoice %1$s was paid, reference %2$s'],
+            'plain placeholders'      => ['Payment %s for invoice %s', 'Payment {n} for invoice {n}'],
+            'positional placeholders' => ['Invoice %1$s was paid, reference %2$s', 'Invoice {n} was paid, reference {n}'],
         ];
     }
 
     #[Test]
     #[DataProvider('brokenTranslations')]
-    public function it_still_tells_the_customer_the_payment_worked_when_describing_a_booked_payment_fails(string $translation): void
+    public function it_still_tells_the_customer_the_payment_worked_when_describing_a_booked_payment_fails(string $translation, string $expected): void
     {
         /* Arrange: sprintf() throws on this translation after the payment is booked */
         $language = 'zz_bad_translation';
@@ -68,8 +68,7 @@ final class StripeCallbackBookedPaymentTest extends AbstractTestCase
         /* Assert: booked, reported as a success without raw placeholders, and the failure is in the log */
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_booked_then_boom', 'payment_amount' => '50.00']);
         $message = (string) $response->sessionValue('alert_success');
-        self::assertStringContainsString('#' . $number, $message);
-        self::assertStringNotContainsString('%', $message, 'No raw placeholder may reach the customer.');
+        self::assertSame(str_replace('{n}', '#' . $number, $expected), $message, 'The customer gets the translation with the invoice number filled in, and no error text.');
         self::assertNull($response->sessionValue('alert_error'), 'A booked payment must never be reported as an error.');
         $logged = $this->logSince($logFile, $offset);
         self::assertStringContainsString('(payment already recorded)', $logged);
@@ -157,9 +156,30 @@ final class StripeCallbackBookedPaymentTest extends AbstractTestCase
         /* Assert */
         self::assertNotNull($response->sessionValue('alert_success'));
         $this->assertDatabaseHas('ip_payments', ['payment_external_id' => 'pi_fine']);
-        self::assertStringNotContainsString(self::MARKER, $this->logSince($logFile, $offset));
+        $logged = $this->logSince($logFile, $offset);
+        self::assertStringNotContainsString(self::MARKER, $logged);
+        self::assertStringNotContainsString('Could not store the merchant response', $logged);
         $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
         self::assertStringNotContainsString('NOT recorded locally', (string) $row['merchant_response']);
+    }
+
+    #[Test]
+    public function it_does_not_flag_a_session_that_was_not_paid(): void
+    {
+        /* Arrange: nothing was charged, so there is nothing to reconcile */
+        $invoiceId = $this->seedPayableInvoice();
+        $urlKey    = $this->urlKeyOf($invoiceId);
+        $this->mockStripe($this->session($urlKey, 'pi_unpaid', 5000, ['payment_status' => 'unpaid']));
+        [$logFile, $offset] = $this->logPosition();
+
+        /* Act */
+        $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert */
+        self::assertSame(0, $this->databaseCount('ip_payments', ['payment_external_id' => 'pi_unpaid']));
+        self::assertStringNotContainsString(self::MARKER, $this->logSince($logFile, $offset));
+        $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
+        self::assertSame('payment: unpaid, status: complete, payment_status: unpaid', (string) $row['merchant_response']);
     }
 
     #[Test]
@@ -179,6 +199,8 @@ final class StripeCallbackBookedPaymentTest extends AbstractTestCase
         self::assertSame('This payment has already been processed and recorded.', $response->sessionValue('alert_info'));
         self::assertSame(1, $this->databaseCount('ip_payments', ['payment_external_id' => 'pi_replayed']));
         self::assertStringNotContainsString(self::MARKER, $this->logSince($logFile, $offset));
+        $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
+        self::assertStringNotContainsString('NOT recorded locally', (string) $row['merchant_response']);
     }
 
     private function installLanguage(string $language, string $ipLang): void
