@@ -130,10 +130,23 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
         self::assertNull($response->sessionValue('alert_error'));
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_logged', 'payment_amount' => '50.00']);
         $logged = (string) $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId])['merchant_response'];
-        self::assertStringContainsString('currency: eur', $logged);
-        self::assertStringContainsString('amount: 50, session ID', $logged);
-        self::assertStringContainsString('session ID: cs_test_callback', $logged);
+        self::assertSame('payment: paid, . livemode: No, currency: eur, amount: 50, session ID: cs_test_callback', $logged);
         self::assertStringNotContainsString('fee:', $logged, 'A Checkout Session has no fee to report.');
+    }
+
+    #[Test]
+    public function it_logs_whether_the_paid_session_was_live(): void
+    {
+        /* Arrange */
+        $invoiceId = $this->seedPayableInvoice();
+        $this->mockStripe($this->paidSession($this->urlKeyOf($invoiceId), 'pi_live', 5000, 'eur', 'paid', ['livemode' => true]));
+
+        /* Act */
+        $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert */
+        $logged = (string) $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId])['merchant_response'];
+        self::assertSame('payment: paid, . livemode: Yes, currency: eur, amount: 50, session ID: cs_test_callback', $logged);
     }
 
     #[Test]
@@ -149,7 +162,7 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
 
         /* Assert */
         $logged = (string) $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId])['merchant_response'];
-        self::assertStringContainsString('status: complete, payment_status: unpaid', $logged);
+        self::assertSame('payment: unpaid, status: complete, payment_status: unpaid', $logged);
     }
 
     #[Test]
@@ -183,9 +196,9 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
         $this->withEnvironment(['STRIPE_MOCK_RESPONSES' => json_encode($responses)]);
     }
 
-    private function paidSession(string $urlKey, string $paymentIntent, int $amountMinor, string $currency = 'eur', string $paymentStatus = 'paid'): array
+    private function paidSession(string $urlKey, string $paymentIntent, int $amountMinor, string $currency = 'eur', string $paymentStatus = 'paid', array $overrides = []): array
     {
-        return [['status' => 200, 'body' => json_encode([
+        return [['status' => 200, 'body' => json_encode(array_merge([
             'id'                  => 'cs_test_callback',
             'object'              => 'checkout.session',
             'status'              => 'complete',
@@ -198,6 +211,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
             'livemode'            => false,
             'cancellation_reason' => null,
             'last_payment_error'  => null,
-        ])]];
+        ], $overrides))]];
     }
 }
