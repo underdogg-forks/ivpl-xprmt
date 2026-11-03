@@ -148,6 +148,73 @@ final class DeleteItemKeepsGlobalDiscountTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '140.00']);
     }
 
+    #[Test]
+    public function it_recomputes_a_percentage_discount_from_the_invoice_not_from_stale_item_shares(): void
+    {
+        /* Arrange: 10 % on the invoice, but the items carry no stored share (stale rows) */
+        [$invoiceId, , $second] = $this->invoice(['invoice_discount_percent' => '10.00'], ['100.00', '100.00'], '0.00');
+
+        /* Act */
+        $this->deleteItem($invoiceId, $second);
+
+        /* Assert: 10 % of the remaining 100.00 is applied, whatever the old rows said */
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '90.00']);
+    }
+
+    #[Test]
+    public function it_splits_a_fixed_discount_by_line_total_when_quantities_differ(): void
+    {
+        /* Arrange: 3 x 100.00 and 1 x 100.00, 80.00 off, stored as 60.00 and 20.00 */
+        $invoiceId = $this->seedInvoice($this->seedClient(), ['invoice_discount_amount' => '80.00', 'invoice_number' => 'QTY-' . bin2hex(random_bytes(3))]);
+        $big       = $this->databaseInsert('ip_invoice_items', [
+            'invoice_id' => $invoiceId, 'item_name' => 'Big', 'item_description' => '', 'item_quantity' => '3', 'item_price' => '100.00', 'item_order' => 1, 'item_date_added' => date('Y-m-d'), 'item_tax_rate_id' => 0,
+        ]);
+        $small = $this->databaseInsert('ip_invoice_items', [
+            'invoice_id' => $invoiceId, 'item_name' => 'Small', 'item_description' => '', 'item_quantity' => '1', 'item_price' => '100.00', 'item_order' => 2, 'item_date_added' => date('Y-m-d'), 'item_tax_rate_id' => 0,
+        ]);
+        $this->databaseInsert('ip_invoice_item_amounts', ['item_id' => $big, 'item_subtotal' => '300.00', 'item_tax_total' => '0.00', 'item_discount' => '0.00', 'item_total' => '240.00']);
+        $this->databaseInsert('ip_invoice_item_amounts', ['item_id' => $small, 'item_subtotal' => '100.00', 'item_tax_total' => '0.00', 'item_discount' => '0.00', 'item_total' => '80.00']);
+        $this->databaseUpdate('ip_invoice_amounts', ['invoice_item_subtotal' => '320.00', 'invoice_total' => '320.00', 'invoice_balance' => '320.00'], ['invoice_id' => $invoiceId]);
+
+        /* Act */
+        $this->deleteItem($invoiceId, $small);
+
+        /* Assert: all 80.00 goes to the 300.00 line */
+        $this->assertDatabaseHas('ip_invoice_item_amounts', ['item_id' => $big, 'item_total' => '220.00']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '220.00']);
+    }
+
+    #[Test]
+    public function it_leaves_the_items_of_other_invoices_alone(): void
+    {
+        /* Arrange: a second invoice with its own 100.00 item and no discount */
+        [$invoiceId, , $second] = $this->invoice(['invoice_discount_amount' => '50.00'], ['100.00', '100.00'], '25.00');
+        [$otherId, $otherItem]  = $this->invoice([], ['100.00'], '0.00');
+
+        /* Act */
+        $this->deleteItem($invoiceId, $second);
+
+        /* Assert */
+        $this->assertDatabaseHas('ip_invoice_item_amounts', ['item_id' => $otherItem, 'item_total' => '100.00']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $otherId, 'invoice_total' => '100.00']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '50.00']);
+    }
+
+    #[Test]
+    public function it_keeps_the_legacy_calculation_unchanged(): void
+    {
+        /* Arrange: legacy mode takes the discount from the invoice, not from per-item shares */
+        $this->withEnvironment(['LEGACY_CALCULATION' => 'true']);
+        [$invoiceId, , $second] = $this->invoice(['invoice_discount_amount' => '50.00'], ['100.00', '100.00'], '0.00');
+
+        /* Act */
+        $response = $this->deleteItem($invoiceId, $second);
+
+        /* Assert: 100.00 - 50.00 */
+        self::assertSame(1, json_decode($response->body(), true)['success'] ?? null, 'Body: ' . $response->body());
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '50.00']);
+    }
+
     /**
      * @param array<string, string> $invoice invoice columns (discounts)
      * @param list<string>          $prices  one 100.00-style subtotal per item
