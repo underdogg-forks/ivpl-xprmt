@@ -235,8 +235,9 @@ class Stripe extends Base_Controller
             if ($booked) {
                 // The payment is recorded: a failure while describing it is logged, but the customer is told it worked.
                 $paid = 'success';
-                // strtr, not sprintf: a translation with the wrong number of placeholders is what may have thrown above.
-                $user_msg = strtr(trans('online_payment_successful'), ['%s' => '#' . htmlsc($invoice->invoice_number)]);
+                // No sprintf: a translation with the wrong number of placeholders is what may have thrown above.
+                $number   = '#' . htmlsc($invoice->invoice_number);
+                $user_msg = (string) preg_replace_callback('/%(?:\d+\$)?s/', static fn (): string => $number, trans('online_payment_successful'));
                 $response .= ' (payment already recorded)';
                 log_message('error', sanitize_for_logging($response));
             } else {
@@ -254,14 +255,24 @@ class Stripe extends Base_Controller
             // client_reference_id) — ip_merchant_responses.invoice_id is NOT NULL and there's
             // no real invoice to attach a row to, so skip it; the failure is already logged above.
             if ( ! empty($invoice)) {
-                $this->db->insert('ip_merchant_responses', [
-                    'invoice_id'                   => $invoice->invoice_id,
-                    'merchant_response_successful' => (int) $ok, // response server API (no)ok
-                    'merchant_response_date'       => date('Y-m-d'),
-                    'merchant_response_driver'     => __CLASS__,
-                    'merchant_response'            => ($ok ? $session->mode . ': ' . $session->payment_status . ', ' : '') . $response,
-                    'merchant_response_reference'  => $ok ? 'intent_id: ' . $session->payment_intent : 'none',
-                ]);
+                // A failed log row must not stop the customer's redirect: with db_debug on, CodeIgniter exits on a database error.
+                $db_debug           = $this->db->db_debug;
+                $this->db->db_debug = false;
+                try {
+                    $stored = $this->db->insert('ip_merchant_responses', [
+                        'invoice_id'                   => $invoice->invoice_id,
+                        'merchant_response_successful' => (int) $ok, // response server API (no)ok
+                        'merchant_response_date'       => date('Y-m-d'),
+                        'merchant_response_driver'     => __CLASS__,
+                        'merchant_response'            => ($ok ? $session->mode . ': ' . $session->payment_status . ', ' : '') . $response,
+                        'merchant_response_reference'  => $ok ? 'intent_id: ' . $session->payment_intent : 'none',
+                    ]);
+                } finally {
+                    $this->db->db_debug = $db_debug;
+                }
+                if ( ! $stored) {
+                    log_message('error', __CLASS__ . '::callback - Could not store the merchant response for invoice ' . sanitize_for_logging((string) $invoice->invoice_id) . ': ' . sanitize_for_logging((string) ($this->db->error()['message'] ?? '')));
+                }
             }
 
             // Notify user
