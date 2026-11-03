@@ -3,6 +3,7 @@
 namespace Tests\Feature\Payments;
 
 use Cryptor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
@@ -31,12 +32,24 @@ final class StripeCallbackBookedPaymentTest extends AbstractTestCase
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_payment_method', 'setting_value' => '1']);
     }
 
-    #[Test]
-    public function it_still_tells_the_customer_the_payment_worked_when_describing_a_booked_payment_fails(): void
+    /**
+     * @return array<string, array{0: string}> a translation of the success message that sprintf() cannot fill with one argument
+     */
+    public static function brokenTranslations(): array
     {
-        /* Arrange: a translation of the success message with one placeholder too many; sprintf() throws on it after the payment is booked */
+        return [
+            'plain placeholders'      => ['Payment %s for invoice %s'],
+            'positional placeholders' => ['Invoice %1$s was paid, reference %2$s'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('brokenTranslations')]
+    public function it_still_tells_the_customer_the_payment_worked_when_describing_a_booked_payment_fails(string $translation): void
+    {
+        /* Arrange: sprintf() throws on this translation after the payment is booked */
         $language = 'zz_bad_translation';
-        $this->installLanguage($language, "<?php\n\$lang['online_payment_successful'] = 'Payment %s for invoice %s';\n");
+        $this->installLanguage($language, "<?php\n\$lang['online_payment_successful'] = '" . $translation . "';\n");
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'default_language', 'setting_value' => $language]);
         $this->databaseUpdate('ip_settings', ['setting_value' => $language], ['setting_key' => 'default_language']);
         $invoiceId = $this->seedPayableInvoice();
@@ -52,13 +65,40 @@ final class StripeCallbackBookedPaymentTest extends AbstractTestCase
             $this->removeLanguage($language);
         }
 
-        /* Assert: booked, reported as a success, and the failure is in the log rather than in front of the customer */
+        /* Assert: booked, reported as a success without raw placeholders, and the failure is in the log */
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_booked_then_boom', 'payment_amount' => '50.00']);
-        self::assertStringContainsString('#' . $number, (string) $response->sessionValue('alert_success'));
+        $message = (string) $response->sessionValue('alert_success');
+        self::assertStringContainsString('#' . $number, $message);
+        self::assertStringNotContainsString('%', $message, 'No raw placeholder may reach the customer.');
         self::assertNull($response->sessionValue('alert_error'), 'A booked payment must never be reported as an error.');
         $logged = $this->logSince($logFile, $offset);
         self::assertStringContainsString('(payment already recorded)', $logged);
         self::assertStringNotContainsString(self::MARKER, $logged, 'A booked payment needs no reconciliation.');
+    }
+
+    #[Test]
+    public function it_still_tells_the_customer_the_payment_worked_when_the_merchant_response_cannot_be_stored(): void
+    {
+        /* Arrange: the database refuses the log row. The test database is not in strict mode, so a trigger makes it fail */
+        $invoiceId = $this->seedPayableInvoice();
+        $urlKey    = $this->urlKeyOf($invoiceId);
+        $number    = (string) $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_number'];
+        $this->mockStripe($this->session($urlKey, 'pi_log_row_fails', 5000));
+        [$logFile, $offset] = $this->logPosition();
+        $this->databaseRunScript("CREATE TRIGGER zz_stripe_log_row_fails BEFORE INSERT ON ip_merchant_responses FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'log row refused'");
+
+        try {
+            /* Act */
+            $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+        } finally {
+            $this->databaseRunScript('DROP TRIGGER IF EXISTS zz_stripe_log_row_fails');
+        }
+
+        /* Assert: the redirect and the success message do not depend on the log row, which failed and was logged */
+        self::assertSame('Payment successful for invoice #' . $number, $response->sessionValue('alert_success'));
+        $this->assertDatabaseHas('ip_payments', ['payment_external_id' => 'pi_log_row_fails', 'payment_amount' => '50.00']);
+        self::assertSame(0, $this->databaseCount('ip_merchant_responses', ['invoice_id' => $invoiceId]));
+        self::assertStringContainsString('Could not store the merchant response for invoice ' . $invoiceId, $this->logSince($logFile, $offset));
     }
 
     #[Test]
