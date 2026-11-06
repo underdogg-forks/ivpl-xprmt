@@ -55,7 +55,13 @@ wrapper is what runs the per-test database reset and the browser-error capture.
 
 Every test runs `tests/Support/reset-test-db.php` first (truncate all tables +
 `ip_seed_baseline`), exactly like `InteractsWithDatabase` does for the PHPUnit
-suite. Consequences, all reflected in `playwright.config.js`:
+suite.
+
+The reset is cheap on purpose (it was ~0.4 s of a ~1.4 s test): it does nothing when the database is exactly as the
+last reseed left it (content checksums and AUTO_INCREMENT counters are compared), and otherwise truncates only the tables
+that hold rows or whose counter moved. The baseline admin has a **fixed** password hash and salt: a session carries an
+HMAC of that hash, so a fresh hash per reseed ended the shared admin session after every reset and the suite logged in
+again through a real browser before every test (~0.65 s each). Consequences, all reflected in `playwright.config.js`:
 
 - **`workers: 1`, `fullyParallel: false`** — one app instance, one database,
   serial tests. The PHP servers run with `PHP_CLI_SERVER_WORKERS=4`: PDF generation fetches its assets from the
