@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Upload;
+namespace Tests\Feature\Core\Upload;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

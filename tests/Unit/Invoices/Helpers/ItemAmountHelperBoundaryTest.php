@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Helpers;
+namespace Tests\Unit\Invoices\Helpers;
 
 use ArrayIterator;
 use PHPUnit\Framework\Attributes\DataProvider;

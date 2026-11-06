@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Libraries;
+namespace Tests\Unit\Payments\Libraries;
 
 use LogicException;
 use PaymentCallbackLock;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Validators;
+namespace Tests\Unit\Core\Validators;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;

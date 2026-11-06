@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Libraries;
+namespace Tests\Unit\Core\Libraries;
 
 use DOMDocument;
 use PHPUnit\Framework\Attributes\DataProvider;
