@@ -18,7 +18,7 @@ class CustomFieldValidationSecurityTest extends TestCase
     {
         parent::setUp();
 
-        $root = dirname(__DIR__, 3);
+        $root = dirname(__DIR__, 4);
         require_once $root . '/application/helpers/echo_helper.php';
         require_once $root . '/vendor/pocketarc/codeigniter/system/helpers/language_helper.php';
 

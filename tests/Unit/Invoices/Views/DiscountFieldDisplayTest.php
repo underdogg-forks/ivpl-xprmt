@@ -21,7 +21,7 @@ class DiscountFieldDisplayTest extends TestCase
     {
         parent::setUp();
 
-        $root = dirname(__DIR__, 3);
+        $root = dirname(__DIR__, 4);
         require_once $root . '/application/helpers/echo_helper.php';
         require_once $root . '/application/helpers/number_helper.php';
         require_once $root . '/application/helpers/trans_helper.php';
@@ -255,7 +255,7 @@ class DiscountFieldDisplayTest extends TestCase
         extract($vars);
 
         ob_start();
-        include dirname(__DIR__, 3) . '/' . $relativePath;
+        include dirname(__DIR__, 4) . '/' . $relativePath;
 
         return (string) ob_get_clean();
     }

@@ -53,6 +53,17 @@ final class CsrfEnabledAjaxAndDeleteTest extends AbstractTestCase
     }
 
     #[Test]
+    #[DataProvider('filterEndpoints')]
+    public function it_rejects_a_filter_ajax_post_that_carries_no_csrf_token(string $uri): void
+    {
+        /* Act */
+        $response = $this->request('POST', $uri, [], ['filter_query' => 'a'], true);
+
+        /* Assert */
+        self::assertSame(403, $response->statusCode(), "POST {$uri} without a CSRF token must be rejected.");
+    }
+
+    #[Test]
     public function it_deletes_a_draft_invoice_on_a_post_with_a_valid_csrf_token(): void
     {
         /* Arrange */

@@ -12,7 +12,7 @@ class PdfSecurityTest extends TestCase
 
         // Run standalone (not after some other file that happens to load this helper first),
         // this file's functions are otherwise undefined.
-        require_once dirname(__DIR__, 3) . '/application/helpers/mpdf_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/mpdf_helper.php';
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
