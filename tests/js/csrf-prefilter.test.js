@@ -17,25 +17,42 @@ const vm = require("node:vm");
 
 const SOURCE = fs.readFileSync(path.join(__dirname, "../../resources/assets/core/js/scripts.js"), "utf8");
 
-function loadPrefilter(tokenValue = "tok123") {
+function loadPrefilter(tokenValue = "tok123", cookie = "") {
     const absorb = () => new Proxy(function () {}, {
         get: (_t, prop) => (prop === Symbol.toPrimitive ? () => "" : absorb()),
         apply: () => absorb(),
     });
-    const meta = { getAttribute: () => tokenValue, setAttribute() {} };
+    const meta = {
+        content: tokenValue,
+        getAttribute() { return this.content; },
+        setAttribute(name, value) { if (name === "content") { this.content = value; } },
+    };
     let prefilter = null;
+    let ajaxComplete = null;
+    const chain = new Proxy(function () {}, {
+        get: (_t, prop) => (prop === "ajaxComplete" ? (fn) => { ajaxComplete = fn; return chain; } : absorb()),
+        apply: () => absorb(),
+    });
 
     const $ = new Proxy(function () {}, {
-        get: (_t, prop) => (prop === "ajaxPrefilter" ? (fn) => { prefilter = fn; } : absorb()),
+        get: (_t, prop) => {
+            if (prop === "ajaxPrefilter") { return (fn) => { prefilter = fn; }; }
+            if (prop === "isPlainObject") { return (value) => Object.prototype.toString.call(value) === "[object Object]"; }
+
+            return absorb();
+        },
         apply: (_t, _this, args) => {
             if (typeof args[0] === "function") {
                 args[0]();
+                return absorb();
             }
-            return absorb();
+
+            return chain;
         },
     });
 
     const known = {
+        cookie,
         querySelector: (selector) => (selector.includes("csrf_token_name")
             ? { getAttribute: () => "_ip_csrf" }
             : meta),
@@ -48,6 +65,8 @@ function loadPrefilter(tokenValue = "tok123") {
     vm.runInContext(SOURCE, sandbox);
 
     assert.equal(typeof prefilter, "function", "scripts.js must register an ajaxPrefilter");
+
+    prefilter.ajaxComplete = ajaxComplete;
 
     return prefilter;
 }
@@ -121,4 +140,61 @@ test("prefilter: GET requests are left alone", () => {
     runPrefilter(options);
 
     assert.equal(options.data, "q=1");
+});
+
+test("prefilter: a plain object body gains the token as a property", () => {
+    const options = { type: "POST", data: { filter_query: "abc" } };
+
+    runPrefilter(options);
+
+    assert.deepEqual(options.data, { filter_query: "abc", _ip_csrf: "tok123" });
+});
+
+test("prefilter: a plain object body that already carries a token keeps it", () => {
+    const options = { type: "POST", data: { _ip_csrf: "caller-token" } };
+
+    runPrefilter(options);
+
+    assert.equal(options.data._ip_csrf, "caller-token");
+});
+
+test("prefilter: a string body that already carries the token is not given a second one", () => {
+    const options = { type: "POST", data: "_ip_csrf=tok123&filter_query=abc" };
+
+    runPrefilter(options);
+
+    assert.equal(options.data, "_ip_csrf=tok123&filter_query=abc");
+});
+
+test("prefilter: with no meta token it falls back to the csrf cookie", () => {
+    const options = { type: "POST", data: "filter_query=abc" };
+    const headers = {};
+    const prefilter = loadPrefilter("", "theme=dark; ip_csrf_cookie=cookie%20token; other=1");
+
+    prefilter(options, options, { setRequestHeader: (name, value) => { headers[name] = value; } });
+
+    assert.equal(options.data, "filter_query=abc&_ip_csrf=cookie%20token");
+    assert.deepEqual(headers, { "X-_ip_csrf": "cookie token" });
+});
+
+test("ajaxComplete: adopts the rotated token from the response header for the next post", () => {
+    const prefilter = loadPrefilter();
+    const xhr = { getResponseHeader: (name) => (name === "X-_ip_csrf" ? "rotated" : null) };
+    const options = { type: "POST", data: "filter_query=abc" };
+
+    prefilter.ajaxComplete({}, xhr, { url: "/x" });
+    prefilter(options, options, { setRequestHeader() {} });
+
+    assert.equal(options.data, "filter_query=abc&_ip_csrf=rotated");
+});
+
+test("ajaxComplete: keeps the current token when the response carries no token header", () => {
+    const prefilter = loadPrefilter();
+    const xhr = { getResponseHeader: () => null };
+    const options = { type: "POST", data: "filter_query=abc" };
+
+    prefilter.ajaxComplete({}, xhr, { url: "/x" });
+    prefilter(options, options, { setRequestHeader() {} });
+
+    assert.equal(options.data, "filter_query=abc&_ip_csrf=tok123");
 });
