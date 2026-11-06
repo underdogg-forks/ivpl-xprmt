@@ -81,7 +81,7 @@ final class ParseTemplateRealHelperTest extends TestCase
     {
         $script = sprintf(
             "define('BASEPATH', '/'); require %s; \$r = parse_template((object) json_decode(%s, true), %s%s); echo %s;",
-            var_export(dirname(__DIR__, 3) . '/application/helpers/template_helper.php', true),
+            var_export(dirname(__DIR__, 4) . '/application/helpers/template_helper.php', true),
             var_export(json_encode($row), true),
             var_export($body, true),
             $escape === null ? '' : ', ' . var_export($escape, true),

@@ -18,8 +18,8 @@ class NumberFormattingSecurityTest extends TestCase
 
         $this->previousCi          = $GLOBALS['unitCiInstance'] ?? null;
         $GLOBALS['unitCiInstance'] = (object) ['mdl_settings' => new FakeCiSettings()];
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/number_helper.php';
     }
 
     protected function tearDown(): void

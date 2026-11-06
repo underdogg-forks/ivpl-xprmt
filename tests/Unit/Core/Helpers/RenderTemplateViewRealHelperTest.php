@@ -95,7 +95,7 @@ final class RenderTemplateViewRealHelperTest extends TestCase
                 echo render_template_view('invoice_templates/pdf/Custom', %s, true);
                 PHP,
             var_export($fixtureDir, true),
-            var_export(dirname(__DIR__, 3) . '/application/helpers/template_helper.php', true),
+            var_export(dirname(__DIR__, 4) . '/application/helpers/template_helper.php', true),
             var_export($data, true)
         );
 
@@ -139,7 +139,7 @@ final class RenderTemplateViewRealHelperTest extends TestCase
                 echo ($returned === null ? 'NONE' : $returned) . '|' . ($GLOBALS['appended'] === null ? 'NONE' : $GLOBALS['appended']);
                 PHP,
             var_export($fixtureDir, true),
-            var_export(dirname(__DIR__, 3) . '/application/helpers/template_helper.php', true),
+            var_export(dirname(__DIR__, 4) . '/application/helpers/template_helper.php', true),
             var_export('MARKER-return-' . ($return ? 'true' : 'false'), true),
             var_export($return, true)
         );

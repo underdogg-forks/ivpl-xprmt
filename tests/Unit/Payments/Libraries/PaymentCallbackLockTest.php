@@ -250,7 +250,7 @@ final class PaymentCallbackLockTest extends AbstractTestCase
 
     private function openSecondaryConnection(): PDO
     {
-        $basePath = dirname(__DIR__, 3);
+        $basePath = dirname(__DIR__, 4);
 
         $active_group = null;
         $db           = [];

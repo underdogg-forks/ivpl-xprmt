@@ -59,7 +59,7 @@ final class QuoteStatusEmailEscapingTest extends TestCase
 
     private function probe(string $clientName, string $mailMode = 'phpmail'): string
     {
-        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 ' . escapeshellarg(dirname(__DIR__, 2) . '/Fixtures/mailer_quote_status_probe.php') . ' ' . escapeshellarg($clientName) . ' ' . escapeshellarg($mailMode) . ' 2>&1';
+        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 ' . escapeshellarg(dirname(__DIR__, 3) . '/Fixtures/mailer_quote_status_probe.php') . ' ' . escapeshellarg($clientName) . ' ' . escapeshellarg($mailMode) . ' 2>&1';
         $output = shell_exec($cmd);
         self::assertNotNull($output, 'The probe produced no output.');
 

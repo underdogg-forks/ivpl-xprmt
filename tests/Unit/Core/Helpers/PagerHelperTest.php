@@ -27,9 +27,9 @@ final class PagerHelperTest extends TestCase
             },
             'items' => (object) ['previous_offset' => 10, 'next_offset' => 30, 'last_offset' => 50],
         ];
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/pager_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/trans_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/pager_helper.php';
     }
 
     protected function tearDown(): void

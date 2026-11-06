@@ -23,7 +23,7 @@ final class ReportViewsEscapingTest extends TestCase
     {
         parent::setUp();
 
-        $root = dirname(__DIR__, 3);
+        $root = dirname(__DIR__, 4);
         require_once $root . '/application/helpers/echo_helper.php';
         require_once $root . '/application/helpers/number_helper.php';
         require_once $root . '/application/helpers/trans_helper.php';
@@ -90,7 +90,7 @@ final class ReportViewsEscapingTest extends TestCase
         extract($vars);
 
         ob_start();
-        include dirname(__DIR__, 3) . '/application/views/reports/' . $view . '.php';
+        include dirname(__DIR__, 4) . '/application/views/reports/' . $view . '.php';
 
         return (string) ob_get_clean();
     }

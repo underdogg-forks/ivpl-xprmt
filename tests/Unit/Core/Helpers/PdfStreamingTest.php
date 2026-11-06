@@ -221,7 +221,7 @@ final class PdfStreamingTest extends TestCase
     {
         $payload = base64_encode((string) json_encode($args + ['root' => $this->root], JSON_THROW_ON_ERROR));
         $process = proc_open(
-            [PHP_BINARY, dirname(__DIR__, 2) . '/Support/pdf_stream_probe.php', $payload],
+            [PHP_BINARY, dirname(__DIR__, 3) . '/Support/pdf_stream_probe.php', $payload],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
         );

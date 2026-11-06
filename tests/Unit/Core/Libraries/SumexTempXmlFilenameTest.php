@@ -101,7 +101,7 @@ final class SumexTempXmlFilenameTest extends TestCase
     private function probe(string $invoiceNumber): array
     {
         $cmd = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 '
-            . escapeshellarg(dirname(__DIR__, 2) . '/Fixtures/sumex/pdf_filename_probe.php') . ' '
+            . escapeshellarg(dirname(__DIR__, 3) . '/Fixtures/sumex/pdf_filename_probe.php') . ' '
             . escapeshellarg(base64_encode($invoiceNumber)) . ' ' . escapeshellarg($this->dir) . ' 2>&1';
 
         $output = (string) shell_exec($cmd);

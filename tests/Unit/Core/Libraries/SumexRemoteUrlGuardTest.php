@@ -53,7 +53,7 @@ final class SumexRemoteUrlGuardTest extends TestCase
 
     private function probe(string $url): string
     {
-        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 ' . escapeshellarg(dirname(__DIR__, 2) . '/Fixtures/sumex/pdf_probe.php') . ' ' . escapeshellarg($url) . ' 2>&1';
+        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0 ' . escapeshellarg(dirname(__DIR__, 3) . '/Fixtures/sumex/pdf_probe.php') . ' ' . escapeshellarg($url) . ' 2>&1';
         $output = shell_exec($cmd);
         self::assertNotNull($output, 'The probe produced no output.');
 

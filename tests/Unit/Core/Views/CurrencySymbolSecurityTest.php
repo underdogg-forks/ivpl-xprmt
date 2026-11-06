@@ -18,8 +18,8 @@ class CurrencySymbolSecurityTest extends TestCase
 
         $this->previousCi          = $GLOBALS['unitCiInstance'] ?? null;
         $GLOBALS['unitCiInstance'] = (object) ['mdl_settings' => new FakeCiSettings()];
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/settings_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/settings_helper.php';
     }
 
     protected function tearDown(): void
@@ -61,9 +61,9 @@ class CurrencySymbolSecurityTest extends TestCase
          */
 
         /* Arrange */
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/trans_helper.php';
         $GLOBALS['unitCiInstance']->lang = new class () {
             public function line(string $line): string
             {
@@ -75,7 +75,7 @@ class CurrencySymbolSecurityTest extends TestCase
 
         /* Act */
         ob_start();
-        include dirname(__DIR__, 3) . '/application/modules/layout/views/partial/itemlist_table_item_discount_input.php';
+        include dirname(__DIR__, 4) . '/application/modules/layout/views/partial/itemlist_table_item_discount_input.php';
         $html = (string) ob_get_clean();
 
         /* Assert */
@@ -87,9 +87,9 @@ class CurrencySymbolSecurityTest extends TestCase
     public function it_preserves_a_benign_currency_symbol_in_a_real_view_sink(): void
     {
         /* Arrange */
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/trans_helper.php';
         $GLOBALS['unitCiInstance']->lang = new class () {
             public function line(string $line): string
             {
@@ -101,7 +101,7 @@ class CurrencySymbolSecurityTest extends TestCase
 
         /* Act */
         ob_start();
-        include dirname(__DIR__, 3) . '/application/modules/layout/views/partial/itemlist_table_item_discount_input.php';
+        include dirname(__DIR__, 4) . '/application/modules/layout/views/partial/itemlist_table_item_discount_input.php';
         $html = (string) ob_get_clean();
 
         /* Assert */
@@ -121,9 +121,9 @@ class CurrencySymbolSecurityTest extends TestCase
     public function it_escapes_currency_symbol_in_the_invoice_discount_partial(): void
     {
         /* Arrange */
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/trans_helper.php';
         $GLOBALS['unitCiInstance']->lang = new class () {
             public function line(string $line): string
             {
@@ -140,7 +140,7 @@ class CurrencySymbolSecurityTest extends TestCase
 
         /* Act */
         ob_start();
-        include dirname(__DIR__, 3) . '/application/modules/invoices/views/partial_itemlist_table_invoice_discount.php';
+        include dirname(__DIR__, 4) . '/application/modules/invoices/views/partial_itemlist_table_invoice_discount.php';
         $html = (string) ob_get_clean();
 
         /* Assert */
@@ -152,9 +152,9 @@ class CurrencySymbolSecurityTest extends TestCase
     public function it_escapes_currency_symbol_in_the_quote_discount_partial(): void
     {
         /* Arrange */
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/trans_helper.php';
         $GLOBALS['unitCiInstance']->lang = new class () {
             public function line(string $line): string
             {
@@ -170,7 +170,7 @@ class CurrencySymbolSecurityTest extends TestCase
 
         /* Act */
         ob_start();
-        include dirname(__DIR__, 3) . '/application/modules/quotes/views/partial_itemlist_table_quote_discount.php';
+        include dirname(__DIR__, 4) . '/application/modules/quotes/views/partial_itemlist_table_quote_discount.php';
         $html = (string) ob_get_clean();
 
         /* Assert */
@@ -182,9 +182,9 @@ class CurrencySymbolSecurityTest extends TestCase
     public function it_escapes_currency_symbol_in_the_item_discount_input_partial(): void
     {
         /* Arrange */
-        require_once dirname(__DIR__, 3) . '/application/helpers/echo_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/number_helper.php';
-        require_once dirname(__DIR__, 3) . '/application/helpers/trans_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/echo_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/number_helper.php';
+        require_once dirname(__DIR__, 4) . '/application/helpers/trans_helper.php';
         $GLOBALS['unitCiInstance']->lang = new class () {
             public function line(string $line): string
             {
@@ -197,7 +197,7 @@ class CurrencySymbolSecurityTest extends TestCase
 
         /* Act */
         ob_start();
-        include dirname(__DIR__, 3) . '/application/modules/layout/views/partial/itemlist_responsive_item_discount_input.php';
+        include dirname(__DIR__, 4) . '/application/modules/layout/views/partial/itemlist_responsive_item_discount_input.php';
         $html = (string) ob_get_clean();
 
         /* Assert */
@@ -216,7 +216,7 @@ class CurrencySymbolSecurityTest extends TestCase
     public function it_keeps_the_escaped_currency_symbol_call_at_every_known_sink(): void
     {
         /* Arrange */
-        $root  = dirname(__DIR__, 3);
+        $root  = dirname(__DIR__, 4);
         $sinks = [
             'application/modules/invoices/views/partial_itemlist_responsive.php' => [81, 258],
             'application/modules/invoices/views/partial_itemlist_table.php'      => [60, 208],
