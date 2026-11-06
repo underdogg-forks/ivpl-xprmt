@@ -258,7 +258,7 @@ test.describe('Quotes — amount and sign message boundaries', () => {
   };
 
   for (const [label, [extra, field, message]] of Object.entries(SINGLE_DISCOUNT_FIELDS)) {
-    test(`it names exactly one field and message for a bad global discount (${label})`, async ({ page }) => {
+    test(`it names exactly one field and message for each bad global discount (${label})`, async ({ page }) => {
       /* Arrange */
       const { quoteId, itemId } = await quoteWithOneItem(page);
 
