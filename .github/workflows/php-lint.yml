@@ -4,9 +4,13 @@ on:
   push:
     paths:
       - '**.php'
+      - '.github/workflows/php-lint.yml'
+      - '.github/actions/setup-php-composer/**'
   pull_request:
     paths:
       - '**.php'
+      - '.github/workflows/php-lint.yml'
+      - '.github/actions/setup-php-composer/**'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +19,7 @@ permissions:
 jobs:
   lint:
     name: PHP Syntax Check (PHP ${{ matrix.php }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     # Every supported PHP version. A file can parse on one and not another -- syntax
     # added in a newer release breaks the 8.2 minimum, and removed syntax breaks the
