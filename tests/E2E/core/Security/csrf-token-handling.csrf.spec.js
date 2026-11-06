@@ -61,7 +61,10 @@ test.describe('CSRF token handling — client side', () => {
     expect(fromHelper).toBe(await metaValue(page));
   });
 
-  test('it falls back to the csrf cookie when the meta tag is missing', async ({ page }) => {
+  test('it falls back to the csrf cookie when the meta tag is missing', async ({ page, context }) => {
+    /* Arrange: the server's own cookie is HttpOnly, so replace it with one the script can read */
+    await context.clearCookies({ name: 'ip_csrf_cookie' });
+
     /* Act */
     const fromHelper = await page.evaluate(() => {
       document.querySelector('meta[name="csrf_token_value"]').remove();
@@ -74,7 +77,10 @@ test.describe('CSRF token handling — client side', () => {
     expect(fromHelper).toBe('cookie token');
   });
 
-  test('it returns an empty string, never "false" or "undefined", when there is no token anywhere', async ({ page }) => {
+  test('it returns an empty string, never "false" or "undefined", when there is no token anywhere', async ({ page, context }) => {
+    /* Arrange */
+    await context.clearCookies({ name: 'ip_csrf_cookie' });
+
     /* Act */
     const fromHelper = await page.evaluate(() => {
       document.querySelector('meta[name="csrf_token_value"]').remove();

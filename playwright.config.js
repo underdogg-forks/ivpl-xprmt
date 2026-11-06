@@ -10,6 +10,7 @@ const manageServer = !process.env.CI && !process.env.E2E_BASE_URL;
 // Two instances share one database: the default one runs with CSRF protection off (the forms are driven
 // through the UI), the second with it on, for the specs that prove a request is refused without a token
 // or that the browser sends one (*.csrf.spec.js). Both are started by CI itself via E2E_BASE_URL.
+// COOKIE_SECURE=false there: CodeIgniter will not set the CSRF cookie over plain HTTP while cookie_secure is on.
 const phpServer = (baseUrl, extraEnv = '') =>
   `${extraEnv}IP_URL=${baseUrl} REMOVE_INDEXPHP=true SETUP_COMPLETED=true DB_HOSTNAME=\${DB_HOSTNAME:-127.0.0.1} ` +
   `php -d variables_order=EGPCS -S localhost:${new URL(baseUrl).port} -t . bootstrap/test-server.php`;
@@ -64,7 +65,7 @@ export default defineConfig({
         // reads $_ENV only) can't see DB_HOSTNAME=127.0.0.1 — the app then tries
         // the Docker-only `mariadb` host from ipconfig.php and fails to boot.
         { command: phpServer(E2E_BASE_URL, 'CSRF_PROTECTION=false '), url: `${E2E_BASE_URL}/sessions/login`, reuseExistingServer: true, timeout: 120 * 1000 },
-        { command: phpServer(E2E_CSRF_BASE_URL, 'CSRF_PROTECTION=true '), url: `${E2E_CSRF_BASE_URL}/sessions/login`, reuseExistingServer: true, timeout: 120 * 1000 },
+        { command: phpServer(E2E_CSRF_BASE_URL, 'CSRF_PROTECTION=true COOKIE_SECURE=false '), url: `${E2E_CSRF_BASE_URL}/sessions/login`, reuseExistingServer: true, timeout: 120 * 1000 },
       ]
     : undefined,
 });
