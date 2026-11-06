@@ -58,7 +58,8 @@ Every test runs `tests/Support/reset-test-db.php` first (truncate all tables +
 suite. Consequences, all reflected in `playwright.config.js`:
 
 - **`workers: 1`, `fullyParallel: false`** — one app instance, one database,
-  serial tests. PHP's built-in server also handles one request at a time.
+  serial tests. The PHP servers run with `PHP_CLI_SERVER_WORKERS=4`: PDF generation fetches its assets from the
+  application itself, which deadlocks a single-threaded `php -S` (every PDF request used to hang).
 - Specs assert on their own `uniq()`-suffixed data, never on absolute row counts
   or list position.
 - The admin session in `.auth/admin.json` survives a reseed (the reseeded admin
