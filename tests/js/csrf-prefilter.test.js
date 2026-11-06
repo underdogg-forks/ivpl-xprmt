@@ -42,7 +42,7 @@ function loadPrefilter(tokenValue = "tok123") {
     };
     const document = new Proxy(known, { get: (target, prop) => (prop in target ? target[prop] : absorb()) });
 
-    const sandbox = { $, jQuery: $, ClipboardJS: function () { return absorb(); }, FormData, document, window: { location: { href: "http://test/" } }, console, setTimeout, clearTimeout };
+    const sandbox = { $, jQuery: $, ClipboardJS: function () { return absorb(); }, FormData, document, window: { location: { href: "http://test/" }, FormData }, console, setTimeout, clearTimeout };
     sandbox.window.document = document;
     vm.createContext(sandbox);
     vm.runInContext(SOURCE, sandbox);
@@ -52,18 +52,45 @@ function loadPrefilter(tokenValue = "tok123") {
     return prefilter;
 }
 
+/** Runs the prefilter the way jQuery does (options, originalOptions, jqXHR) and returns the request headers it set. */
+function runPrefilter(options, tokenValue = "tok123") {
+    const headers = {};
+    const jqXHR = { setRequestHeader: (name, value) => { headers[name] = value; } };
+
+    loadPrefilter(tokenValue)(options, options, jqXHR);
+
+    return headers;
+}
+
 test("prefilter: appends the token to an existing urlencoded body", () => {
     const options = { type: "POST", data: "filter_query=abc" };
 
-    loadPrefilter()(options);
+    runPrefilter(options);
 
     assert.equal(options.data, "filter_query=abc&_ip_csrf=tok123");
+});
+
+test("prefilter: sends the token as the X-_ip_csrf request header too", () => {
+    const options = { type: "POST", data: "filter_query=abc" };
+
+    const headers = runPrefilter(options);
+
+    assert.deepEqual(headers, { "X-_ip_csrf": "tok123" });
+});
+
+test("prefilter: a POST without a usable token sets no header and leaves the body alone", () => {
+    const options = { type: "POST", data: "filter_query=abc" };
+
+    const headers = runPrefilter(options, "undefined");
+
+    assert.deepEqual(headers, {});
+    assert.equal(options.data, "filter_query=abc");
 });
 
 test("prefilter: an empty body becomes the bare token pair, never a query-string fragment", () => {
     const options = { type: "POST", data: "" };
 
-    loadPrefilter()(options);
+    runPrefilter(options);
 
     assert.equal(options.data, "_ip_csrf=tok123", "a leading '?' turns the field name into '?_ip_csrf' and the server answers 403");
 });
@@ -71,7 +98,7 @@ test("prefilter: an empty body becomes the bare token pair, never a query-string
 test("prefilter: a POST without any data still carries the token and no literal 'undefined'", () => {
     const options = { type: "POST" };
 
-    loadPrefilter()(options);
+    runPrefilter(options);
 
     assert.equal(options.data, "_ip_csrf=tok123");
 });
@@ -81,7 +108,7 @@ test("prefilter: a FormData body keeps its fields and gains the token as a field
     form.append("file_name", "logo.png");
     const options = { type: "POST", data: form, processData: false, contentType: false };
 
-    loadPrefilter()(options);
+    runPrefilter(options);
 
     assert.ok(options.data instanceof FormData, "FormData must not be turned into the string '[object FormData]'");
     assert.equal(options.data.get("file_name"), "logo.png");
@@ -91,7 +118,7 @@ test("prefilter: a FormData body keeps its fields and gains the token as a field
 test("prefilter: GET requests are left alone", () => {
     const options = { type: "GET", data: "q=1" };
 
-    loadPrefilter()(options);
+    runPrefilter(options);
 
     assert.equal(options.data, "q=1");
 });

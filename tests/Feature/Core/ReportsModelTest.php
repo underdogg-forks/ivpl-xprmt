@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Models;
+namespace Tests\Feature\Core;
 
 use Mdl_Reports;
 use PHPUnit\Framework\Attributes\CoversClass;

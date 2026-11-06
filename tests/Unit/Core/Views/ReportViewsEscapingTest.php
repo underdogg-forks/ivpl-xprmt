@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Views;
+namespace Tests\Unit\Core\Views;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;

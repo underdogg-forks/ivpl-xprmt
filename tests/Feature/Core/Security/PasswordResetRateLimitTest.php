@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Security;
+namespace Tests\Feature\Core\Security;
 
 use DateTimeImmutable;
 use DateTimeZone;
