@@ -25,8 +25,8 @@ class StripeMinorUnitTest extends TestCase
 {
     protected function setUp(): void
     {
-        require_once dirname(__DIR__, 4) . '/application/helpers/stripe_helper.php';
-        require_once dirname(__DIR__, 4) . '/application/helpers/currency_helper.php';
+        require_once dirname(__DIR__, 5) . '/application/helpers/stripe_helper.php';
+        require_once dirname(__DIR__, 5) . '/application/helpers/currency_helper.php';
     }
 
     /**

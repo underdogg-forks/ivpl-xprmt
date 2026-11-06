@@ -58,7 +58,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
     {
         /* Arrange */
         if ( ! function_exists('session_credential_fingerprint')) {
-            require_once dirname(__DIR__, 3) . '/application/helpers/ip_security_helper.php';
+            require_once dirname(__DIR__, 4) . '/application/helpers/ip_security_helper.php';
         }
         $userId = $this->seedAdminWithResetToken();
         $before = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);

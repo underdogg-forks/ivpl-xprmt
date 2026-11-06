@@ -138,7 +138,7 @@ final class SumexTlsTransportTest extends TestCase
 
         $pipes        = [];
         $this->server = proc_open(
-            [PHP_BINARY, dirname(__DIR__, 2) . '/Support/tls_recording_server.php', $this->dir . '/server.pem', $this->dir . '/requests.log'],
+            [PHP_BINARY, dirname(__DIR__, 3) . '/Support/tls_recording_server.php', $this->dir . '/server.pem', $this->dir . '/requests.log'],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes
         );
@@ -156,7 +156,7 @@ final class SumexTlsTransportTest extends TestCase
     {
         $cainfo = $trustCa ? ' -d curl.cainfo=' . escapeshellarg($this->dir . '/ca.pem') : '';
         $url    = 'https://127.0.0.1:' . $this->tlsPort . $path;
-        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0' . $cainfo . ' ' . escapeshellarg(dirname(__DIR__, 2) . '/Fixtures/sumex/pdf_probe.php') . ' ' . escapeshellarg($url) . ' 2>&1';
+        $cmd    = escapeshellarg(PHP_BINARY) . ' -d display_errors=0' . $cainfo . ' ' . escapeshellarg(dirname(__DIR__, 3) . '/Fixtures/sumex/pdf_probe.php') . ' ' . escapeshellarg($url) . ' 2>&1';
         $output = shell_exec($cmd);
         self::assertNotNull($output, 'The probe produced no output.');
 
