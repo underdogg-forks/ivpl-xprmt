@@ -99,6 +99,7 @@ final class IisWebConfigTest extends TestCase
             'front controller'                              => ['index.php'],
             'front controller in public'                    => ['public/index.php'],
             'route below the public front controller'       => ['public/index.php/sessions/login'],
+            'public front controller behind a double slash' => ['public//index.php/sessions/login'],
             'stylesheet in public'                          => ['public/assets/default/css/style.css'],
             'route below the front controller'              => ['index.php/sessions/login'],
             'import route is not the import folder'         => ['index.php/import'],
@@ -282,7 +283,7 @@ final class IisWebConfigTest extends TestCase
         /* Act */
         $refusedByNginxButServedByIis = [];
         foreach ($paths as $path) {
-            if (preg_match('~^(public/)?index\.php(/|$)~', $path) === 1 || $path === '') {
+            if (preg_match('~^(public/+)?index\.php(/|$)~', $path) === 1 || $path === '') {
                 continue;
             }
             foreach ($nginx as $pattern) {
