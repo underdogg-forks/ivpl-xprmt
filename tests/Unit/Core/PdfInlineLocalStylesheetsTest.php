@@ -1,0 +1,368 @@
+<?php
+
+namespace Tests\Unit\Core;
+
+use FilesystemIterator;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+
+/**
+ * On 1.7.2 (mPDF 8.3.1) a PDF lost all its template styling whenever PHP could not fetch the site's own
+ * stylesheet URL over HTTPS: the default templates link their CSS with absolute base_url() URLs, mPDF fetches
+ * them remotely, and its fallback to the local file is inverted (mpdf/mpdf CssLoader). pdf_inline_local_stylesheets()
+ * reads the stylesheets of this installation from disk instead, so no network round trip is needed.
+ */
+#[Group('pdf')]
+final class PdfInlineLocalStylesheetsTest extends TestCase
+{
+    private const BASE = 'https://invoices.example.com/';
+
+    private string $root;
+
+    private string $assets;
+
+    protected function setUp(): void
+    {
+        require_once APPPATH . 'helpers/mpdf_helper.php';
+
+        $this->root   = sys_get_temp_dir() . '/ip-pdf-css-' . bin2hex(random_bytes(6));
+        $this->assets = $this->root . '/assets';
+        mkdir($this->assets . '/invoiceplane/css', 0o775, true);
+        mkdir($this->assets . '/core/css', 0o775, true);
+        file_put_contents($this->assets . '/invoiceplane/css/templates.css', "body { font-family: freemono; }\ntable { width: 100%; }");
+        file_put_contents($this->assets . '/core/css/custom-pdf.css', '/* custom */ p { color: red; }');
+        file_put_contents($this->assets . '/invoiceplane/css/with-urls.css', 'a{background:url(pixel.png)} b{background:url("../img/b.png")} i{background:url(\'img/i.png\')} u{background:url( spaced.png )}');
+        file_put_contents($this->assets . '/invoiceplane/css/absolute-urls.css', 'a{background:url(https://cdn.example.com/a.png)} b{background:url(//cdn.example.com/b.png)} i{background:url(data:image/png;base64,AAAA)} u{background:url(/root/u.png)} s{background:url(#frag)}');
+        file_put_contents($this->assets . '/invoiceplane/css/breakout.css', 'p{color:red} </style><script>alert(1)</script><style>');
+        file_put_contents($this->assets . '/invoiceplane/css/readme.txt', 'not a stylesheet');
+        file_put_contents($this->root . '/secret.css', 'SECRET-OUTSIDE-ASSETS');
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_dir($this->root)) {
+            $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+            }
+            rmdir($this->root);
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function pathsLeavingTheAssetsFolder(): array
+    {
+        return [
+            'dot dot segment'       => ['assets/../secret.css'],
+            'dot dot below a theme' => ['assets/invoiceplane/../../secret.css'],
+            'encoded dot dot'       => ['assets/%2e%2e/secret.css'],
+            'encoded slash'         => ['assets/invoiceplane/css/..%2f..%2f..%2fsecret.css'],
+            'backslash'             => ['assets/invoiceplane\\..\\..\\secret.css'],
+            'null byte'             => ['assets/invoiceplane/css/templates.css%00.css'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function linkSpellings(): array
+    {
+        $href = self::BASE . 'assets/invoiceplane/css/templates.css?v=1';
+
+        return [
+            'rel before href'        => ['<link rel="stylesheet" href="' . $href . '">'],
+            'href before rel'        => ['<link href="' . $href . '" rel="stylesheet">'],
+            'single quotes'          => ["<link rel='stylesheet' href='" . $href . "'>"],
+            'self closing'           => ['<link rel="stylesheet" href="' . $href . '" />'],
+            'type attribute'         => ['<link rel="stylesheet" type="text/css" href="' . $href . '">'],
+            'upper case'             => ['<LINK REL="StyleSheet" HREF="' . $href . '">'],
+            'spread over lines'      => ["<link\n    rel=\"stylesheet\"\n    href=\"" . $href . "\"\n>"],
+            'html encoded ampersand' => ['<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/templates.css?v=1&amp;x=2">'],
+        ];
+    }
+
+    #[Test]
+    public function it_replaces_a_link_to_a_local_stylesheet_with_its_content(): void
+    {
+        /* Arrange */
+        $html = '<html><head><link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/templates.css" type="text/css"></head><body>x</body></html>';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringNotContainsString('<link', $result, 'No request to the site itself may remain.');
+        self::assertStringContainsString('<style type="text/css">body { font-family: freemono; }' . "\n" . 'table { width: 100%; }</style>', $result);
+        self::assertStringContainsString('<body>x</body>', $result, 'The rest of the document is untouched.');
+    }
+
+    #[Test]
+    public function it_looks_for_the_file_without_the_version_query(): void
+    {
+        /* Arrange: _theme_asset() and _core_asset() append ?v=<version> */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/core/css/custom-pdf.css?v=1.7.2" type="text/css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringContainsString('/* custom */ p { color: red; }', $result);
+        self::assertStringNotContainsString('<link', $result);
+    }
+
+    #[Test]
+    public function it_inlines_every_local_stylesheet_in_document_order(): void
+    {
+        /* Arrange: the shipped templates link the theme stylesheet first and custom-pdf.css second, which overrides it */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/templates.css?v=1"><link rel="stylesheet" href="' . self::BASE . 'assets/core/css/custom-pdf.css?v=1">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertLessThan(strpos($result, 'color: red'), strpos($result, 'font-family: freemono'), 'custom-pdf.css must stay after the theme stylesheet.');
+        self::assertSame(2, substr_count($result, '<style'));
+    }
+
+    #[Test]
+    public function it_leaves_external_stylesheets_alone(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="https://cdn.example.com/assets/invoiceplane/css/templates.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_leaves_a_host_that_only_starts_like_this_one_alone(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="https://invoices.example.com.evil.test/assets/invoiceplane/css/templates.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_leaves_a_foreign_url_alone_even_when_its_tail_looks_like_a_local_path(): void
+    {
+        /* Arrange: the part of this URL after the length of our own prefix is "invoiceplane/css/templates.css" */
+        $foreign = str_pad('https://cdn.example.com/', strlen(self::BASE . 'assets/'), 'x') . 'invoiceplane/css/templates.css';
+        $html    = '<link rel="stylesheet" href="' . $foreign . '">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert: the origin is checked, not just a length */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_leaves_a_link_alone_when_the_file_does_not_exist(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/missing.css?v=1">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert: mPDF may still try to fetch it, exactly as before */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    #[DataProvider('pathsLeavingTheAssetsFolder')]
+    public function it_never_reads_a_file_outside_the_assets_folder(string $path): void
+    {
+        /* Arrange: a stylesheet that exists, but outside assets/ */
+        $html = '<link rel="stylesheet" href="' . self::BASE . $path . '">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringNotContainsString('SECRET-OUTSIDE-ASSETS', $result);
+        self::assertSame($html, $result, 'A link that cannot be resolved inside assets/ stays as it was.');
+    }
+
+    #[Test]
+    public function it_leaves_a_folder_that_is_named_like_a_stylesheet_alone(): void
+    {
+        /* Arrange */
+        mkdir($this->assets . '/invoiceplane/css/folder.css', 0o775);
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/folder.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert: a folder is not a stylesheet, and no empty style element replaces the link */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_only_inlines_css_files(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/readme.txt">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_ignores_links_that_are_not_stylesheets(): void
+    {
+        /* Arrange */
+        $html = '<link rel="icon" href="' . self::BASE . 'assets/invoiceplane/css/templates.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    #[DataProvider('linkSpellings')]
+    public function it_recognises_the_usual_spellings_of_a_stylesheet_link(string $link): void
+    {
+        /* Arrange: see the data provider */
+
+        /* Act */
+        $result = $this->inline('<head>' . $link . '</head>');
+
+        /* Assert */
+        self::assertStringNotContainsString('<link', strtolower($result));
+        self::assertStringContainsString('font-family: freemono', $result);
+    }
+
+    #[Test]
+    public function it_keeps_the_media_attribute(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/core/css/custom-pdf.css" media="print">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringContainsString('<style type="text/css" media="print">', $result);
+    }
+
+    #[Test]
+    public function it_cannot_be_broken_out_of_by_the_content_of_a_stylesheet(): void
+    {
+        /* Arrange: a stylesheet that contains a closing style tag */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/breakout.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert: the only closing tag is the one the function writes itself, at the very end, so the content stays inside the element */
+        self::assertSame(1, substr_count(strtolower($result), '</style'));
+        self::assertStringEndsWith('</style>', $result);
+        self::assertStringContainsString('<\\/style', $result, 'The closing tag in the stylesheet is neutralised.');
+    }
+
+    #[Test]
+    public function it_resolves_relative_urls_in_the_css_against_the_original_stylesheet_url(): void
+    {
+        /* Arrange: a stylesheet that was linked resolved url() against its own address; inlined it must keep doing so */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/with-urls.css?v=1">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringContainsString('url(' . self::BASE . 'assets/invoiceplane/css/pixel.png)', $result);
+        self::assertStringContainsString('url("' . self::BASE . 'assets/invoiceplane/img/b.png")', $result, '../ is resolved and the quotes stay.');
+        self::assertStringContainsString("url('" . self::BASE . "assets/invoiceplane/css/img/i.png')", $result);
+        self::assertStringContainsString('url(' . self::BASE . 'assets/invoiceplane/css/spaced.png)', $result);
+    }
+
+    #[Test]
+    public function it_leaves_absolute_urls_in_the_css_alone(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/absolute-urls.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        foreach (['url(https://cdn.example.com/a.png)', 'url(//cdn.example.com/b.png)', 'url(data:image/png;base64,AAAA)', 'url(/root/u.png)', 'url(#frag)'] as $url) {
+            self::assertStringContainsString($url, $result);
+        }
+    }
+
+    #[Test]
+    public function it_works_below_a_sub_directory(): void
+    {
+        /* Arrange: IIS virtual directory or sub folder install */
+        $html = '<link rel="stylesheet" href="https://example.com/billing/assets/invoiceplane/css/templates.css?v=1">';
+
+        /* Act */
+        $result = pdf_inline_local_stylesheets($html, 'https://example.com/billing/', $this->assets);
+
+        /* Assert */
+        self::assertStringContainsString('font-family: freemono', $result);
+        self::assertStringNotContainsString('<link', $result);
+    }
+
+    #[Test]
+    public function it_returns_a_document_without_stylesheet_links_unchanged(): void
+    {
+        /* Arrange */
+        $html = '<html><head><style>p{margin:0}</style></head><body><p>No links here</p></body></html>';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_leaves_the_document_alone_when_the_assets_folder_does_not_exist(): void
+    {
+        /* Arrange: an installation whose assets are served from somewhere else */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/templates.css?v=1">';
+
+        /* Act */
+        $result = pdf_inline_local_stylesheets($html, self::BASE, $this->root . '/no-such-assets-folder');
+
+        /* Assert: mPDF is left to fetch it, as before */
+        self::assertSame($html, $result);
+    }
+
+    #[Test]
+    public function it_returns_an_empty_document_unchanged(): void
+    {
+        /* Arrange + Act */
+        $result = $this->inline('');
+
+        /* Assert */
+        self::assertSame('', $result);
+    }
+
+    private function inline(string $html): string
+    {
+        return pdf_inline_local_stylesheets($html, self::BASE, $this->assets);
+    }
+}
