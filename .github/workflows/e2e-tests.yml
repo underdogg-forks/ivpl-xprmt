@@ -43,6 +43,7 @@ jobs:
       DB_USERNAME: root
       DB_PASSWORD: root
       E2E_BASE_URL: http://localhost:8000
+      E2E_CSRF_BASE_URL: http://localhost:8001
 
     steps:
       - name: Checkout
@@ -89,14 +90,20 @@ jobs:
           # CSRF stays off here, matching the local ipconfig, and the CSRF
           # regression cases remain covered by the PHPUnit Feature suite.
 
-      - name: Start the application server
+      - name: Start the application servers
+        # Two instances on one database: :8000 has CSRF protection off (forms are driven through the UI),
+        # :8001 has it on, for the *.csrf.spec.js specs (the chromium-csrf Playwright project). The exported
+        # variables beat the values in ipconfig.php.
         run: |
           php -d variables_order=EGPCS -S localhost:8000 -t . bootstrap/test-server.php > server.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf -o /dev/null "${E2E_BASE_URL}/sessions/login" && break
-            sleep 1
+          CSRF_PROTECTION=true IP_URL="${E2E_CSRF_BASE_URL}" php -d variables_order=EGPCS -S localhost:8001 -t . bootstrap/test-server.php > server-csrf.log 2>&1 &
+          for url in "${E2E_BASE_URL}" "${E2E_CSRF_BASE_URL}"; do
+            for i in $(seq 1 30); do
+              curl -sf -o /dev/null "${url}/sessions/login" && break
+              sleep 1
+            done
+            curl -sf -o /dev/null "${url}/sessions/login"
           done
-          curl -sf -o /dev/null "${E2E_BASE_URL}/sessions/login"
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -116,8 +123,10 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Lint E2E test files
-        run: npm run lint:e2e || true
+      - name: List the E2E specs
+        # Fails on a syntax or import error in any spec and on an empty suite. (The lint:e2e script cannot run:
+        # `npx eslint` resolves to v9, which rejects .eslintrc.json, and `|| true` used to hide that.)
+        run: npx playwright test --list
 
       - name: Run E2E tests
         run: npm run e2e
@@ -131,4 +140,5 @@ jobs:
             playwright-report/
             tests/E2E/error-report.md
             server.log
+            server-csrf.log
           retention-days: 14
