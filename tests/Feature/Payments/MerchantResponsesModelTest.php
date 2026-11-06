@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Models;
+namespace Tests\Feature\Payments;
 
 use Merchant_responses_model;
 use MerchantResponseDriver;

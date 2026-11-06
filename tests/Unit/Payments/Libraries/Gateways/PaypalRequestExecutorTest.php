@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Libraries\Gateways;
+namespace Tests\Unit\Payments\Libraries\Gateways;
 
 use Exception;
 use GuzzleHttp\Client;

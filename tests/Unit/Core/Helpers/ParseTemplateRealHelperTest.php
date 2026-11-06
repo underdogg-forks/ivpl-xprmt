@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Helpers;
+namespace Tests\Unit\Core\Helpers;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Core;
+namespace Tests\Unit\Core\Integrations;
 
 use MerchantResponseDirection;
 use MerchantResponseDriver;

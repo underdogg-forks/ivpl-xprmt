@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Views;
+namespace Tests\Unit\Invoices\Views;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

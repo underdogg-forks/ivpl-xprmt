@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Users;
+namespace Tests\Feature\Core\Users;
 
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
