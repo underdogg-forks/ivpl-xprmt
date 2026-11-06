@@ -34,7 +34,8 @@
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
-    "Invoices/CronRecurControllerTest.php::it_claims_the_recurring_invoice_before_it_draws_a_number_from_the_invoice_group": "Asserts the order of two queries inside one request (claim before number draw): it needs a hook inside the request, not a browser."
+    "Invoices/CronRecurControllerTest.php::it_claims_the_recurring_invoice_before_it_draws_a_number_from_the_invoice_group": "Asserts the order of two queries inside one request (claim before number draw): it needs a hook inside the request, not a browser.",
+    "Core/Users/UsersDeleteAuthorizationTest.php::it_ends_the_open_session_of_an_admin_who_was_deleted": "Needs one user's browser session to stay alive while another user logs in. In the e2e harness a successful login in a second client ends the first client's session (plain curl cannot reproduce it; cause not isolated), so the 'live before, dead after the delete' contrast cannot be set up."
   },
   "backlog": {
     "Clients/ClientDetailViewTest.php": [
@@ -417,29 +418,6 @@
       "it_does_not_delete_a_file_that_belongs_to_another_url_key",
       "it_confines_a_traversal_name_on_delete_to_the_upload_folder",
       "it_rejects_an_upload_request_that_carries_no_file"
-    ],
-    "Core/Users/UsersDeleteAuthorizationTest.php": [
-      "it_denies_a_peer_admin_deleting_a_guest_user_and_keeps_the_guests_client_assignments",
-      "it_denies_a_peer_admin_deleting_the_primary_admin_with_403_rather_than_a_silent_redirect",
-      "it_denies_a_peer_admin_deleting_its_own_account_through_this_endpoint",
-      "it_answers_403_for_a_peer_admin_even_when_the_target_id_does_not_exist",
-      "it_lets_the_primary_admin_delete_a_peer_admin_and_only_that_peer",
-      "it_refuses_to_let_even_the_primary_admin_delete_the_primary_admin",
-      "it_ends_the_open_session_of_an_admin_who_was_deleted"
-    ],
-    "Core/UsersAjaxControllerTest.php": [
-      "it_prevents_a_non_primary_admin_from_assigning_clients_to_another_user",
-      "it_allows_a_user_to_assign_clients_to_themselves",
-      "it_allows_the_primary_admin_to_assign_clients_to_any_user",
-      "it_returns_an_empty_json_list_for_an_empty_name_query",
-      "it_finds_only_active_users_of_the_requested_type_by_name_prefix",
-      "it_treats_percent_and_underscore_in_a_name_query_as_literal_characters_not_wildcards",
-      "it_only_matches_the_middle_of_a_name_when_permissive_search_is_requested",
-      "it_also_searches_the_company_and_invoicing_contact_columns",
-      "it_returns_an_empty_list_for_a_sql_injection_shaped_name_query"
-    ],
-    "Core/UsersControllerTest.php": [
-      "it_prevents_a_non_primary_admin_from_deleting_another_admin"
     ],
     "Core/WelcomeControllerTest.php": [
       "it_displays_welcome_page_to_guest",
