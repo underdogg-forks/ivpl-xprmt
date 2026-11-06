@@ -64,6 +64,12 @@ final class IisWebConfigTest extends TestCase
             'markdown at the root'                               => ['SECURITY.md'],
             'ipconfig.php'                                       => ['ipconfig.php'],
             'ipconfig.php.example'                               => ['ipconfig.php.example'],
+            'ipconfig backup'                                    => ['ipconfig.php.bak'],
+            'ipconfig old copy'                                  => ['ipconfig.php.old'],
+            'ipconfig editor backup'                             => ['ipconfig.php~'],
+            'ipconfig saved copy'                                => ['ipconfig.php.save'],
+            'ipconfig swap file'                                 => ['ipconfig.php.swp'],
+            'example backup'                                     => ['ipconfig.php.example.bak'],
             'env file'                                           => ['.env'],
             'git directory'                                      => ['.git/config'],
             'dotfile in a subfolder'                             => ['assets/.htpasswd'],
@@ -111,6 +117,7 @@ final class IisWebConfigTest extends TestCase
             'logo image'                                    => ['assets/default/img/logo.png'],
             'favicon'                                       => ['favicon.ico'],
             'robots'                                        => ['robots.txt'],
+            'image named like ipconfig'                     => ['ipconfig.png'],
             'company logo in uploads'                       => ['uploads/logo_300x150.jpg'],
             'uploads index'                                 => ['uploads/index.html'],
             'folder that merely starts like archive'        => ['uploads/archive_old.png'],
@@ -146,6 +153,28 @@ final class IisWebConfigTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, array{0: string, 1: ?string}> a request URL and where the routing sends it
+     */
+    public static function routedUrls(): array
+    {
+        return [
+            'login page'                           => ['sessions/login', 'public/index.php/sessions/login'],
+            'invoice route'                        => ['invoices/view/5', 'public/index.php/invoices/view/5'],
+            'a route that is also a folder name'   => ['import', 'public/index.php/import'],
+            'a route called application'           => ['application/form', null],
+            'a route with a dot in it'             => ['guest/gateways/stripe/callback/cs_test_1', 'public/index.php/guest/gateways/stripe/callback/cs_test_1'],
+            'a stylesheet that exists'             => ['assets/default/css/style.css', null],
+            'the favicon that exists'              => ['favicon.ico', null],
+            'the company logo that exists'         => ['uploads/logo_300x150.jpg', null],
+            'a folder that exists'                 => ['assets', null],
+            'the front controller itself'          => ['public/index.php', null],
+            'a route below the front controller'   => ['public/index.php/sessions/login', null],
+            'a refused folder stays refused'       => ['uploads/archive/2017-09-28_Invoice_1.pdf', null],
+            'a refused project file stays refused' => ['composer.json', null],
+        ];
+    }
+
     #[Test]
     public function it_ships_a_well_formed_web_config_in_the_project_root(): void
     {
@@ -166,15 +195,79 @@ final class IisWebConfigTest extends TestCase
     public function it_refuses_with_a_404_custom_response_and_stops_at_the_first_match(): void
     {
         /* Arrange */
-        $rules = $this->rules();
+        $refusals = array_values(array_filter($this->rules(), static fn (array $rule): bool => $rule['actionType'] === 'CustomResponse'));
 
         /* Act + Assert */
-        foreach ($rules as $rule) {
+        self::assertGreaterThanOrEqual(4, count($refusals), 'Folders, dotfiles, project files and stray PHP files each have a refusal.');
+        foreach ($refusals as $rule) {
+            self::assertSame('true', $rule['enabled'], "Rule \"{$rule['name']}\" must be switched on.");
             self::assertSame('true', $rule['stopProcessing'], "Rule \"{$rule['name']}\" must stop processing so no later rule can rewrite the refusal.");
-            self::assertSame('CustomResponse', $rule['actionType'], "Rule \"{$rule['name']}\" must answer itself, not rewrite or redirect.");
             self::assertSame('404', $rule['statusCode'], "Rule \"{$rule['name']}\" must not reveal that the file exists.");
             self::assertSame('Not Found', $rule['statusReason']);
+            self::assertSame([], $rule['conditions'], "Rule \"{$rule['name']}\" must refuse unconditionally.");
         }
+    }
+
+    #[Test]
+    public function it_has_nothing_but_refusals_and_the_front_controller_routing_in_front_of_the_routing(): void
+    {
+        /* Arrange */
+        $actions = array_column($this->rules(), 'actionType');
+
+        /* Act */
+        $firstNonRefusal = array_search(true, array_map(static fn (string $type): bool => $type !== 'CustomResponse', $actions), true);
+
+        /* Assert: every refusal comes before the first rule that lets a request through or rewrites it */
+        self::assertSame(['CustomResponse', 'CustomResponse', 'CustomResponse', 'CustomResponse', 'None', 'Rewrite'], $actions);
+        self::assertSame(4, $firstNonRefusal);
+    }
+
+    #[Test]
+    public function it_ships_the_clean_url_routing_switched_off(): void
+    {
+        /* Arrange */
+        $routing = array_values(array_filter($this->rules(), static fn (array $rule): bool => $rule['actionType'] === 'Rewrite'));
+
+        /* Act + Assert: REMOVE_INDEXPHP=false is the default, so the routing must not change how a default install behaves */
+        self::assertCount(1, $routing, 'One rule routes clean URLs to the front controller.');
+        self::assertSame('false', $routing[0]['enabled'], 'It stays off until REMOVE_INDEXPHP=true is set.');
+        self::assertSame('true', $routing[0]['stopProcessing']);
+        self::assertSame('public/index.php/{R:1}', $routing[0]['actionUrl']);
+        self::assertEquals([['type' => 'IsFile', 'negate' => true], ['type' => 'IsDirectory', 'negate' => true]], $routing[0]['conditions'], 'Only requests that are neither a file nor a folder are routed.');
+    }
+
+    #[Test]
+    #[DataProvider('routedUrls')]
+    public function it_routes_clean_urls_to_the_front_controller_once_switched_on(string $path, ?string $expectedRewrite): void
+    {
+        /* Arrange: what exists on disk */
+        $existing = [
+            'files' => ['favicon.ico', 'robots.txt', 'assets/default/css/style.css', 'uploads/logo_300x150.jpg', 'public/index.php'],
+            'dirs'  => ['', 'assets', 'assets/default', 'uploads', 'public'],
+        ];
+
+        /* Act */
+        $outcome = $this->resolve($path, true, $existing);
+
+        /* Assert */
+        self::assertSame($expectedRewrite, $outcome['rewrite'], "/{$path}");
+        if ($expectedRewrite === null && in_array($path, ['application/form', 'uploads/archive/2017-09-28_Invoice_1.pdf', 'composer.json'], true)) {
+            self::assertSame(404, $outcome['status'], 'Switching the routing on must not open a private path.');
+        }
+    }
+
+    #[Test]
+    #[DataProvider('routedUrls')]
+    public function it_does_not_touch_any_url_while_the_routing_is_switched_off(string $path): void
+    {
+        /* Arrange: the default */
+        $existing = ['files' => ['favicon.ico'], 'dirs' => ['']];
+
+        /* Act */
+        $outcome = $this->resolve($path, false, $existing);
+
+        /* Assert */
+        self::assertNull($outcome['rewrite'], "/{$path} must pass unchanged on a default install.");
     }
 
     #[Test]
@@ -334,7 +427,7 @@ final class IisWebConfigTest extends TestCase
     }
 
     /**
-     * @return list<array{name: string, pattern: string, ignoreCase: string, negate: string, patternSyntax: string, stopProcessing: string, actionType: string, statusCode: string, statusReason: string}>
+     * @return list<array{name: string, pattern: string, ignoreCase: string, negate: string, patternSyntax: string, stopProcessing: string, actionType: string, statusCode: string, statusReason: string, actionUrl: string, enabled: string, conditions: list<array{type: string, negate: bool}>}>
      */
     private function rules(): array
     {
@@ -347,7 +440,16 @@ final class IisWebConfigTest extends TestCase
             $action = $xpath->query('action', $rule)->item(0);
             self::assertInstanceOf(DOMElement::class, $match, 'Every rule needs a match element.');
             self::assertInstanceOf(DOMElement::class, $action, 'Every rule needs an action element.');
-            self::assertSame(0, $xpath->query('conditions', $rule)->length, 'Conditions are not simulated; the refusal rules must not depend on any.');
+
+            $conditions = [];
+            foreach ($xpath->query('conditions/add', $rule) as $condition) {
+                /* @var DOMElement $condition */
+                self::assertSame('{REQUEST_FILENAME}', $condition->getAttribute('input'), 'Only file and folder checks are simulated.');
+                self::assertContains($condition->getAttribute('matchType'), ['IsFile', 'IsDirectory'], 'Only file and folder checks are simulated.');
+                $conditions[] = ['type' => $condition->getAttribute('matchType'), 'negate' => $condition->getAttribute('negate') === 'true'];
+            }
+            $grouping = $xpath->query('conditions', $rule)->item(0);
+            self::assertTrue($grouping === null || ! $grouping->hasAttribute('logicalGrouping') || $grouping->getAttribute('logicalGrouping') === 'MatchAll', 'Only MatchAll is simulated.');
 
             $rules[] = [
                 'name'           => $rule->getAttribute('name'),
@@ -359,6 +461,9 @@ final class IisWebConfigTest extends TestCase
                 'actionType'     => $action->getAttribute('type'),
                 'statusCode'     => $action->getAttribute('statusCode'),
                 'statusReason'   => $action->getAttribute('statusReason'),
+                'actionUrl'      => $action->getAttribute('url'),
+                'enabled'        => $rule->hasAttribute('enabled') ? $rule->getAttribute('enabled') : 'true',
+                'conditions'     => $conditions,
             ];
         }
 
@@ -366,17 +471,46 @@ final class IisWebConfigTest extends TestCase
     }
 
     /**
-     * The status IIS URL Rewrite would answer with, or null when no rule refuses the request.
+     * The status IIS URL Rewrite would answer with, or null when no rule refuses the request. Rules that ship
+     * switched off (the clean URL routing) do not take part.
      */
     private function statusFor(string $path): ?int
     {
+        return $this->resolve($path)['status'];
+    }
+
+    /**
+     * Runs the rules in order, the way URL Rewrite does: the first rule whose pattern and conditions match decides.
+     *
+     * @param array{files: list<string>, dirs: list<string>} $existing the physical files and folders {REQUEST_FILENAME} is checked against
+     *
+     * @return array{status: ?int, rewrite: ?string} a refusal, a rewrite target, or neither when the request goes on untouched
+     */
+    private function resolve(string $path, bool $routingEnabled = false, array $existing = ['files' => [], 'dirs' => []]): array
+    {
         foreach ($this->rules() as $rule) {
-            if (preg_match($this->delimit($rule['pattern'], $rule['ignoreCase'] === 'true'), $path) === 1) {
-                return $rule['actionType'] === 'CustomResponse' ? (int) $rule['statusCode'] : null;
+            if ($rule['enabled'] === 'false' && ! $routingEnabled) {
+                continue;
             }
+            if (preg_match($this->delimit($rule['pattern'], $rule['ignoreCase'] === 'true'), $path, $groups) !== 1) {
+                continue;
+            }
+            foreach ($rule['conditions'] as $condition) {
+                $physical = rtrim($path, '/');
+                $holds    = $condition['type'] === 'IsFile' ? in_array($physical, $existing['files'], true) : in_array($physical, $existing['dirs'], true);
+                if ($holds === $condition['negate']) {
+                    continue 2;
+                }
+            }
+
+            return match ($rule['actionType']) {
+                'CustomResponse' => ['status' => (int) $rule['statusCode'], 'rewrite' => null],
+                'Rewrite'        => ['status' => null, 'rewrite' => preg_replace_callback('/\{R:(\d+)\}/', static fn (array $m): string => $groups[(int) $m[1]] ?? '', $rule['actionUrl'])],
+                default          => ['status' => null, 'rewrite' => null],
+            };
         }
 
-        return null;
+        return ['status' => null, 'rewrite' => null];
     }
 
     private function delimit(string $pattern, bool $ignoreCase): string
