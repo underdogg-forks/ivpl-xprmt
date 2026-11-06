@@ -93,10 +93,11 @@ jobs:
       - name: Start the application servers
         # Two instances on one database: :8000 has CSRF protection off (forms are driven through the UI),
         # :8001 has it on, for the *.csrf.spec.js specs (the chromium-csrf Playwright project). The exported
-        # variables beat the values in ipconfig.php.
+        # variables beat the values in ipconfig.php. COOKIE_SECURE=false because CodeIgniter will not set the
+        # CSRF cookie over plain HTTP while cookie_secure is on.
         run: |
           php -d variables_order=EGPCS -S localhost:8000 -t . bootstrap/test-server.php > server.log 2>&1 &
-          CSRF_PROTECTION=true IP_URL="${E2E_CSRF_BASE_URL}" php -d variables_order=EGPCS -S localhost:8001 -t . bootstrap/test-server.php > server-csrf.log 2>&1 &
+          CSRF_PROTECTION=true COOKIE_SECURE=false IP_URL="${E2E_CSRF_BASE_URL}" php -d variables_order=EGPCS -S localhost:8001 -t . bootstrap/test-server.php > server-csrf.log 2>&1 &
           for url in "${E2E_BASE_URL}" "${E2E_CSRF_BASE_URL}"; do
             for i in $(seq 1 30); do
               curl -sf -o /dev/null "${url}/sessions/login" && break
