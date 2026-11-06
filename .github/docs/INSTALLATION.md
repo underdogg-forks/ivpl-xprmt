@@ -24,7 +24,7 @@ Follow the instructions below to install InvoicePlane on your preferred platform
 
 ## Prerequisites
 
-- **Web Server:** Apache or Nginx
+- **Web Server:** Apache, Nginx or IIS 10+ (with the URL Rewrite module; the project ships a `web.config`, see [DEPLOYMENT.md](../../docs/DEPLOYMENT.md))
 - **PHP:** **8.4** is the default and recommended version. 8.2, 8.3, 8.4 and 8.5 are all supported.
 - **Database:** MariaDB
 - **For Development:** Docker (recommended), Composer, Yarn/npm

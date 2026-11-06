@@ -67,6 +67,35 @@ server {
 }
 ```
 
+#### IIS (10 or later)
+
+IIS ignores `.htaccess`, so the project ships a `web.config` in the project root. It needs the **URL Rewrite**
+module; without it IIS answers `500.19` and does not serve the site, so a missing module fails closed.
+
+The rules answer `404` for the private folders (`application/`, `vendor/`, `storage/`, `resources/`,
+`node_modules/`, `tests/`, `uploads/archive/`, `uploads/customer_files/`, `uploads/import/`, `uploads/temp/`),
+dotfiles (except `.well-known/`, which Let's Encrypt needs), the project files (`composer.json`,
+`composer.lock`, `package.json`, `*.md`, `ipconfig.php`, ...) and every PHP file other than the front controller
+(`public/index.php`). They are anchored at the start of the URL, so routes such as `/index.php/import` are not
+affected, and they ignore case and the Windows spellings of a path (repeated slashes, trailing dots and spaces).
+Do not replace them with `<requestFiltering><hiddenSegments>`: that matches a segment anywhere in the URL and would
+also block `/index.php/import`.
+
+`web.config` applies when the IIS site root is the project root. With the site root set to `public/`
+(recommended, see below) the private folders are not under the site at all.
+
+Check it after every deployment. All of these must answer `404`:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/uploads/archive/anything.pdf
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/composer.json
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/vendor/autoload.php
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/ipconfig.php
+```
+
+PDFs archived by an older version keep their predictable `<date>_Invoice_<number>.pdf` names after an upgrade; the
+rule for `uploads/archive/` is the only thing protecting them.
+
 ### Document Root Setup
 
 **Recommended**: Set the document root to the `public/` directory:
