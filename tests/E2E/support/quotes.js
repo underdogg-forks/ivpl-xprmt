@@ -128,3 +128,27 @@ export function seedGuestQuote(clientId, status, number) {
 
   return quoteId;
 }
+
+export function setSetting(key, value) {
+  dbExec(`DELETE FROM ip_settings WHERE setting_key = '${key}'`);
+  dbInsert('ip_settings', { setting_key: key, setting_value: value });
+}
+
+/** A second admin (user_type 1, not the primary admin) who can log in with the baseline admin's password. */
+export function seedAdminUser() {
+  const [admin] = dbQuery('SELECT user_password, user_psalt FROM ip_users WHERE user_id = 1');
+  const email = `${uniq('admin2').toLowerCase()}@test.local`;
+  const userId = dbInsert('ip_users', {
+    user_type: 1,
+    user_name: uniq('Admin'),
+    user_email: email,
+    user_password: admin.user_password,
+    user_psalt: admin.user_psalt,
+    user_language: 'system',
+    user_active: 1,
+    user_date_created: now(),
+    user_date_modified: now(),
+  });
+
+  return { userId, email };
+}
