@@ -13,7 +13,7 @@ const { DRAFT, SENT, VIEWED, APPROVED, REJECTED } = QUOTE_STATUS;
 const status = (id) => Number(quoteRow(id).quote_status_id);
 
 test.describe('Quotes — delete with CSRF protection on', () => {
-  test('it still deletes a quote when the token is valid', async ({ page }) => {
+  test('it still deletes a quote when csrf protection is on and the token is valid', async ({ page }) => {
     /* Arrange */
     const id = seedQuote(seedClientRow());
     await page.goto('/quotes/status/all');
@@ -92,7 +92,7 @@ test.describe('Quotes — guest portal', () => {
   };
 
   for (const [label, [filter, shown, hidden]] of Object.entries(STATUS_FILTERS)) {
-    test(`it filters the guest listing by status without crossing clients (${label})`, async ({ browser }) => {
+    test(`it filters guest listing by status without crossing clients (${label})`, async ({ browser }) => {
       /* Arrange */
       const { ownClient, otherClient, context, page } = await portal(browser);
       seedGuestQuote(ownClient, DRAFT, 'OWN-DRAFT');

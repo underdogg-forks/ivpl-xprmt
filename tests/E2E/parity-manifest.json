@@ -32,6 +32,10 @@
     "Core/Integrations/QontoEInvoiceGenerationTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server."
   },
+  "exemptMethods": {
+    "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
+    "Invoices/CronRecurControllerTest.php::it_claims_the_recurring_invoice_before_it_draws_a_number_from_the_invoice_group": "Asserts the order of two queries inside one request (claim before number draw): it needs a hook inside the request, not a browser."
+  },
   "backlog": {
     "Clients/ClientDetailViewTest.php": [
       "it_shows_the_clients_billing_totals",
@@ -46,13 +50,7 @@
       "it_does_not_hand_an_inactive_new_client_to_all_clients_users",
       "it_does_not_reassign_users_when_an_existing_client_is_updated"
     ],
-    "Clients/ClientsControllerTest.php": [
-      "it_still_deletes_a_client_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_client_when_the_csrf_token_is_missing"
-    ],
     "Clients/UserClientsControllerTest.php": [
-      "it_still_unassigns_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_unassign_when_the_csrf_token_is_missing",
       "it_404s_when_deleting_a_nonexistent_mapping_instead_of_erroring"
     ],
     "Core/Auth/LoginRateLimitLegacyKeyMigrationTest.php": [
@@ -164,14 +162,6 @@
       "it_handles_empty_active_clients_list",
       "it_displays_client_with_total_balance"
     ],
-    "Core/CustomFieldsControllerTest.php": [
-      "it_still_deletes_a_custom_field_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_custom_field_when_the_csrf_token_is_missing"
-    ],
-    "Core/CustomValuesControllerTest.php": [
-      "it_still_deletes_a_value_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_value_when_the_csrf_token_is_missing"
-    ],
     "Core/DashboardControllerTest.php": [
       "it_lists_recent_invoices_with_their_client",
       "it_flags_overdue_invoices_and_otherwise_reports_none"
@@ -183,10 +173,6 @@
       "it_creates_new_email_template",
       "it_redirects_guest_to_login",
       "it_prevents_duplicate_template_titles"
-    ],
-    "Core/EmailTemplatesControllerTest.php": [
-      "it_still_deletes_an_email_template_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_an_email_template_when_the_csrf_token_is_missing"
     ],
     "Core/FilterAjaxControllerTest.php": [
       "it_lists_every_invoice_when_the_filter_query_is_absent",
@@ -421,10 +407,6 @@
       "it_allows_the_setup_flow_when_setup_is_explicitly_unlocked",
       "it_redirects_direct_setup_steps_to_the_wizard_when_setup_is_unlocked"
     ],
-    "Core/TaxRatesControllerTest.php": [
-      "it_still_deletes_a_tax_rate_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_tax_rate_when_the_csrf_token_is_missing"
-    ],
     "Core/Upload/UploadControllerTest.php": [
       "it_lists_the_files_stored_under_a_url_key",
       "it_does_not_list_files_stored_under_another_url_key",
@@ -457,8 +439,6 @@
       "it_returns_an_empty_list_for_a_sql_injection_shaped_name_query"
     ],
     "Core/UsersControllerTest.php": [
-      "it_still_deletes_a_user_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_user_when_the_csrf_token_is_missing",
       "it_prevents_a_non_primary_admin_from_deleting_another_admin"
     ],
     "Core/WelcomeControllerTest.php": [
@@ -479,9 +459,6 @@
       "it_redirects_guest_to_login",
       "it_displays_empty_invoice_list_when_no_invoices_exist",
       "it_displays_invoice_with_client_information"
-    ],
-    "Invoices/CronRecurControllerTest.php": [
-      "it_claims_the_recurring_invoice_before_it_draws_a_number_from_the_invoice_group"
     ],
     "Invoices/CronRemindersFeatureTest.php": [
       "it_sends_a_before_due_reminder_for_an_invoice_matching_the_offset",
@@ -524,37 +501,10 @@
       "it_taxes_item_tax_too_when_the_invoice_tax_includes_it",
       "it_keeps_each_invoices_totals_separate"
     ],
-    "Invoices/InvoiceGroupsControllerTest.php": [
-      "it_still_deletes_an_invoice_group_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_an_invoice_group_when_the_csrf_token_is_missing"
-    ],
-    "Invoices/InvoicesAjaxControllerTest.php": [
-      "it_refuses_to_delete_an_item_through_another_invoices_url"
-    ],
-    "Invoices/InvoicesControllerTest.php": [
-      "it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled",
-      "it_still_deletes_a_draft_invoice_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_an_invoice_when_the_csrf_token_is_missing",
-      "it_does_not_remove_an_invoice_tax_rate_when_the_csrf_token_is_missing"
-    ],
-    "Invoices/RecurringControllerTest.php": [
-      "it_still_deletes_a_recurring_schedule_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_recurring_schedule_when_the_csrf_token_is_missing"
-    ],
     "Payments/PaymentGatewaySecurityTest.php": [
       "it_validates_input_before_api_calls",
       "it_initializes_variables_before_exception_handling",
       "it_delays_oauth_calls_until_needed"
-    ],
-    "Payments/PaymentMethodsControllerTest.php": [
-      "it_still_deletes_a_payment_method_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_payment_method_when_the_csrf_token_is_missing"
-    ],
-    "Payments/PaymentsAjaxControllerTest.php": [
-      "it_accepts_a_payment_exactly_equal_to_the_invoice_balance"
-    ],
-    "Payments/PaymentsFeatureTest.php": [
-      "it_creates_manual_payment_with_null_external_id"
     ],
     "Payments/PaypalControllerTest.php": [
       "it_displays_payment_list_with_data",
@@ -567,34 +517,6 @@
       "it_displays_empty_payments_list",
       "it_displays_multiple_payments_with_service_names",
       "it_displays_payments_with_invoice_and_client_details"
-    ],
-    "Products/FamiliesControllerTest.php": [
-      "it_still_deletes_a_family_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_family_when_the_csrf_token_is_missing"
-    ],
-    "Products/ProductsControllerTest.php": [
-      "it_still_deletes_a_product_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_product_when_the_csrf_token_is_missing"
-    ],
-    "Products/UnitsControllerTest.php": [
-      "it_still_deletes_a_unit_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_unit_when_the_csrf_token_is_missing"
-    ],
-    "Projects/ProjectsControllerTest.php": [
-      "it_still_deletes_a_project_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_project_when_the_csrf_token_is_missing"
-    ],
-    "Projects/TasksControllerTest.php": [
-      "it_still_deletes_a_task_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_does_not_delete_a_task_when_the_csrf_token_is_missing"
-    ],
-    "Quotes/QuotesControllerTest.php": [
-      "it_still_deletes_a_quote_when_csrf_protection_is_on_and_the_token_is_valid",
-      "it_filters_guest_listing_by_status_without_crossing_clients",
-      "it_names_exactly_one_field_and_message_for_each_bad_global_discount"
-    ],
-    "SupplierInvoices/SupplierInvoicesControllerTest.php": [
-      "it_streams_a_stored_attachment_with_safe_headers_and_exact_bytes"
     ]
   }
 }

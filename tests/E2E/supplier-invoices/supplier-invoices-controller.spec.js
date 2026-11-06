@@ -439,7 +439,7 @@ test.describe('Supplier invoices — documents', () => {
     fs.rmSync(path.join(ARCHIVE_DIR, attachment.storage_path), { force: true });
   });
 
-  test('it streams a stored attachment with exact bytes', async ({ page }) => {
+  test('it streams a stored attachment with safe headers and exact bytes', async ({ page }) => {
     /* Arrange */
     const id = seedSupplierInvoice(seedSupplier('Download Supplier'), 'DL-001', '10.00');
     const relative = `supplier-invoices/${id}/test-download-${Date.now()}.pdf`;
@@ -457,6 +457,10 @@ test.describe('Supplier invoices — documents', () => {
       /* Assert */
       expect(response.status()).toBe(200);
       expect(await response.text()).toBe('%PDF-1.4 attachment-bytes');
+      expect(response.headers()['content-type']).toContain('application/pdf');
+      expect(response.headers()['content-disposition']).toBe('attachment; filename="scan.pdf"');
+      expect(response.headers()['x-content-type-options']).toBe('nosniff');
+      expect(response.headers()['cache-control']).toContain('no-store');
     } finally {
       fs.rmSync(absolute, { force: true });
     }

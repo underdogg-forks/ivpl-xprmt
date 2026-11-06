@@ -16,6 +16,7 @@ const { analyse, readManifest, FEATURE } = require("./support/parity.js");
 const analysis = analyse();
 const manifest = readManifest();
 const exempt = { ...manifest.notARoute, ...manifest.needsServerState };
+const exemptMethods = manifest.exemptMethods ?? {};
 
 test("every exempt file exists and says why", () => {
     const problems = Object.entries(exempt).filter(([file, reason]) => !fs.existsSync(path.join(FEATURE, file)) || String(reason).trim().length < 15);
@@ -28,7 +29,7 @@ test("every PHPUnit Feature method has an e2e test of the same name, or is in th
     for (const [file, info] of Object.entries(analysis)) {
         if (exempt[file]) continue;
         for (const method of info.uncovered) {
-            if (!(manifest.backlog[file] ?? []).includes(method)) unaccounted.push(`${file}::${method}`);
+            if (!(manifest.backlog[file] ?? []).includes(method) && !exemptMethods[`${file}::${method}`]) unaccounted.push(`${file}::${method}`);
         }
     }
 
@@ -45,6 +46,17 @@ test("the backlog holds no method that is gone or is now covered", () => {
     }
 
     assert.deepEqual(stale, [], "remove these from the backlog in tests/E2E/parity-manifest.json");
+});
+
+test("every exempt method exists, is not mirrored, and says why", () => {
+    const problems = Object.entries(exemptMethods).filter(([key, reason]) => {
+        const [file, method] = key.split("::");
+        const info = analysis[file];
+
+        return !info || !info.uncovered.includes(method) || String(reason).trim().length < 15;
+    });
+
+    assert.deepEqual(problems.map(([key]) => key), []);
 });
 
 test("no file is both exempt and in the backlog", () => {
