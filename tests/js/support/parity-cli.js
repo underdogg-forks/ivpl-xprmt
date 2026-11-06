@@ -11,6 +11,7 @@ const { analyse, readManifest, MANIFEST } = require("./parity.js");
 const analysis = analyse();
 const manifest = fs.existsSync(MANIFEST) ? readManifest() : { notARoute: {}, needsServerState: {}, backlog: {} };
 const exempt = { ...manifest.notARoute, ...manifest.needsServerState };
+const exemptMethods = manifest.exemptMethods ?? {};
 const seeding = Object.keys(manifest.backlog ?? {}).length === 0;
 
 const backlog = {};
@@ -21,13 +22,13 @@ for (const [file, info] of Object.entries(analysis)) {
     total += info.total;
     if (exempt[file]) { exemptCount += info.total; continue; }
     covered += info.total - info.uncovered.length;
-    const keep = seeding ? info.uncovered : info.uncovered.filter((method) => (manifest.backlog[file] ?? []).includes(method));
+    const keep = (seeding ? info.uncovered : info.uncovered.filter((method) => (manifest.backlog[file] ?? []).includes(method))).filter((method) => !exemptMethods[`${file}::${method}`]);
     if (keep.length > 0) backlog[file] = keep;
 }
 const open = Object.values(backlog).reduce((sum, methods) => sum + methods.length, 0);
 
 console.log(`PHPUnit Feature methods ${total}: mirrored ${covered}, exempt ${exemptCount}, backlog ${open}`);
 if (process.argv.includes("--write")) {
-    fs.writeFileSync(MANIFEST, `${JSON.stringify({ notARoute: manifest.notARoute, needsServerState: manifest.needsServerState, backlog }, null, 2)}\n`);
+    fs.writeFileSync(MANIFEST, `${JSON.stringify({ notARoute: manifest.notARoute, needsServerState: manifest.needsServerState, exemptMethods, backlog }, null, 2)}\n`);
     console.log(`wrote ${MANIFEST}`);
 }
