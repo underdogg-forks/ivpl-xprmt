@@ -11,6 +11,23 @@ Frontend-test conventions: lowercase kebab-case file and directory names;
 `test.describe('<Module> — <area>')` grouping; test titles read `it …` to match
 the PHPUnit method they mirror.
 
+## Two servers, two projects
+
+`playwright.config.js` has two projects against two PHP servers on the same database:
+
+| project | server | runs | CSRF |
+|---|---|---|---|
+| `chromium` | `E2E_BASE_URL` (`:8000`) | every `*.spec.js` except `*.csrf.spec.js` | off — forms are driven through the UI |
+| `chromium-csrf` | `E2E_CSRF_BASE_URL` (`:8001`) | `*.csrf.spec.js` only | **on** — the production setting |
+
+A PHPUnit test that enables CSRF (`enableCsrfProtection()`) — "refused without a token", "accepted with one", the
+token helpers in `scripts.js` — gets its e2e equivalent in a `<name>.csrf.spec.js`. On the CSRF-off server the layout
+renders an empty token, so such a test would pass or skip for the wrong reason.
+
+`tests/js/e2e-layout.test.js` (run by `npm run test:js`) enforces the shape of this directory: every spec lives under
+`tests/E2E`, is a `.spec.js`, takes `test`/`expect` from `test.js` (or a `support/` helper), declares at least one test,
+and never calls `test.skip`, `waitForTimeout` or guards an assertion with `if (await …isVisible())`.
+
 ## Layout
 
 ```
