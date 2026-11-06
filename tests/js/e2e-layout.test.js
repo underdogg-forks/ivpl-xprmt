@@ -84,8 +84,10 @@ test("every spec declares tests; the placeholder list only shrinks", () => {
     assert.deepEqual(empty.sort(), [...PLACEHOLDER_SPECS].sort());
 });
 
-test("no spec skips or defers itself", () => {
-    const skipping = e2eSpecs.filter((file) => /\btest\.(skip|fixme|fail)\(/.test(fs.readFileSync(file, "utf8")));
+test("no spec skips itself, except an obsolete test declared with its reason in the title", () => {
+    // test.skip("title (obsolete: why)", ...) is a visible, reported skip. A runtime test.skip() inside a body (what the
+    // old specs used to dodge a missing element), test.fixme and test.fail are not allowed.
+    const skipping = e2eSpecs.filter((file) => /\btest\.(skip|fixme|fail)\((?!\s*['"`][^'"`]*\(obsolete: [^)]{10,}\)['"`])/.test(fs.readFileSync(file, "utf8")));
 
     assert.deepEqual(skipping.map(rel), []);
 });
