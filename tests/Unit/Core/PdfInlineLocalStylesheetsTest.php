@@ -38,6 +38,11 @@ final class PdfInlineLocalStylesheetsTest extends TestCase
         file_put_contents($this->assets . '/invoiceplane/css/with-urls.css', 'a{background:url(pixel.png)} b{background:url("../img/b.png")} i{background:url(\'img/i.png\')} u{background:url( spaced.png )}');
         file_put_contents($this->assets . '/invoiceplane/css/absolute-urls.css', 'a{background:url(https://cdn.example.com/a.png)} b{background:url(//cdn.example.com/b.png)} i{background:url(data:image/png;base64,AAAA)} u{background:url(/root/u.png)} s{background:url(#frag)}');
         file_put_contents($this->assets . '/invoiceplane/css/breakout.css', 'p{color:red} </style><script>alert(1)</script><style>');
+        file_put_contents($this->assets . '/invoiceplane/css/with-imports.css', '@import "base.css"; @import \'sub/more.css\'; @import url(plain.css); @import "../img/up.css"; @import "https://cdn.example.com/font.css"; @import "//cdn.example.com/font2.css"; @import "/root/abs.css"; body { margin: 0 }');
+        mkdir($this->assets . '/a=b/css', 0o775, true);
+        file_put_contents($this->assets . '/a=b/css/templates.css', 'body { font-family: freemono; }');
+        mkdir($this->assets . '/a&b/css', 0o775, true);
+        file_put_contents($this->assets . '/a&b/css/templates.css', 'body { font-family: freemono; }');
         file_put_contents($this->assets . '/invoiceplane/css/readme.txt', 'not a stylesheet');
         file_put_contents($this->root . '/secret.css', 'SECRET-OUTSIDE-ASSETS');
     }
@@ -84,6 +89,37 @@ final class PdfInlineLocalStylesheetsTest extends TestCase
             'upper case'             => ['<LINK REL="StyleSheet" HREF="' . $href . '">'],
             'spread over lines'      => ["<link\n    rel=\"stylesheet\"\n    href=\"" . $href . "\"\n>"],
             'html encoded ampersand' => ['<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/templates.css?v=1&amp;x=2">'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function alternateStylesheets(): array
+    {
+        $href = self::BASE . 'assets/invoiceplane/css/templates.css';
+
+        return [
+            'alternate stylesheet' => ['<link rel="alternate stylesheet" href="' . $href . '" title="Dark">'],
+            'stylesheet alternate' => ['<link rel="stylesheet alternate" href="' . $href . '" title="Dark">'],
+            'upper case'           => ['<link rel="ALTERNATE StyleSheet" href="' . $href . '">'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function unquotedLinks(): array
+    {
+        $href = self::BASE . 'assets/invoiceplane/css/templates.css?v=1';
+
+        return [
+            'unquoted rel and href'        => ['<link rel=stylesheet href=' . $href . '>'],
+            'unquoted, href first'         => ['<link href=' . $href . ' rel=stylesheet>'],
+            'unquoted with a type'         => ['<link rel=stylesheet type=text/css href=' . $href . '>'],
+            'unquoted rel, quoted href'    => ['<link rel=stylesheet href="' . $href . '">'],
+            'quoted rel, unquoted href'    => ['<link rel="stylesheet" href=' . $href . '>'],
+            'spaces around the equal sign' => ['<link rel = stylesheet href = ' . $href . '>'],
         ];
     }
 
@@ -250,6 +286,158 @@ final class PdfInlineLocalStylesheetsTest extends TestCase
         /* Assert */
         self::assertStringNotContainsString('<link', strtolower($result));
         self::assertStringContainsString('font-family: freemono', $result);
+    }
+
+    #[Test]
+    public function it_resolves_quoted_imports_against_the_original_stylesheet_url(): void
+    {
+        /* Arrange: an @import inside inlined CSS would otherwise resolve against the document, not the stylesheet */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/with-imports.css?v=1">';
+        $css  = self::BASE . 'assets/invoiceplane/';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringContainsString('@import "' . $css . 'css/base.css"', $result);
+        self::assertStringContainsString("@import '" . $css . "css/sub/more.css'", $result);
+        self::assertStringContainsString('@import url(' . $css . 'css/plain.css)', $result, 'The unquoted url() form was already resolved.');
+        self::assertStringContainsString('@import "' . $css . 'img/up.css"', $result, '../ is resolved.');
+    }
+
+    #[Test]
+    public function it_leaves_absolute_imports_alone(): void
+    {
+        /* Arrange */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/with-imports.css">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        foreach (['@import "https://cdn.example.com/font.css"', '@import "//cdn.example.com/font2.css"', '@import "/root/abs.css"'] as $import) {
+            self::assertStringContainsString($import, $result);
+        }
+    }
+
+    #[Test]
+    public function it_decodes_html_entities_in_the_href_before_looking_for_the_file(): void
+    {
+        /* Arrange: _theme_asset() writes the theme name through htmlsc(), so a folder called a&b is linked as a&amp;b */
+        $html = '<link rel="stylesheet" href="' . self::BASE . 'assets/a&amp;b/css/templates.css?v=1">';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringNotContainsString('<link', $result);
+        self::assertStringContainsString('font-family: freemono', $result);
+    }
+
+    #[Test]
+    public function it_matches_the_whole_link_when_an_attribute_contains_a_greater_than_sign(): void
+    {
+        /* Arrange: a ">" inside a quoted attribute value does not end the tag */
+        $html = '<head><link rel="stylesheet" title="a>b" href="' . self::BASE . 'assets/invoiceplane/css/templates.css"><link title=\'x>y\' rel="stylesheet" href="' . self::BASE . 'assets/core/css/custom-pdf.css"></head>';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert: no remnant of either tag is left behind as text */
+        self::assertStringNotContainsString('<link', $result);
+        self::assertStringNotContainsString('href=', $result);
+        self::assertStringNotContainsString('b"', $result);
+        self::assertStringContainsString('font-family: freemono', $result);
+        self::assertStringContainsString('/* custom */', $result);
+        self::assertStringEndsWith('</style></head>', $result);
+    }
+
+    #[Test]
+    #[DataProvider('alternateStylesheets')]
+    public function it_leaves_an_alternate_stylesheet_alone(string $link): void
+    {
+        /* Arrange: an alternate stylesheet is not applied by default, inlining it would switch it on */
+
+        /* Act */
+        $result = $this->inline($link);
+
+        /* Assert */
+        self::assertSame($link, $result);
+    }
+
+    #[Test]
+    #[DataProvider('unquotedLinks')]
+    public function it_reads_unquoted_attribute_values(string $link): void
+    {
+        /* Arrange: see the data provider */
+
+        /* Act */
+        $result = $this->inline('<head>' . $link . '</head>');
+
+        /* Assert */
+        self::assertStringNotContainsString('<link', $result);
+        self::assertStringContainsString('font-family: freemono', $result);
+    }
+
+    #[Test]
+    public function it_accepts_an_equal_sign_inside_an_unquoted_value(): void
+    {
+        /* Arrange: browsers keep reading an unquoted value up to the next space or ">", = included */
+        $html = '<link rel=stylesheet href=' . self::BASE . 'assets/a=b/css/templates.css>';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringNotContainsString('<link', $result);
+        self::assertStringContainsString('font-family: freemono', $result);
+    }
+
+    #[Test]
+    public function it_keeps_an_unquoted_media_attribute(): void
+    {
+        /* Arrange */
+        $html = '<link rel=stylesheet media=print href=' . self::BASE . 'assets/core/css/custom-pdf.css>';
+
+        /* Act */
+        $result = $this->inline($html);
+
+        /* Assert */
+        self::assertStringContainsString('<style type="text/css" media="print">', $result);
+    }
+
+    #[Test]
+    public function it_does_not_mistake_data_attributes_for_the_real_ones(): void
+    {
+        /* Arrange: data-href and data-rel carry other values than the real attributes */
+        $html = '<link data-href="https://cdn.example.com/x.css" rel="stylesheet" data-rel="icon" href="' . self::BASE . 'assets/invoiceplane/css/templates.css">';
+        $only = '<link data-href="' . self::BASE . 'assets/invoiceplane/css/templates.css" rel="stylesheet">';
+
+        /* Act */
+        $result     = $this->inline($html);
+        $resultOnly = $this->inline($only);
+
+        /* Assert */
+        self::assertStringNotContainsString('<link', $result, 'The real href is the local one.');
+        self::assertStringContainsString('font-family: freemono', $result);
+        self::assertSame($only, $resultOnly, 'A link with only a data-href has no href.');
+    }
+
+    #[Test]
+    public function it_uses_the_first_of_two_identical_attributes_like_a_browser(): void
+    {
+        /* Arrange: a foreign href first, a local one second, and the other way round */
+        $foreignFirst = '<link rel="stylesheet" href="https://cdn.example.com/x.css" href="' . self::BASE . 'assets/invoiceplane/css/templates.css">';
+        $localFirst   = '<link rel="stylesheet" href="' . self::BASE . 'assets/invoiceplane/css/templates.css" href="https://cdn.example.com/x.css">';
+
+        /* Act */
+        $first  = $this->inline($foreignFirst);
+        $second = $this->inline($localFirst);
+
+        /* Assert */
+        self::assertSame($foreignFirst, $first, 'The browser would fetch the foreign stylesheet, so nothing is inlined.');
+        self::assertStringContainsString('font-family: freemono', $second);
+        self::assertStringNotContainsString('<link', $second);
     }
 
     #[Test]
