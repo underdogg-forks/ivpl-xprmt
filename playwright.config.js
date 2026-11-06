@@ -43,7 +43,7 @@ export default defineConfig({
     baseURL: E2E_BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'on-first-retry',
     storageState: 'tests/E2E/.auth/admin.json',
   },
   projects: [
