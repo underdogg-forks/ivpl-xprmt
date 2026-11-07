@@ -121,8 +121,7 @@ php -r 'require "tests/Support/ClassCoverageInventory.php"; $r = getcwd();
   (real CI database driver, no HTTP round trip). Override `ciDatabaseName()` to target a
   scratch database, as `SetupModelInstallTest` does.
 - External services are replaced by fakes in `tests/Fakes/` (`FakePaypalHttpClient`,
-  `FakeStripeHttpClient`, `QueueApiClient`), armed through `PAYPAL_MOCK_RESPONSES` and
-  `INTEGRATION_MOCK_RESPONSES`. Never call a live provider from a test.
+  `FakeStripeHttpClient`), armed through `PAYPAL_MOCK_RESPONSES` and `STRIPE_MOCK_RESPONSES`. Never call a live provider from a test.
 
 ### How the feature harness works
 
@@ -254,31 +253,6 @@ same applies on an upstream-only branch without a `tests/` dir: if `phpstan.neon
 (a config path resolving to a missing directory), that's a config/branch mismatch, not a code
 defect — fall back to `php -l` + Pint instead of trying to work around it with file-scoped
 `analyse` calls.
-
-## Adding an e-invoicing provider
-
-Providers live in `application/modules/integrations/libraries/providers/` (`FooClient.php`, or
-`Foo/FooClient.php` with helper classes beside it). `IntegrationClientRegistry` scans the
-directory once per process and indexes every class that implements `IntegrationClientInterface`
-by its client code; there is nothing to register.
-
-For a REST provider, extend `AbstractRestProvider` (`libraries/AbstractRestProvider.php`):
-
-1. Declare the provider once in `definition()`: `code`, `name`, optional `label` (used in error
-   messages), `auth` (`bearer` or `oauth2`), and `settings` (key, default, form type, `required`,
-   `sensitive`). Endpoint paths are settings whose keys end in `_endpoint`. Code, name, auth type,
-   default settings and the settings form are all derived from it.
-2. Implement `sendInvoice`, `getInvoiceStatus`, `receiveInvoices`, `downloadInvoiceDocument` and
-   `getInvoiceEvents`. Use `buildUrl()`, `request()` and `ProviderResponseNormalizer::entity()` /
-   `IntegrationResponseNormalizer::extractItems()` for the common work.
-3. Override `authenticate()` / `fetchToken()` only if the provider's authentication is not plain
-   bearer or OAuth2 client credentials, and `bearerToken()` / `extraHeaders()` for per-request
-   credentials.
-
-`tests/Fixtures/integrations/providers/DemoPdpClient.php` and
-`tests/Unit/Core/Integrations/NewProviderOnBaseTest.php` are the reference to copy. Stored settings
-and the settings form are a persistence contract: `ProviderSettingsContractTest` pins them for the
-bundled providers, so a changed default or field type needs a deliberate fixture update.
 
 ## Multi-PR workflow (prep/v180 + upstream)
 

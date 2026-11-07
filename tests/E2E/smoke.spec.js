@@ -37,18 +37,4 @@ test.describe('authenticated admin', () => {
     await expect(page).not.toHaveURL(new RegExp(LOGIN_PATH));
     await expect(page.locator('#headerbar, .navbar')).toBeVisible();
   });
-
-  test('opens the e-invoice integrations settings page', async ({ page }) => {
-    await page.goto('/integrations/settings');
-
-    await expect(page).not.toHaveURL(new RegExp(LOGIN_PATH));
-    await expect(page.locator('#content')).toBeVisible();
-  });
-
-  test('lists the e-invoice provider registry', async ({ page }) => {
-    await page.goto('/integrations/providers');
-
-    await expect(page).not.toHaveURL(new RegExp(LOGIN_PATH));
-    await expect(page.locator('body')).toContainText(/letspeppol|qonto|superpdp/i);
-  });
 });

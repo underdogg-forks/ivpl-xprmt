@@ -32,7 +32,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
         $userId = $this->seedAdminWithResetToken();
         $this->actingAsAdmin($userId);
         $oldSession = $this->sessionData;
-        $before     = $this->get('/supplier_invoices');
+        $before     = $this->get('/tax_rates');
         $this->assertResponseStatusCode($before, 200);
 
         /* Act: the reset form is submitted by a logged-out browser */
@@ -42,13 +42,13 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
 
         /* Assert: the pre-reset session is rejected and renders nothing */
         $this->sessionData = $oldSession;
-        $stale             = $this->get('/supplier_invoices');
+        $stale             = $this->get('/tax_rates');
         $this->assertResponseRedirectsToRoute($stale, 'sessions/login');
         self::assertSame('', $stale->body(), 'A session created before a password reset must not render protected pages.');
 
         /* Positive control: a session bound to the post-reset credentials is accepted */
         $this->actingAsAdmin($userId);
-        $fresh = $this->get('/supplier_invoices');
+        $fresh = $this->get('/tax_rates');
         $this->assertResponseStatusCode($fresh, 200);
         self::assertNotSame('', $fresh->body());
     }
@@ -121,7 +121,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
         self::assertSame(self::OLD_VERSION, (int) $row['user_auth_version']);
         self::assertTrue(password_verify('OldPassword123!', (string) $row['user_password']));
         $this->sessionData = $session;
-        $this->assertResponseStatusCode($this->get('/supplier_invoices'), 200);
+        $this->assertResponseStatusCode($this->get('/tax_rates'), 200);
     }
 
     /** @return array<string, mixed> */

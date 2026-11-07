@@ -62,15 +62,6 @@ class Quotes extends Admin_Controller
         $this->mdl_quotes->paginate(site_url('quotes/status/' . $status), $page);
         $quotes = $this->mdl_quotes->result();
 
-        $this->load->model('services/mdl_services');
-
-        foreach ($quotes as $quote) {
-            $servicesById        = $this->mdl_services->get_names_by_ids([$quote->service_id]);
-            $quote->service_name = $servicesById[$quote->service_id] ?? null;
-        }
-
-        $services = $this->mdl_services->get()->result_array();
-
         $this->layout->set(
             [
                 'quotes'             => $quotes,
@@ -79,7 +70,6 @@ class Quotes extends Admin_Controller
                 'filter_placeholder' => trans('filter_quotes'),
                 'filter_method'      => 'filter_quotes',
                 'quote_statuses'     => $this->mdl_quotes->statuses(),
-                'services'           => $services,
             ]
         );
 
@@ -102,7 +92,6 @@ class Quotes extends Admin_Controller
                 'custom_values/mdl_custom_values',
                 'custom_fields/mdl_quote_custom',
                 'upload/mdl_uploads',
-                'services/mdl_services',
             ]
         );
 
@@ -153,10 +142,6 @@ class Quotes extends Admin_Controller
             }
         }
 
-        $servicesById        = $this->mdl_services->get_names_by_ids([$quote->service_id]);
-        $quote->service_name = $servicesById[$quote->service_id] ?? null;
-        $services            = $this->mdl_services->get()->result_array();
-
         $items = $this->mdl_quote_items->where('quote_id', $quote_id)->get()->result();
 
         // Get eInvoice library name and user checks
@@ -177,7 +162,6 @@ class Quotes extends Admin_Controller
                 'tax_rates'       => $this->mdl_tax_rates->get()->result(),
                 'quote_tax_rates' => $this->mdl_quote_tax_rates->where('quote_id', $quote_id)->get()->result(),
                 'quote_statuses'  => $this->mdl_quotes->statuses(),
-                'services'        => $services,
                 'custom_fields'   => $custom_fields,
                 'custom_values'   => $custom_values,
                 'custom_js_vars'  => [

@@ -1,15 +1,12 @@
 {
   "notARoute": {
-    "Payments/MerchantResponsesModelTest.php": "Model test of Mdl_Merchant_responses: no HTTP route is exercised.",
     "Core/ReportsModelTest.php": "Model test of Mdl_Reports: no HTTP route is exercised.",
     "Core/Setup/SetupModelInstallTest.php": "Schema install and migrations against a scratch database: not a request.",
     "Core/Setup/SpecialCharacterDatabasePasswordTest.php": "Setup library writing ipconfig.php values: not a request.",
-    "Core/Setup/EInvoiceResponsesFoldMigrationTest.php": "A schema migration: not a request.",
     "Core/Setup/PaymentExternalIdDedupMigrationTest.php": "A schema migration: not a request.",
     "Core/Security/NginxDenyRulesTest.php": "Static analysis of the nginx example configuration.",
     "Core/Security/ExampleWebServerConfigStaticTreesTest.php": "Static analysis of the example web server configurations.",
-    "Core/TestServerStaticFilesTest.php": "Tests the e2e test server (bootstrap/test-server.php) itself.",
-    "Core/Integrations/IntegrationClientRegistrySyncTest.php": "Library test of the provider registry sync: no HTTP route."
+    "Core/TestServerStaticFilesTest.php": "Tests the e2e test server (bootstrap/test-server.php) itself."
   },
   "needsServerState": {
     "Core/SetupWizardFlowTest.php": "Drives the unlocked setup wizard: needs an uninstalled instance (SETUP_COMPLETED=false), which the shared e2e database cannot be.",
@@ -21,16 +18,11 @@
     "Payments/PaypalCaptureStatusGapTest.php": "Needs the PayPal HTTP client replaced by a fake armed per request.",
     "Payments/PaypalCaptureNotRecordedLogTest.php": "Needs the PayPal HTTP client replaced by a fake armed per request.",
     "Payments/PaypalPendingCaptureReferenceTest.php": "Needs the PayPal HTTP client replaced by a fake armed per request.",
-    "Payments/StripeFlowTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request (INTEGRATION_MOCK_RESPONSES).",
+    "Payments/StripeFlowTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request (STRIPE_MOCK_RESPONSES).",
     "Payments/StripeCallbackMessagesTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request.",
     "Payments/StripeCallbackFailureTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request.",
     "Payments/AdminPaymentAmountRaceTest.php": "Asserts invariants of two interleaved requests under a held row lock: needs controlled concurrency in-process.",
-    "Payments/GatewayPaymentRaceTest.php": "Asserts invariants of two interleaved callbacks under a held row lock: needs controlled concurrency in-process.",
-    "Core/Integrations/LetsPeppolInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/QontoInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/SuperPdpInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/QontoEInvoiceGenerationTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server."
+    "Payments/GatewayPaymentRaceTest.php": "Asserts invariants of two interleaved callbacks under a held row lock: needs controlled concurrency in-process."
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
@@ -78,6 +70,13 @@
       "it_accepts_a_token_that_expires_in_one_minute",
       "it_consumes_the_token_on_a_successful_change_so_it_cannot_be_replayed",
       "it_fails_closed_when_the_stored_expiry_is_an_unparseable_zero_date"
+    ],
+    "Core/Auth/PasswordResetRequestGuardsTest.php": [
+      "it_issues_a_token_for_an_ordinary_request",
+      "it_issues_no_token_to_an_automated_client",
+      "it_issues_no_token_once_the_ip_has_used_up_its_attempts",
+      "it_issues_no_token_once_the_email_has_used_up_its_attempts_whatever_its_case",
+      "it_counts_the_ip_limit_per_address_not_globally"
     ],
     "Core/Auth/PasswordResetSessionRevocationTest.php": [
       "it_ends_a_pre_existing_session_after_the_password_is_reset_through_the_real_endpoint",
@@ -191,27 +190,13 @@
       "it_removes_a_csv_with_the_wrong_headers_and_unselected_csvs_too_but_leaves_other_files",
       "it_keeps_the_csvs_when_the_submit_is_rejected_for_a_missing_csrf_token"
     ],
-    "Core/IntegrationTestConnectionTest.php": [
-      "it_reports_a_reachable_provider_as_a_successful_connection",
-      "it_reports_the_provider_as_unreachable_when_authentication_fails"
-    ],
-    "Core/Integrations/LetsPeppolFlowTest.php": [
-      "it_rejects_send_invoice_when_merchant_client_does_not_exist",
-      "it_rejects_send_invoice_when_merchant_client_is_disabled",
-      "it_rejects_send_invoice_when_invoice_does_not_exist",
-      "it_records_the_peppol_external_id_in_the_merchant_response_table",
-      "it_records_a_failed_send_attempt_in_the_merchant_response_table"
-    ],
-    "Core/Integrations/QontoFlowTest.php": [
-      "it_records_the_qonto_external_id_in_the_merchant_response_table",
-      "it_records_a_failed_send_attempt_in_the_merchant_response_table"
-    ],
-    "Core/Integrations/SuperPdpFlowTest.php": [
-      "it_records_the_superpdp_external_id_in_the_merchant_response_table",
-      "it_records_a_failed_send_attempt_in_the_merchant_response_table"
-    ],
-    "Core/IntegrationsControllerTest.php": [
-      "it_redirects_the_legacy_supplier_accounting_route_to_the_supplier_invoice_module"
+    "Core/LogoRemovalTest.php": [
+      "it_removes_invoice_logo_as_admin",
+      "it_removes_login_logo_as_admin",
+      "it_rejects_logo_removal_without_auth",
+      "it_rejects_logo_removal_without_csrf",
+      "it_handles_missing_logo_gracefully",
+      "it_works_with_site_url_routing"
     ],
     "Core/MailerControllerTest.php": [
       "it_shows_not_configured_message_when_mailer_is_not_configured",
@@ -277,6 +262,15 @@
     "Core/Security/GeneratePdfCsrfGateTest.php": [
       "it_marks_a_document_without_a_token_only_when_csrf_protection_is_switched_off"
     ],
+    "Core/Security/GetDeleteRefusalTest.php": [
+      "it_answers_a_get_request_with_404_and_keeps_the_row",
+      "it_deletes_the_row_with_a_post_request"
+    ],
+    "Core/Security/JavascriptStringContextEscapingTest.php": [
+      "it_encodes_the_public_key_in_the_stripe_checkout_script",
+      "it_encodes_the_user_id_in_the_user_client_modal",
+      "it_refuses_a_hostile_user_id_for_the_user_client_modal_and_does_not_echo_it"
+    ],
     "Core/Security/LayoutControllerUnauthenticatedAccessTest.php": [
       "it_returns_404_for_an_unauthenticated_request_to_a_layout_controller_method",
       "it_returns_404_for_the_same_request_even_with_an_admin_session"
@@ -315,6 +309,12 @@
       "it_delivers_a_semicolon_separated_internal_list",
       "it_refuses_a_malformed_address_with_the_organisation_message",
       "it_sends_with_no_cc_or_bcc_at_all"
+    ],
+    "Core/Security/MailerCcBccCronTest.php": [
+      "it_refuses_an_outside_template_copy_without_aborting_the_cron_run",
+      "it_does_not_let_the_template_sender_domain_authorise_a_copy",
+      "it_delivers_a_template_copy_inside_the_organisation_domain",
+      "it_does_not_abort_the_cron_run_for_a_recurring_invoice_with_an_invalid_client_address"
     ],
     "Core/Security/MailerRecipientCaptureTest.php": [
       "it_addresses_the_mail_to_the_invoice_client_and_ignores_a_posted_recipient",
@@ -389,11 +389,29 @@
       "it_blocks_svg_logo_uploads_and_records_the_attempt_in_the_log",
       "it_refuses_to_remove_a_logo_whose_stored_name_escapes_the_uploads_folder",
       "it_deletes_the_logo_file_and_clears_the_setting",
-      "it_renders_the_remove_logo_buttons_inside_the_settings_form_instead_of_nesting_forms"
+      "it_renders_the_remove_logo_buttons_inside_the_settings_form_instead_of_nesting_forms",
+      "it_redirects_a_guest_away_from_settings"
     ],
     "Core/SetupControllerTest.php": [
       "it_allows_the_setup_flow_when_setup_is_explicitly_unlocked",
       "it_redirects_direct_setup_steps_to_the_wizard_when_setup_is_unlocked"
+    ],
+    "Core/Users/UserClientAssignmentReadAuthorizationTest.php": [
+      "it_refuses_a_secondary_admin_reading_another_users_assignments",
+      "it_refuses_a_secondary_admin_reading_the_primary_administrators_assignments",
+      "it_serves_the_primary_administrator_any_users_assignments",
+      "it_serves_an_admin_their_own_assignments",
+      "it_refuses_a_non_integer_user_id",
+      "it_opens_the_new_user_client_modal_before_any_assignment_is_staged",
+      "it_checks_a_non_empty_user_id_even_when_assignments_are_staged_in_the_session",
+      "it_no_longer_routes_the_removed_load_user_client_table_endpoint",
+      "it_does_not_reference_the_removed_endpoint_from_the_modal"
+    ],
+    "Core/Users/UsersFormAuthorizationTest.php": [
+      "it_refuses_a_peer_administrator_posting_to_the_primary_administrators_form_and_changes_nothing",
+      "it_refuses_a_peer_administrator_opening_the_primary_administrators_form_without_leaking_the_record",
+      "it_does_not_let_an_administrator_change_their_own_role_through_the_form",
+      "it_lets_the_primary_administrator_change_another_users_role"
     ],
     "Core/WelcomeControllerTest.php": [
       "it_displays_welcome_page_to_guest",
@@ -426,6 +444,11 @@
       "it_handles_mailer_not_configured_gracefully",
       "it_logs_a_failed_send_summary_at_error_level_for_production_visibility"
     ],
+    "Invoices/GuestInvoiceViewScopeTest.php": [
+      "it_serves_a_guest_the_invoice_of_an_assigned_client",
+      "it_answers_404_for_an_invoice_of_another_client_and_leaks_nothing",
+      "it_does_not_mark_the_foreign_invoice_as_viewed"
+    ],
     "Invoices/GuestInvoiceVisibilityTest.php": [
       "it_does_not_leak_other_clients_paid_invoices_in_listing",
       "it_shows_zero_balance_invoices_only_for_the_guests_own_client",
@@ -455,10 +478,21 @@
       "it_taxes_item_tax_too_when_the_invoice_tax_includes_it",
       "it_keeps_each_invoices_totals_separate"
     ],
+    "Payments/GatewayMissingUrlSegmentTest.php": [
+      "it_answers_404_when_the_url_segment_is_missing"
+    ],
     "Payments/PaymentGatewaySecurityTest.php": [
       "it_validates_input_before_api_calls",
       "it_initializes_variables_before_exception_handling",
       "it_delays_oauth_calls_until_needed"
+    ],
+    "Payments/PaymentInformationDirectRouteTest.php": [
+      "it_does_not_route_a_gateway_helper_directly_with_online_payments_and_the_gateway_disabled",
+      "it_does_not_route_a_gateway_helper_directly_even_with_a_valid_invoice_key_and_the_gateway_disabled",
+      "it_does_not_route_a_gateway_helper_directly_whatever_the_request_method",
+      "it_exposes_nothing_but_the_constructor_and_form_as_public_methods",
+      "it_still_renders_each_enabled_gateway_through_form_for_its_own_invoice_only",
+      "it_still_refuses_a_disabled_gateway_through_form"
     ],
     "Payments/PaypalControllerTest.php": [
       "it_displays_payment_list_with_data",
@@ -466,11 +500,22 @@
       "it_displays_multiple_payments_with_service_names",
       "it_displays_payments_with_invoice_and_client_details"
     ],
+    "Payments/PaypalCreateOrderRequestTest.php": [
+      "it_asks_paypal_to_charge_the_invoice_balance_bound_to_that_invoice"
+    ],
+    "Payments/StripeCallbackPaymentStatusTest.php": [
+      "it_books_nothing_for_a_session_that_is_not_paid",
+      "it_books_the_payment_for_a_paid_session"
+    ],
     "Payments/StripeControllerTest.php": [
       "it_displays_payment_list_with_data",
       "it_displays_empty_payments_list",
       "it_displays_multiple_payments_with_service_names",
       "it_displays_payments_with_invoice_and_client_details"
+    ],
+    "Quotes/GuestQuotesControllerTest.php": [
+      "it_redirects_the_index_to_the_open_quotes",
+      "it_filters_the_listing_by_status_without_crossing_clients"
     ]
   }
 }

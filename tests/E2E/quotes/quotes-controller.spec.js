@@ -125,7 +125,7 @@ async function saveItems(page, quoteId, items, extra = {}) {
   const form = {
     quote_id: String(quoteId), quote_status_id: '2', quote_number: `QSIGN-${quoteId}`,
     quote_date_created: new Date().toISOString().slice(0, 10), quote_date_expires: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
-    quote_password: '', notes: '', quote_discount_percent: '0', quote_discount_amount: '0', service_id: '', items: JSON.stringify(items), ...extra,
+    quote_password: '', notes: '', quote_discount_percent: '0', quote_discount_amount: '0', items: JSON.stringify(items), ...extra,
   };
 
   return (await page.request.post('/quotes/ajax/save', { headers: XHR, form })).json();

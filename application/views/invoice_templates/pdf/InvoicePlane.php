@@ -62,9 +62,6 @@ if ($invoice->client_vat_id) {
 if ($invoice->client_tax_code) {
     echo '<div>' . trans('tax_code') . ': ' . htmlsc($invoice->client_tax_code) . '</div>';
 }
-if ($invoice->client_peppol_id) {
-    echo '<div>' . trans('peppol_participant_id') . ': ' . htmlsc($invoice->client_peppol_id) . '</div>';
-}
 if ($invoice->client_address_1) {
     echo '<div>' . htmlsc($invoice->client_address_1) . '</div>';
 }
@@ -98,11 +95,6 @@ if ($invoice->client_phone) {
     <div id="company">
         <div><b><?php _htmlsc($invoice->user_name); ?></b></div>
         <?php
-        if (isset($invoice->service_name) && $invoice->service_name) {
-            echo '<div>';
-            _htmlsc($invoice->service_name);
-            echo '</div>';
-        }
 ?>
 <?php
 if ($invoice->user_vat_id) {
@@ -110,9 +102,6 @@ if ($invoice->user_vat_id) {
 }
 if ($invoice->user_tax_code) {
     echo '<div>' . trans('tax_code') . ': ' . htmlsc($invoice->user_tax_code) . '</div>';
-}
-if ($invoice->user_einvoice_identifier) {
-    echo '<div>' . trans('peppol_participant_id') . ': ' . htmlsc($invoice->user_einvoice_identifier) . '</div>';
 }
 if ($invoice->user_address_1) {
     echo '<div>' . htmlsc($invoice->user_address_1) . '</div>';
