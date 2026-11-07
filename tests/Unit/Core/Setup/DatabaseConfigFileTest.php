@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Setup;
+namespace Tests\Unit\Core\Setup;
 
 use Dotenv\Dotenv;
 use PHPUnit\Framework\Attributes\DataProvider;

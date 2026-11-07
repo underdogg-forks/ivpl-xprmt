@@ -73,10 +73,11 @@ export async function ensureAdminSession() {
 /**
  * Log in as an arbitrary user in a brand-new browser context (its own cookie
  * jar) and return `{ context, page }`. The caller owns `context` and must
- * `close()` it. Used for the guest-session and non-admin authorization tests.
+ * `close()` it. Used for the guest-session and non-admin authorization tests. `baseURL`
+ * picks the server (pass E2E_CSRF_BASE_URL to log in on the CSRF-enabled one).
  */
-export async function loginAs(browser, email, password) {
-  const context = await browser.newContext({ baseURL: E2E_BASE_URL });
+export async function loginAs(browser, email, password, baseURL = E2E_BASE_URL) {
+  const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
 
   await page.goto(LOGIN_PATH);

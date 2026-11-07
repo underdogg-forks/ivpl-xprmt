@@ -53,7 +53,7 @@ class User_Controller extends Base_Controller
         $current = null;
         if ($user_id) {
             $current = $this->db
-                ->select('user_type, user_active, user_password')
+                ->select('user_type, user_active, user_password, user_auth_version')
                 ->where('user_id', $user_id)
                 ->get('ip_users')
                 ->row();
@@ -69,15 +69,27 @@ class User_Controller extends Base_Controller
             return;
         }
 
-        // A password change or reset ends every session created with the old password.
-        $this->load->helper('ip_security');
-        $fingerprint         = session_credential_fingerprint((string) $current->user_password);
-        $session_fingerprint = (string) $this->session->userdata('user_credential');
+        // Verify auth_version matches to detect password changes and revoke stale sessions
+        $session_auth_version = (int) $this->session->userdata('user_auth_version');
+        $current_auth_version = (int) $current->user_auth_version;
+        if ($session_auth_version !== $current_auth_version) {
+            session_destroy();
+            redirect('sessions/login');
 
-        if ($session_fingerprint === '') {
+            return;
+        }
+
+        // A password change or reset ends every session created with the old password.
+        if ( ! function_exists('session_credential_fingerprint')) {
+            $this->load->helper('ip_security');
+        }
+        $fingerprint = session_credential_fingerprint((string) $current->user_password);
+        $session_fp  = (string) $this->session->userdata('user_credential');
+
+        if ($session_fp === '') {
             // Session created before fingerprints existed: bind it to the current password once.
             $this->session->set_userdata('user_credential', $fingerprint);
-        } elseif ( ! hash_equals($fingerprint, $session_fingerprint)) {
+        } elseif ( ! hash_equals($fingerprint, $session_fp)) {
             session_destroy();
             redirect('sessions/login');
 

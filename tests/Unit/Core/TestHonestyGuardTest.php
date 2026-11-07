@@ -58,11 +58,7 @@ final class TestHonestyGuardTest extends TestCase
             $cases[$relativePath] = [$absolute];
         }
 
-        if ($cases === []) {
-            // git ls-files returned nothing (container without a git checkout, or git not on PATH).
-            // Return a sentinel so PHPUnit doesn't warn about an empty data provider; the test will skip.
-            return ['__no_git_checkout__' => [__FILE__]];
-        }
+        self::assertNotEmpty($cases, 'git ls-files returned nothing; are we running outside a git checkout?');
 
         return $cases;
     }
@@ -71,10 +67,6 @@ final class TestHonestyGuardTest extends TestCase
     #[DataProvider('trackedTestFiles')]
     public function it_has_no_existence_only_assertion_standing_in_for_real_behavior(string $path): void
     {
-        if ($path === __FILE__) {
-            $this->markTestSkipped('No git checkout — cannot scan tracked files.');
-        }
-
         $content = file_get_contents($path);
         self::assertIsString($content, "Could not read {$path}.");
 

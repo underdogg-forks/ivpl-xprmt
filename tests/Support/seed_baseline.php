@@ -1,5 +1,12 @@
 <?php
 
+/*
+ * bcrypt of "password", fixed. A session carries an HMAC of the stored password hash (session_credential_fingerprint),
+ * so a hash with a fresh salt on every reseed ended the admin's session after every reset: the browser suite then
+ * logged in again through a real browser before each test, about 0.65 s of a 1.4 s test.
+ */
+const IP_SEED_ADMIN_PASSWORD_HASH = '$2y$10$Gd6DfUcG0fHJGvNrbLiBWeQez/93Q3ctZphjQSJtu43OVRPW5w9ZW';
+
 /**
  * Canonical baseline seed for the MySQL/MariaDB test database.
  *
@@ -45,7 +52,7 @@ function ip_seed_baseline(PDO $pdo): void
     $pdo->prepare(
         'INSERT INTO `ip_users` (`user_name`, `user_email`, `user_password`, `user_psalt`, `user_type`, `user_active`, `user_date_created`, `user_date_modified`)'
         . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    )->execute(['Admin', 'admin@test.local', password_hash('password', PASSWORD_DEFAULT), bin2hex(random_bytes(10)), 1, 1, $now, $now]);
+    )->execute(['Admin', 'admin@test.local', IP_SEED_ADMIN_PASSWORD_HASH, 'e2e-admin-salt', 1, 1, $now, $now]);
 
     $pdo->prepare(
         'INSERT INTO `ip_invoice_groups`'

@@ -57,6 +57,11 @@ class Mdl_Clients extends Response_Model
             'client_active' => [
                 'field' => 'client_active',
             ],
+            'client_disable_reminders' => [
+                'field' => 'client_disable_reminders',
+                'label' => trans('disable_payment_reminders'),
+                'rules' => 'in_list[0,1]',
+            ],
             'client_language' => [
                 'field' => 'client_language',
                 'label' => trans('language'),
@@ -117,6 +122,11 @@ class Mdl_Clients extends Response_Model
             ],
             'client_einvoicing_active' => [
                 'field' => 'client_einvoicing_active',
+            ],
+            'client_peppol_id' => [
+                'field' => 'client_peppol_id',
+                'label' => trans('peppol_participant_id'),
+                'rules' => 'trim|max_length[100]',
             ],
             // SUMEX
             'client_birthdate' => [
@@ -356,5 +366,25 @@ class Mdl_Clients extends Response_Model
 
         // Regular users (type 3) - do not have client access
         return false;
+    }
+
+    public function get_all_services()
+    {
+        $this->load->model('services/mdl_services');
+
+        return $this->mdl_services->get()->result_array();
+    }
+
+    /**
+     * Legacy alias for get_all_services().
+     *
+     * Kept for backwards compatibility. This method returns all services
+     * and does not filter by client.
+     *
+     * @return array
+     */
+    public function service_by_client()
+    {
+        return $this->get_all_services();
     }
 }

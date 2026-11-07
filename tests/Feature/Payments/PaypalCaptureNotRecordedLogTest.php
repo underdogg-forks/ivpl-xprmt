@@ -39,7 +39,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
         $offset  = is_file($logFile) ? filesize($logFile) : 0;
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERLOG1');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LOG-1');
 
         /* Assert: nothing booked, and exactly one reconciliation line that names the capture */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-NOT-BOOKED']);
@@ -62,7 +62,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
         $offset  = is_file($logFile) ? filesize($logFile) : 0;
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERLOG2');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LOG-2');
 
         /* Assert */
         $this->assertDatabaseHas('ip_payments', ['payment_external_id' => 'CAP-BOOKED']);
@@ -95,7 +95,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
     {
         return ['status' => 200, 'body' => json_encode([
             'purchase_units' => [['invoice_id' => $invoiceId, 'amount' => ['value' => $amount, 'currency_code' => 'EUR']]],
-            'id'             => 'PAYPAL-ORDERRESOURCE',
+            'id'             => 'PAYPAL-ORDER-RESOURCE',
         ])];
     }
 
@@ -108,7 +108,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
                 'id'         => $captureId,
                 'amount'     => ['value' => $amount, 'currency_code' => $currency],
             ]]]]],
-            'id' => 'PAYPAL-ORDERRESOURCE',
+            'id' => 'PAYPAL-ORDER-RESOURCE',
         ])];
     }
 }

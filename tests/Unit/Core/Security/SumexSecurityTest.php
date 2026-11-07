@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Security;
+namespace Tests\Unit\Core\Security;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;

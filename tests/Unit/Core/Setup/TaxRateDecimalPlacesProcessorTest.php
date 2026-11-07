@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Settings;
+namespace Tests\Unit\Core\Setup;
 
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;

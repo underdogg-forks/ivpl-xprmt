@@ -9,7 +9,7 @@
 import { test, expect } from '../test.js';
 
 test.describe('Payments area — smoke', () => {
-  test('it loads the payments page successfully', async ({ page }) => {
+  test.skip('it loads the payments page successfully (obsolete: the same page is loaded by the paypal and stripe specs and by payments-controller.spec.js)', async ({ page }) => {
     /* Arrange + Act */
     const response = await page.goto('/payments');
     const body = await response.text();
@@ -19,7 +19,7 @@ test.describe('Payments area — smoke', () => {
     expect(body).toContain('Payment');
   });
 
-  test('it renders without exposing php errors', async ({ page }) => {
+  test.skip('it renders without exposing php errors (obsolete: the page fixture already fails a test on a PHP error)', async ({ page }) => {
     /* Arrange + Act */
     const response = await page.goto('/payments');
     const body = await response.text();

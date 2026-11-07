@@ -15,6 +15,7 @@ import { dbQuery } from '../support/db.js';
 import { loginAs } from '../support/auth.js';
 import { postForm } from '../support/http.js';
 import { expectSavedFlash } from '../support/forms.js';
+import { count, seedAdminUser } from '../support/quotes.js';
 
 const createBody = (over = {}) => ({
   user_type: '2',
@@ -236,5 +237,22 @@ test.describe('Users — guest access', () => {
     /* Assert */
     await expect(page).toHaveURL(/\/sessions\/login/);
     expect(await response.text()).not.toContain('Secret User Person');
+  });
+});
+
+test.describe('Users — delete authorization', () => {
+  test('it prevents a non-primary admin from deleting another admin', async ({ browser }) => {
+    /* Arrange */
+    const attacker = seedAdminUser();
+    const victim = seedAdminUser();
+    const { context } = await loginAs(browser, attacker.email, 'password');
+
+    /* Act */
+    const response = await context.request.post(`/users/delete/${victim.userId}`, { maxRedirects: 0 });
+
+    /* Assert */
+    expect(response.status(), 'only the primary admin (user_id 1) may delete another admin').toBe(403);
+    expect(count('ip_users', `user_id = ${victim.userId}`)).toBe(1);
+    await context.close();
   });
 });

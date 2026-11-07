@@ -133,7 +133,7 @@ class DashboardControllerTest extends AbstractTestCase
         $this->seedInvoice(
             $clientId,
             ['invoice_number' => 'DASH-LATE-001', 'invoice_status_id' => 2, 'invoice_date_due' => date('Y-m-d', strtotime('-10 days'))],
-            ['invoice_total'  => '75.00', 'invoice_balance' => '75.00'],
+            ['invoice_total' => '75.00', 'invoice_balance' => '75.00'],
         );
 
         /* Act */

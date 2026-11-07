@@ -104,15 +104,18 @@ class Sessions extends Base_Controller
                 redirect('/');
             }
 
-            //prevent brute force attacks by counting times a token is used
-            $token_log_key = $this->_password_reset_token_log_key($token);
-            $this->_migrate_legacy_login_log_key($token, $token_log_key);
-            $login_log_check = $this->_login_log_check($token_log_key);
+            // Prevent brute force attacks by counting times a token is used. The counter is
+            // keyed by the token's digest, not the token: ip_login_log would otherwise hold
+            // reset tokens in the clear, defeating the digest stored in ip_users. Namespaced
+            // so a submitted token cannot collide with another counter's key.
+            $login_log_key = $this->_password_reset_token_log_key($token);
+            $this->_migrate_legacy_login_log_key($token, $login_log_key);
+            $login_log_check = $this->_login_log_check($login_log_key);
             if ( ! empty($login_log_check) && $login_log_check->log_count > 10) {
                 redirect(get_safe_referer('', 'sessions/passwordreset'));
             } else {
                 //the use of a token counts as a failure
-                $this->_login_log_addfailure($token_log_key);
+                $this->_login_log_addfailure($login_log_key);
             }
 
             $this->db->where('user_passwordreset_token', hash_password_reset_token($token));
@@ -132,7 +135,7 @@ class Sessions extends Base_Controller
 
             //if token is valid, delete the failure attempt from
             //the login_log table
-            $this->_login_log_reset($token_log_key);
+            $this->_login_log_reset($login_log_key);
 
             $formdata = [
                 'token'   => $token,
@@ -323,10 +326,27 @@ class Sessions extends Base_Controller
                     $config['mailtype'] = 'html';
                     $this->email->initialize($config);
 
+                    // This path bypasses phpmail_send(), so it applies EMAIL_OVERRIDE_TO
+                    // itself, the same way: otherwise a development copy with no mailer
+                    // configured could still mail a real user.
+                    $email_override = trim((string) env('EMAIL_OVERRIDE_TO', ''));
+                    $email_to       = $email;
+                    $email_subject  = trans('password_reset');
+
+                    if ($email_override !== '') {
+                        $this->load->helper('mailer/phpmailer');
+                        $intended = email_override_intended_recipients($email);
+
+                        $email_to      = $email_override;
+                        $email_subject = '[DEV] ' . $email_subject;
+                        $email_message = email_override_banner($intended) . $email_message;
+                        $this->email->set_header('X-InvoicePlane-Intended-Recipients', $intended);
+                    }
+
                     // Set the email params
                     $this->email->from($email_from);
-                    $this->email->to($email);
-                    $this->email->subject(trans('password_reset'));
+                    $this->email->to($email_to);
+                    $this->email->subject($email_subject);
                     $this->email->message($email_message);
 
                     // Send the reset email
@@ -412,6 +432,97 @@ class Sessions extends Base_Controller
         }
 
         return false;
+    }
+
+    /**
+     * The email as stored for the account it identifies, or the submitted value when no account matches.
+     *
+     * The users table compares emails with a case-insensitive, trailing-space-insensitive collation, so
+     * "a@x.com", "A@X.com" and "a@x.com " all reach the same account. The failed-login counter is keyed on
+     * the submitted text, so each spelling would get a fresh counter and the lockout could be walked around.
+     * Resolving to the stored spelling makes every spelling share one counter.
+     */
+    private function _canonical_login_email(string $email_address): string
+    {
+        $row = $this->db->select('user_email')->where('user_email', $email_address)->limit(1)->get('ip_users')->row();
+
+        return $row !== null ? (string) $row->user_email : $email_address;
+    }
+
+    /**
+     * Generate a namespaced login counter key to prevent spoofing other rate limiters.
+     * Format: login_account:<sha256(lowercase_email)>.
+     *
+     * @param string $email_address
+     *
+     * @return string
+     */
+    private function _login_account_log_key(string $email_address): string
+    {
+        return 'login_account:' . hash('sha256', mb_strtolower($email_address));
+    }
+
+    /**
+     * One-time migration for an ip_login_log row still sitting under a pre-namespacing
+     * key (CWE-694 / GHSA-r59m-wgg6-h4pv): the per-account lockout used to be keyed by the
+     * raw, unhashed email address, and the password-reset token counter by the raw token.
+     * Renaming the row in place preserves log_count and log_create_timestamp, so an
+     * account or token that was actively locked out keeps its remaining lockout time
+     * instead of silently resetting the moment this fix deploys. A legacy row is only
+     * ever renamed once; if a namespaced row already exists too (e.g. a user who logged
+     * in again after the fix, then an old session replayed the legacy key), the legacy
+     * row is dropped instead of overwriting real data.
+     */
+    private function _migrate_legacy_login_log_key(string $legacy_key, string $new_key): void
+    {
+        if ($legacy_key === $new_key) {
+            return;
+        }
+
+        // A value shaped like one of the six namespaced keys can never be a genuine pre-fix
+        // legacy row — it's either a real row belonging to a different counter, or a forged
+        // email/token crafted to equal one. Treating it as "this account's legacy row" would
+        // let an attacker steal or clobber another counter's row through the migration path
+        // itself, reopening the exact CWE-694 forgery this fix closes. Refuse to touch it. This
+        // includes cron_key: (Cron::recur()'s per-IP throttle), which is not itself part of
+        // this fix but shares the same ip_login_log.login_name column.
+        if (preg_match('/^(?:login_account|login_ip|cron_key|password_reset_ip|password_reset_email|password_reset_token):[0-9a-f]{64}$/', $legacy_key)) {
+            return;
+        }
+
+        $legacy_row = $this->db->where('login_name', $legacy_key)->get('ip_login_log')->row();
+
+        if (empty($legacy_row)) {
+            return;
+        }
+
+        $existing_new_row = $this->db->where('login_name', $new_key)->get('ip_login_log')->row();
+
+        if (empty($existing_new_row)) {
+            $this->db->where('login_name', $legacy_key)->update('ip_login_log', ['login_name' => $new_key]);
+
+            return;
+        }
+
+        // Both rows can coexist (e.g. a case-variant email: the namespaced key is
+        // case-insensitive, but this exact-case legacy lookup only matches if an earlier
+        // request happened to use this exact casing). Keep whichever row's count is
+        // higher — the stronger lockout — instead of always discarding the legacy row's
+        // count, or an attacker could reset their own active lockout just by varying the
+        // email's case on a later attempt. Whether the surviving count is still within the
+        // 12-hour window is left to _login_log_check()'s own existing staleness check.
+        if ((int) $legacy_row->log_count > (int) $existing_new_row->log_count) {
+            // The count condition makes the write atomic: a request that raised the namespaced
+            // row between the two reads above is not overwritten with the staler legacy count.
+            $this->db->where('login_name', $new_key)
+                ->where('log_count <', (int) $legacy_row->log_count)
+                ->update('ip_login_log', [
+                    'log_count'            => $legacy_row->log_count,
+                    'log_create_timestamp' => $legacy_row->log_create_timestamp,
+                ]);
+        }
+
+        $this->db->where('login_name', $legacy_key)->delete('ip_login_log');
     }
 
     /**
@@ -571,90 +682,11 @@ class Sessions extends Base_Controller
         );
     }
 
-    /**
-     * The email as stored for the account it identifies, or the submitted value when no account matches.
-     *
-     * The users table compares emails with a case-insensitive, trailing-space-insensitive collation, so
-     * "a@x.com", "A@X.com" and "a@x.com " all reach the same account. The failed-login counter is keyed on
-     * the submitted text, so each spelling would get a fresh counter and the lockout could be walked around.
-     * Resolving to the stored spelling makes every spelling share one counter.
-     */
-    private function _canonical_login_email(string $email_address): string
-    {
-        $row = $this->db->select('user_email')->where('user_email', $email_address)->limit(1)->get('ip_users')->row();
-
-        return $row !== null ? (string) $row->user_email : $email_address;
-    }
-
-    private function _login_account_log_key(string $email): string
-    {
-        return 'login_account:' . hash('sha256', mb_strtolower($email));
-    }
-
-    /**
-     * One-time migration for an ip_login_log row still sitting under a pre-namespacing
-     * key: the per-account lockout used to be keyed by the raw, unhashed email address,
-     * and the password-reset token counter by the raw token. Renaming the row in place
-     * preserves log_count and log_create_timestamp, so an account or token that was
-     * actively locked out keeps its remaining lockout time instead of silently resetting
-     * the moment this fix deploys. A legacy row is only ever renamed once; if a namespaced
-     * row already exists too, the legacy row is dropped instead of overwriting real data.
-     */
-    private function _migrate_legacy_login_log_key(string $legacy_key, string $new_key): void
-    {
-        if ($legacy_key === $new_key) {
-            return;
-        }
-
-        // A value shaped like one of the six namespaced keys can never be a genuine pre-fix
-        // legacy row — it's either a real row belonging to a different counter, or a forged
-        // email/token crafted to equal one. Treating it as "this account's legacy row" would
-        // let an attacker steal or clobber another counter's row through the migration path
-        // itself, reopening the exact forgery this fix closes. Refuse to touch it. This
-        // includes cron_key: (Cron::recur()'s per-IP throttle), which is not itself part of
-        // this fix but shares the same ip_login_log.login_name column.
-        if (preg_match('/^(?:login_account|login_ip|cron_key|password_reset_ip|password_reset_email|password_reset_token):[0-9a-f]{64}$/', $legacy_key)) {
-            return;
-        }
-
-        $legacy_row = $this->db->where('login_name', $legacy_key)->get('ip_login_log')->row();
-
-        if (empty($legacy_row)) {
-            return;
-        }
-
-        $existing_new_row = $this->db->where('login_name', $new_key)->get('ip_login_log')->row();
-
-        if (empty($existing_new_row)) {
-            $this->db->where('login_name', $legacy_key)->update('ip_login_log', ['login_name' => $new_key]);
-
-            return;
-        }
-
-        // Both rows can coexist (e.g. a case-variant email: the namespaced key is
-        // case-insensitive, but this exact-case legacy lookup only matches if an earlier
-        // request happened to use this exact casing). Keep whichever row's count is
-        // higher — the stronger lockout — instead of always discarding the legacy row's
-        // count, or an attacker could reset their own active lockout just by varying the
-        // email's case on a later attempt. Whether the surviving count is still within the
-        // 12-hour window is left to _login_log_check()'s own existing staleness check.
-        if ((int) $legacy_row->log_count > (int) $existing_new_row->log_count) {
-            // The count condition makes the write atomic: a request that raised the namespaced
-            // row between the two reads above is not overwritten with the staler legacy count.
-            $this->db->where('login_name', $new_key)
-                ->where('log_count <', (int) $legacy_row->log_count)
-                ->update('ip_login_log', [
-                    'log_count'            => $legacy_row->log_count,
-                    'log_create_timestamp' => $legacy_row->log_create_timestamp,
-                ]);
-        }
-
-        $this->db->where('login_name', $legacy_key)->delete('ip_login_log');
-    }
-
     private function _password_reset_token_log_key(string $token): string
     {
-        return 'password_reset_token:' . hash('sha256', $token);
+        // Same digest already used for the DB lookup (hash_password_reset_token()) — avoids a
+        // second hashing scheme for the same value.
+        return 'password_reset_token:' . hash_password_reset_token($token);
     }
 
     private function _password_reset_ip_log_key(string $ip_address): string

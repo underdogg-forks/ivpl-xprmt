@@ -4,18 +4,18 @@ defined('BASEPATH') || exit('No direct script access allowed');
 
 /**
  * Connection-scoped MySQL advisory lock serializing concurrent payment writers
- * for the same invoice (CWE-362/367 TOCTOU): the admin payment form/ajax
- * endpoints read invoice_balance in Mdl_Payments::validate_payment_amount(),
- * decide to record a payment, then save it via Mdl_Payments::save() as
- * separate non-atomic steps. Two admin sessions submitting a payment for the
- * same invoice at the same time can both pass the balance check before
- * either commits, over-crediting the invoice.
+ * for the same invoice (CWE-362/367 TOCTOU): both the guest-facing Stripe/PayPal
+ * callbacks and the admin payment form/ajax endpoints read invoice_balance,
+ * decide to record a payment, then save it as separate non-atomic steps. Two
+ * writers racing on the same invoice — two gateway callbacks, or two admin
+ * sessions submitting a payment concurrently — can both pass the balance check
+ * before either commits, over-crediting the invoice.
  *
- * Blocks (rather than failing fast) because the loser must wait for the
- * winner to commit, then re-check the now up-to-date balance and correctly
- * reject instead of over-crediting.
+ * Blocks (rather than failing fast like IntegrationSyncLock) because the loser
+ * must wait for the winner to commit, then re-check the now up-to-date balance
+ * and correctly reject/no-op instead of over-crediting.
  */
-class PaymentCallbackLock
+final class PaymentCallbackLock
 {
     private ?string $name = null;
 

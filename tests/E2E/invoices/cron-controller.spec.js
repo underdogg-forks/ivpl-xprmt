@@ -16,7 +16,7 @@ test.describe('Invoices area — smoke', () => {
     expect(await response.text()).toContain('<html');
   });
 
-  test('it does not expose php errors on the invoices list', async ({ page }) => {
+  test.skip('it does not expose php errors on the invoices list (obsolete: the page fixture already fails a test on a PHP error)', async ({ page }) => {
     /* Arrange + Act */
     const response = await page.goto('/invoices');
     const body = await response.text();

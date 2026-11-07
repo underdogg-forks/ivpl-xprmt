@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Users;
+namespace Tests\Unit\Core\Auth;
 
 use Mdl_Users;
 use PHPUnit\Framework\Attributes\CoversClass;

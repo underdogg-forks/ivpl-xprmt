@@ -24,13 +24,14 @@ use Tests\Support\NginxLocationResolver;
 final class UploadsImportWebServerDenyTest extends TestCase
 {
     private const IMPORT_PATHS = [
-        'the clients csv'          => '/uploads/import/clients.csv',
-        'the invoices csv'         => '/uploads/import/invoices.csv',
-        'the invoice items csv'    => '/uploads/import/invoice_items.csv',
-        'the payments csv'         => '/uploads/import/payments.csv',
-        'the folder itself'        => '/uploads/import/',
-        'a php file in the folder' => '/uploads/import/shell.php',
-        'a dotfile in the folder'  => '/uploads/import/.htaccess',
+        'the clients csv'            => '/uploads/import/clients.csv',
+        'the invoices csv'           => '/uploads/import/invoices.csv',
+        'the invoice items csv'      => '/uploads/import/invoice_items.csv',
+        'the payments csv'           => '/uploads/import/payments.csv',
+        'the folder itself'          => '/uploads/import/',
+        'the folder without a slash' => '/uploads/import',
+        'a php file in the folder'   => '/uploads/import/shell.php',
+        'a dotfile in the folder'    => '/uploads/import/.htaccess',
     ];
 
     /** @return array<string, array{string}> */
@@ -89,6 +90,37 @@ final class UploadsImportWebServerDenyTest extends TestCase
         /* Assert */
         self::assertSame('/uploads/import/', $location['pattern']);
         self::assertTrue(NginxLocationResolver::refuses($location));
+    }
+
+    #[Test]
+    public function it_refuses_the_import_folder_through_the_regex_block_alone(): void
+    {
+        /* Arrange: only the regex locations (plus the catch-all), as if the ^~ block were deleted */
+        $resolver = $this->nginx()->onlyModifiers(['~', '~*']);
+
+        /* Act */
+        $withSlash    = $resolver->resolve('/uploads/import/clients.csv');
+        $withoutSlash = $resolver->resolve('/uploads/import');
+
+        /* Assert */
+        self::assertTrue(NginxLocationResolver::refuses($withSlash));
+        self::assertTrue(NginxLocationResolver::refuses($withoutSlash));
+    }
+
+    #[Test]
+    public function it_denies_the_import_directory_in_the_apache_vhost(): void
+    {
+        /* Arrange */
+        $conf = (string) file_get_contents(ROOT_PATH . '/resources/docker/apache/invoiceplane.conf');
+        $conf = (string) preg_replace('/^\s*#.*$/m', '', $conf);
+
+        /* Act */
+        $found = preg_match('#<Directory\s+/var/www/html/uploads/import>(.*?)</Directory>#s', $conf, $m);
+
+        /* Assert */
+        self::assertSame(1, $found, 'The Apache vhost must declare a <Directory> block for uploads/import.');
+        self::assertMatchesRegularExpression('/^\s*Require\s+all\s+denied\s*$/m', $m[1]);
+        self::assertDoesNotMatchRegularExpression('/Require\s+all\s+granted|Require\s+ip/i', $m[1]);
     }
 
     #[Test]

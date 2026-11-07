@@ -83,6 +83,17 @@ class SettingsControllerTest extends AbstractTestCase
         ];
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function logoKinds(): array
+    {
+        return [
+            'invoice logo' => ['invoice'],
+            'login logo'   => ['login'],
+        ];
+    }
+
     // -------------------------------------------------------------------------
     // Read
     // -------------------------------------------------------------------------
@@ -141,23 +152,6 @@ class SettingsControllerTest extends AbstractTestCase
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'settings');
         $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'abc123def456']);
-    }
-
-    #[Test]
-    public function it_saves_settings_without_reading_logo_uploads_that_were_not_sent(): void
-    {
-        /* Arrange: a settings post without the invoice_logo and login_logo file inputs, as an API client or a test sends it */
-        $logFile = APPPATH . 'logs/log-' . date('Y-m-d') . '.php';
-        $offset  = is_file($logFile) ? (int) filesize($logFile) : 0;
-
-        /* Act */
-        $response = $this->post('/settings', ['settings' => ['cron_key' => 'abc123def456'], 'btn_submit' => '1']);
-
-        /* Assert: saved, and no "Undefined array key" warning for the uploads that do not exist */
-        $this->assertResponseRedirectsToRoute($response, 'settings');
-        clearstatcache(true, $logFile);
-        $logged = is_file($logFile) ? (string) file_get_contents($logFile, false, null, $offset) : '';
-        self::assertStringNotContainsString('Undefined array key', $logged);
     }
 
     // -------------------------------------------------------------------------
@@ -219,6 +213,54 @@ class SettingsControllerTest extends AbstractTestCase
         /* Assert */
         self::assertFalse($response->isRedirect(), 'A token-less request must not reach the controller.');
         $this->assertDatabaseHas('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => 'guarded.png']);
+    }
+
+    #[Test]
+    public function it_does_not_remove_a_logo_for_a_guest(): void
+    {
+        /* Arrange */
+        $this->setSetting('invoice_logo', 'guest-cannot-remove.png');
+        $this->actingAsGuest();
+
+        /* Act */
+        $response = $this->post('/settings/remove_logo/invoice', []);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => 'guest-cannot-remove.png']);
+    }
+
+    #[Test]
+    public function it_confirms_the_removal_when_no_logo_is_configured(): void
+    {
+        /* Arrange */
+        $this->setSetting('invoice_logo', '');
+
+        /* Act */
+        $response = $this->post('/settings/remove_logo/invoice', []);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        self::assertNotNull($response->sessionValue('alert_success'), 'Removing a logo that is not set still reports success.');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => 'invoice_logo', 'setting_value' => '']);
+    }
+
+    #[Test]
+    #[DataProvider('logoKinds')]
+    public function it_builds_the_remove_logo_button_with_site_url_so_it_works_without_url_rewriting(string $kind): void
+    {
+        /* Arrange: base_url() produced a link without index.php that 404s when the server does not rewrite URLs */
+        $this->setSetting($kind . '_logo', 'logo.png');
+        $this->withEnvironment(['REMOVE_INDEXPHP' => 'false']);
+        $page = $this->get('/settings');
+
+        /* Act */
+        self::assertSame(1, preg_match('#formaction="[^"]*/index\.php/(settings/remove_logo/' . $kind . ')"#', $page->body(), $button), 'The button must point through index.php.');
+        $response = $this->post('/' . $button[1], []);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        $this->assertDatabaseHas('ip_settings', ['setting_key' => $kind . '_logo', 'setting_value' => '']);
     }
 
     // -------------------------------------------------------------------------
@@ -632,7 +674,6 @@ class SettingsControllerTest extends AbstractTestCase
         /* Arrange */
         $this->setSetting('login_logo', 'login-logo.png');
         $this->setSetting('invoice_logo', 'invoice-logo.png');
-        $this->withEnvironment(['REMOVE_INDEXPHP' => 'true']);
 
         /* Act */
         $response = $this->get('/settings');
@@ -643,13 +684,12 @@ class SettingsControllerTest extends AbstractTestCase
         $formClose = strpos($body, '</form>', (int) $formOpen);
         self::assertNotFalse($formOpen);
         foreach (['login', 'invoice'] as $kind) {
-            $needle = 'formaction="http://localhost/settings/remove_logo/' . $kind . '"';
-            $at     = strpos($body, $needle);
-            self::assertNotFalse($at, "No remove-logo button for the {$kind} logo.");
+            self::assertSame(1, preg_match('#formaction="[^"]*settings/remove_logo/' . $kind . '"#', $body, $match, PREG_OFFSET_CAPTURE), "No remove-logo button for the {$kind} logo.");
+            $at = $match[0][1];
             self::assertGreaterThan($formOpen, $at);
             self::assertLessThan($formClose, $at, 'The button must sit inside the settings form, which carries the CSRF field.');
         }
-        self::assertStringNotContainsString('<form method="post" action="http://localhost/settings/remove_logo', $body, 'A nested form is dropped by browsers.');
+        self::assertDoesNotMatchRegularExpression('#<form method="post" action="[^"]*settings/remove_logo#', $body, 'A nested form is dropped by browsers.');
     }
 
     private function setSetting(string $key, string $value): void

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Security;
+namespace Tests\Unit\Core\Security;
 
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Group;

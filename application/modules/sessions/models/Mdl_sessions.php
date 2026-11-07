@@ -22,7 +22,8 @@ class Mdl_Sessions extends CI_Model
      * call (see the num_rows() === 0 branch and the legacy-md5-mismatch
      * branch below). Never intended to validate against any real password.
      * Generated at Crypt::BCRYPT_COST (currently 10) -- if that cost ever
-     * changes, regenerate this at the same cost.
+     * changes, regenerate this at the same cost
+     * (LoginTimingOracleTest pins the two together).
      */
     private const DUMMY_PASSWORD_HASH = '$2y$10$woAI/YEapjthjnbqbsEgy.RldV3enm6I417RVNYwcybNGrt9MVpX.';
 
@@ -89,16 +90,19 @@ class Mdl_Sessions extends CI_Model
                     return false;
                 }
 
-                $this->load->helper('ip_security');
+                if ( ! function_exists('session_credential_fingerprint')) {
+                    $this->load->helper('ip_security');
+                }
 
                 $session_data = [
-                    'user_credential' => session_credential_fingerprint((string) $user->user_password),
-                    'user_type'       => $user->user_type,
-                    'user_id'         => $user->user_id,
-                    'user_name'       => $user->user_name,
-                    'user_email'      => $user->user_email,
-                    'user_company'    => $user->user_company,
-                    'user_language'   => $user->user_language ?? 'system',
+                    'user_credential'   => session_credential_fingerprint((string) $user->user_password),
+                    'user_type'         => $user->user_type,
+                    'user_id'           => $user->user_id,
+                    'user_name'         => $user->user_name,
+                    'user_email'        => $user->user_email,
+                    'user_company'      => $user->user_company,
+                    'user_language'     => $user->user_language ?? 'system',
+                    'user_auth_version' => $user->user_auth_version ?? 1,
                 ];
 
                 // Regenerate session ID on login to prevent session fixation attacks.

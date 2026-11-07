@@ -1,0 +1,36 @@
+name: JS Tests
+
+# Dependency-free tests on the built-in Node test runner (tests/js/):
+#   - resources/assets/core/js/scripts.js: the CSRF token helpers, the jQuery ajaxPrefilter and the
+#     ajaxComplete token rotation, evaluated in a vm sandbox with a stub document and jQuery
+#   - resources/assets/core/js/integration-settings.js: the "Test connection" button
+#   - the settings update/news flow and the Gruntfile output paths
+#   - the layout of the Playwright suite itself (tests/js/e2e-layout.test.js): one tests/E2E directory,
+#     no spec the runner would not pick up, no skipped or empty specs, no bypass of the test wrapper
+
+on:
+  push:
+    branches:
+      - prep/v180
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-test:
+    name: node --test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          # >= 21 for glob support in `node --test` (see package.json test:js).
+          node-version: '22'
+
+      - name: Run the JS test suite
+        run: npm run test:js

@@ -12,9 +12,11 @@
 
 import { test, expect } from '../test.js';
 import { createInvoiceWithBalance, createPayment, uniq } from '../support/fixtures.js';
-import { dbInsert, dbQuery } from '../support/db.js';
+import { dbExec, dbInsert, dbQuery } from '../support/db.js';
 import { postForm } from '../support/http.js';
 import { expectSavedFlash } from '../support/forms.js';
+import { seedInvoiceRow } from '../support/invoices.js';
+import { seedClientRow } from '../support/quotes.js';
 
 /** Raw payment row (does not recompute the invoice balance), like PHPUnit's seedPayment. */
 function seedPayment(invoiceId, amount) {
@@ -154,5 +156,28 @@ test.describe('Payments — guest access', () => {
     /* Assert */
     await expect(page).toHaveURL(/\/sessions\/login/);
     expect(await response.text()).not.toContain(uniq('never-rendered'));
+  });
+});
+
+test.describe('Payments — manual payments', () => {
+  test('it creates manual payment with null external id', async ({ page }) => {
+    /* Arrange: manual payments (no gateway) have a NULL external id and duplicates are allowed. Saving a payment recalculates
+     * the balance from real item rows, and two 75.00 payments need 150.00 of real balance behind them. */
+    const invoiceId = seedInvoiceRow(seedClientRow({ client_name: 'Manual Payment Client' }));
+    dbExec(`UPDATE ip_invoice_amounts SET invoice_total = 75.00, invoice_balance = 75.00 WHERE invoice_id = ${invoiceId}`);
+    const itemId = dbInsert('ip_invoice_items', { invoice_id: invoiceId, item_tax_rate_id: 0, item_date_added: '2026-10-04', item_name: 'Test item', item_quantity: '1.00', item_price: '150.00', item_order: 1 });
+    dbInsert('ip_invoice_item_amounts', { item_id: itemId, item_subtotal: '150.00', item_tax_total: '0.00', item_discount: '0.00', item_total: '150.00' });
+    const form = { invoice_id: String(invoiceId), payment_method_id: '1', payment_amount: '75.00', payment_date: new Date().toISOString().slice(0, 10), payment_note: 'Manual payment', btn_submit: '1' };
+
+    /* Act */
+    const first = await postForm(page, '/payments/form', form);
+    const second = await postForm(page, '/payments/form', { ...form, payment_note: 'Manual payment 2' });
+
+    /* Assert */
+    expect([301, 302, 303]).toContain(first.status());
+    expect([301, 302, 303]).toContain(second.status());
+    const rows = dbQuery(`SELECT payment_external_id FROM ip_payments WHERE invoice_id = ${invoiceId} AND payment_amount = 75`);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.payment_external_id === null)).toBe(true);
   });
 });

@@ -37,7 +37,7 @@ test.describe('Sessions — login page', () => {
     await expect(page).toHaveURL(new RegExp(LOGIN_PATH));
   });
 
-  test('it does not expose php errors on the login page', async ({ page }) => {
+  test.skip('it does not expose php errors on the login page (obsolete: the page fixture already fails a test on a PHP error)', async ({ page }) => {
     /* Arrange + Act */
     const body = await (await page.goto(LOGIN_PATH)).text();
 
