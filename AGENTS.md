@@ -90,6 +90,18 @@ There is no `quickstart.yml`. InvoicePlane does not have `php artisan` commands.
 
 ## Testing
 
+
+## Testing Environment (Shared Standard)
+- PHPUnit **must** run inside Docker. The verified working command runs `vendor/bin/phpunit` inside the `ivpldock-workspace-1` container (where the v1 code and `vendor/bin/phpunit` are mounted), with `DB_DATABASE=invoiceplane_xprmt_test` to target the project-isolated test database:
+  `docker exec -e XDEBUG_MODE=off -e DB_HOSTNAME=mariadb -e DB_PORT=3306 -e DB_DATABASE=invoiceplane_xprmt_test -e DB_USERNAME=root -e DB_PASSWORD=root -e DB_DRIVER=mysqli -e ENCRYPTION_KEY=<encryption-key> ivpldock-workspace-1 bash -c 'cd /var/www/projects/invoiceplane/ivpl-xprmt && vendor/bin/phpunit'`
+  The isolated test database `invoiceplane_xprmt_test` has been created in the ivpldock MariaDB and is distinct from InvoicePlane v2's `invoiceplane_test` schema (which is unchanged at 51 tables). The schema (42 tables) and baseline seed are already loaded into `invoiceplane_xprmt_test`.
+- The shared testing standard (`/data/Projects/shared-testing-standard-2026-10-29.md`) defines the mandatory Docker execution policy and verification procedures.
+- Before running PHPUnit, verify the Docker stack is up: `docker ps` should show `ivpldock-workspace-1` and `ivpldock-mariadb-1` `Up`/healthy.
+- The recommended `compose.yml` path builds `c8n.io/mpldr/invoiceplane` with `composer install --no-dev`, so `vendor/bin/phpunit` is **not** present in the `app` image and `docker compose exec app vendor/bin/phpunit` cannot run PHPUnit; it is kept for running the built application, not the test suite. The legacy `docker-compose.yml` (`php`/`nginx`/`db`) is kept for individual Dockerfile reuse.
+- `vendor/bin/phpunit` must NOT be used directly on the host — the host PHP lacks the database drivers required by CodeIgniter, and integration tests will be silently skipped due to MariaDB unresolvable hostname from the host.
+- If a test must run on the host, it must be explicitly documented as an exception with justification.
+- CI uses MariaDB as a service with `DB_HOSTNAME=127.0.0.1`, `DB_USERNAME=root`, `DB_PASSWORD=root` — local Docker setup must match these credentials.
+
 - Use **PHPUnit** directly (`vendor/bin/phpunit`).
 - No Laravel `TestCase` — extend plain `\PHPUnit\Framework\TestCase`.
 - Method names: `it_<snake_case>`, annotated with `#[Test]`.
