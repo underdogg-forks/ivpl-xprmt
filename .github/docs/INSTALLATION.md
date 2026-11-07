@@ -24,8 +24,8 @@ Follow the instructions below to install InvoicePlane on your preferred platform
 
 ## Prerequisites
 
-- **Web Server:** Apache or Nginx
-- **PHP:** **8.4** is the default and recommended version. 8.2, 8.3, 8.4 and 8.5 are all supported.
+- **Web Server:** Apache, Nginx or IIS 10+ (with the URL Rewrite module, see [IIS](#iis))
+- **PHP:** Version **8.2 or higher** (PHP 8.3 and 8.4 supported)
 - **Database:** MariaDB
 - **For Development:** Docker (recommended), Composer, Yarn/npm
 
@@ -110,7 +110,7 @@ The **StartMeUp** phase launches your development environment. Two Docker setups
 
 #### Using Docker (Recommended)
 
-`docker-compose.yml` provides separated `php`/`nginx`/`db`/`phpmyadmin`/`mailpit` services that bind-mount
+`docker-compose.yml` provides separated `php`/`nginx`/`db`/`phpmyadmin` services that bind-mount
 your working tree, so PHP/frontend edits are reflected immediately without a rebuild — this is
 the one to use for active development. (`compose.yml` is the other option: a single
 self-contained image, good for quickly spinning up InvoicePlane to test something, but not for
@@ -140,12 +140,11 @@ docker compose -f docker-compose.yml down
 - **phpMyAdmin**: <http://localhost:8081>
   - Username: `ipdevdb`
   - Password: `ipdevdb`
-- **Mailpit** (outgoing mail is caught here, never delivered): <http://localhost:8025>
 
 #### Without Docker (Alternative)
 
 If you're not using Docker, ensure you have:
-- PHP 8.4 installed and configured (8.2 – 8.5 are supported)
+- PHP 8.2+ installed and configured
 - MariaDB running locally
 - Nginx or Apache configured to serve the project directory
 
@@ -160,8 +159,8 @@ The **Workflow** phase covers your day-to-day development activities.
 
 2. **Make Code Changes:**
    - Edit PHP files in `application/` directory
-   - Edit SASS files in `resources/assets/` (`<theme>/sass/`), then run `yarn build`
-   - Edit JavaScript files in `resources/assets/core/js/`, then run `yarn build` (output goes to `public/assets/`)
+   - Edit SASS files in `assets/` directory
+   - Edit JavaScript files in `assets/` directory
 
 3. **Build Assets (if you changed frontend files):**
    ```bash
@@ -205,29 +204,69 @@ The **Workflow** phase covers your day-to-day development activities.
 - **Alternative**: Use WSL2 (Windows Subsystem for Linux) with Docker
 - Follow the standard [Development Workflow](#development-workflow) steps
 
+### IIS
+
+IIS ignores `.htaccess`, so the release ships a `web.config` next to `index.php`. It needs the **URL Rewrite**
+module; without it IIS answers `500.19` and does not serve the site, so a missing module fails closed.
+
+The rules answer `404` for the private folders (`application/`, `vendor/`, `storage/`, `resources/`,
+`node_modules/`, `tests/`, `uploads/archive/`, `uploads/customer_files/`, `uploads/import/`, `uploads/temp/`),
+dotfiles (except `.well-known/`, which Let's Encrypt needs), the project files (`composer.json`, `composer.lock`,
+`package.json`, `*.md`, `ipconfig.php`, ...) and every PHP file other than `index.php`. They are anchored at the
+start of the URL, so routes such as `/index.php/import` are not affected, and they ignore case and the Windows
+spellings of a path (repeated slashes, trailing dots and spaces). Do not replace them with
+`<requestFiltering><hiddenSegments>`: that matches a segment anywhere in the URL and would also block
+`/index.php/import`.
+
+Clean URLs (`REMOVE_INDEXPHP=true` in `ipconfig.php`): `web.config` contains a routing rule that sends requests for
+files and folders that do not exist to `index.php`. It ships switched off, because `REMOVE_INDEXPHP=false` is the
+default and every URL then carries `index.php`. Set `enabled="true"` on the rule *Route clean URLs to the front
+controller* and make `index.php` the default document of the site (a request for `/` is a folder and is not routed).
+Without that rule IIS answers `404` for `/sessions/login`.
+
+Check it after every deployment. A refusal check only proves something when the file exists, so create a canary
+first (any content) and remove it afterwards:
+
+```bash
+echo canary > uploads/archive/iis-check.txt
+
+# every one of these must answer 404; --path-as-is stops curl from tidying the path before it is sent
+curl -s -o /dev/null -w "%{http_code}\n" --path-as-is https://your-domain.com/uploads/archive/iis-check.txt
+curl -s -o /dev/null -w "%{http_code}\n" --path-as-is https://your-domain.com/uploads/archive./iis-check.txt
+curl -s -o /dev/null -w "%{http_code}\n" --path-as-is "https://your-domain.com/uploads//archive/iis-check.txt"
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/composer.json
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/vendor/autoload.php
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/ipconfig.php
+
+# and the site itself must still answer 200
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/index.php/sessions/login
+
+rm uploads/archive/iis-check.txt
+```
+
+If the second command answers `200`, the rule does not cover the Windows spelling of the folder and the archive is
+exposed. If the last one is not `200`, the rules are refusing the application itself.
+
+PDFs archived by an older version keep their predictable `<date>_Invoice_<number>.pdf` names after an upgrade; the
+rule for `uploads/archive/` is the only thing protecting them.
+
 ### macOS
 - **Recommended**: Use Docker Desktop for Mac (see [Docker Installation](#docker-installation))
 - **Alternative with Laravel Herd**:
   - Install [Laravel Herd](https://herd.laravel.com/).
   - Place InvoicePlane files in the Herd sites directory.
   - Follow the standard installation steps.
-- **Manual Setup**: Install PHP 8.4 via Homebrew (`brew install php@8.4`) and follow Linux instructions
+- **Manual Setup**: Install PHP 8.1+ via Homebrew and follow Linux instructions
 
 ### Linux
 - **Nginx + MariaDB + PHP Setup** (LEMP Stack):
   - Install required packages:
     ```bash
-    # Ubuntu (24.04 ships PHP 8.3; PHP 8.4 comes from the ondrej/php PPA)
-    sudo add-apt-repository -y ppa:ondrej/php
+    # Ubuntu/Debian
     sudo apt-get update
-    sudo apt-get install nginx mariadb-server php8.4-fpm php8.4-mysql php8.4-mbstring php8.4-xml php8.4-curl php8.4-gd php8.4-bcmath
+    sudo apt-get install nginx mariadb-server php8.1-fpm php8.1-mysql php8.1-mbstring php8.1-xml php8.1-curl
     ```
-  - Configure Nginx to serve InvoicePlane, starting from
-    [`resources/docker/nginx/invoiceplane.conf`](../../resources/docker/nginx/invoiceplane.conf).
-    **Keep its deny rules.** nginx ignores the `.htaccess` files that protect private paths on
-    Apache, so without them archived invoice PDFs (`uploads/archive`), customer attachments,
-    import files, `vendor/` and `application/` are downloadable without logging in. Only
-    `index.php` should be executed as PHP.
+  - Configure Nginx to serve InvoicePlane (see Docker nginx config for reference)
   - Follow the [Development Workflow](#development-workflow) steps
 - **Docker**: Recommended for consistent environment (see [Docker Installation](#docker-installation))
 
@@ -296,11 +335,10 @@ section covers `docker-compose.yml`, the one for active development.
 
 ### Docker Services Included
 
-- **PHP-FPM**: PHP 8.4 by default (set `PHP_VERSION` in `docker-compose.yml` to use 8.2 – 8.5), with Composer
+- **PHP-FPM**: PHP 8.2
 - **Nginx**: Web server on port 80 (`http://ivpl.local`)
-- **MariaDB**: `db:3306` inside the stack; not published on the host (use phpMyAdmin)
+- **MariaDB**: Database server on port 3306
 - **phpMyAdmin**: Database management on port 8081
-- **Mailpit**: Mail catcher; web UI on port 8025, SMTP for the app at `mailpit:1025`
 
 ### Useful Docker Commands
 
