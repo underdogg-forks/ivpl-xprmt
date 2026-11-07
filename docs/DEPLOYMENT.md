@@ -67,6 +67,55 @@ server {
 }
 ```
 
+#### IIS (10 or later)
+
+IIS ignores `.htaccess`, so the project ships a `web.config` in the project root. It needs the **URL Rewrite**
+module; without it IIS answers `500.19` and does not serve the site, so a missing module fails closed.
+
+The rules answer `404` for the private folders (`application/`, `vendor/`, `storage/`, `resources/`,
+`node_modules/`, `tests/`, `uploads/archive/`, `uploads/customer_files/`, `uploads/import/`, `uploads/temp/`),
+dotfiles (except `.well-known/`, which Let's Encrypt needs), the project files (`composer.json`,
+`composer.lock`, `package.json`, `*.md`, `ipconfig.php`, ...) and every PHP file other than the front controller
+(`public/index.php`). They are anchored at the start of the URL, so routes such as `/index.php/import` are not
+affected, and they ignore case and the Windows spellings of a path (repeated slashes, trailing dots and spaces).
+Do not replace them with `<requestFiltering><hiddenSegments>`: that matches a segment anywhere in the URL and would
+also block `/index.php/import`.
+
+`web.config` applies when the IIS site root is the project root. With the site root set to `public/`
+(recommended, see below) the private folders are not under the site at all.
+
+Clean URLs (`REMOVE_INDEXPHP=true` in `ipconfig.php`): `web.config` contains a routing rule that sends requests for
+files and folders that do not exist to the front controller. It ships switched off, because `REMOVE_INDEXPHP=false` is
+the default and every URL then carries `index.php`. Set `enabled="true"` on the rule *Route clean URLs to the front
+controller* and make `public/index.php` the default document of the site (a request for `/` is a folder and is not
+routed). Without that rule IIS answers `404` for `/sessions/login`.
+
+Check it after every deployment. A refusal check only proves something when the file exists, so create a canary
+first (any content) and remove it afterwards:
+
+```bash
+echo canary > uploads/archive/iis-check.txt
+
+# every one of these must answer 404; --path-as-is stops curl from tidying the path before it is sent
+curl -s -o /dev/null -w "%{http_code}\n" --path-as-is https://your-domain.com/uploads/archive/iis-check.txt
+curl -s -o /dev/null -w "%{http_code}\n" --path-as-is https://your-domain.com/uploads/archive./iis-check.txt
+curl -s -o /dev/null -w "%{http_code}\n" --path-as-is "https://your-domain.com/uploads//archive/iis-check.txt"
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/composer.json
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/vendor/autoload.php
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/ipconfig.php
+
+# and the site itself must still answer 200
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/index.php/sessions/login
+
+rm uploads/archive/iis-check.txt
+```
+
+If the second command answers `200`, the rule does not cover the Windows spelling of the folder and the archive is
+exposed. If the last one is not `200`, the rules are refusing the application itself.
+
+PDFs archived by an older version keep their predictable `<date>_Invoice_<number>.pdf` names after an upgrade; the
+rule for `uploads/archive/` is the only thing protecting them.
+
 ### Document Root Setup
 
 **Recommended**: Set the document root to the `public/` directory:
