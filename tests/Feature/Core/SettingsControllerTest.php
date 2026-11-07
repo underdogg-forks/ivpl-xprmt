@@ -143,6 +143,23 @@ class SettingsControllerTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_settings', ['setting_key' => 'cron_key', 'setting_value' => 'abc123def456']);
     }
 
+    #[Test]
+    public function it_saves_settings_without_reading_logo_uploads_that_were_not_sent(): void
+    {
+        /* Arrange: a settings post without the invoice_logo and login_logo file inputs, as an API client or a test sends it */
+        $logFile = APPPATH . 'logs/log-' . date('Y-m-d') . '.php';
+        $offset  = is_file($logFile) ? (int) filesize($logFile) : 0;
+
+        /* Act */
+        $response = $this->post('/settings', ['settings' => ['cron_key' => 'abc123def456'], 'btn_submit' => '1']);
+
+        /* Assert: saved, and no "Undefined array key" warning for the uploads that do not exist */
+        $this->assertResponseRedirectsToRoute($response, 'settings');
+        clearstatcache(true, $logFile);
+        $logged = is_file($logFile) ? (string) file_get_contents($logFile, false, null, $offset) : '';
+        self::assertStringNotContainsString('Undefined array key', $logged);
+    }
+
     // -------------------------------------------------------------------------
     // Logo removal — Settings::remove_logo (absorbed regressions)
     // -------------------------------------------------------------------------
