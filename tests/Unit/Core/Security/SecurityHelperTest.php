@@ -16,6 +16,25 @@ class SecurityHelperTest extends TestCase
         require_once ROOT_PATH . '/application/helpers/security_helper.php';
     }
 
+    /**
+     * @param list<string> $excludeUris
+     */
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function nearMissReferers(): array
+    {
+        return [
+            'same host, http'       => ['http://invoiceplane.example/invoices'],
+            'same host, other port' => ['https://invoiceplane.example:8443/invoices'],
+            'host as a suffix'      => ['https://invoiceplane.example.evil.test/x'],
+            'control character'     => ["https://invoiceplane.example/a\x01b"],
+            'line feed'             => ["https://invoiceplane.example/a\nb"],
+            'delete character'      => ["https://invoiceplane.example/a\x7Fb"],
+            'markup'                => ['https://invoiceplane.example/a<script>'],
+        ];
+    }
+
     #[Test]
     public function it_accepts_a_same_origin_referer(): void
     {
@@ -315,44 +334,6 @@ class SecurityHelperTest extends TestCase
         self::assertSame('3', $encoded);
     }
 
-    /**
-     * Runs verify_csrf_token() as a POST, restoring REQUEST_METHOD afterwards.
-     */
-    private function verifyAsPost(): bool
-    {
-        $originalMethod            = $_SERVER['REQUEST_METHOD'] ?? null;
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-
-        try {
-            return verify_csrf_token();
-        } finally {
-            if ($originalMethod === null) {
-                unset($_SERVER['REQUEST_METHOD']);
-            } else {
-                $_SERVER['REQUEST_METHOD'] = $originalMethod;
-            }
-        }
-    }
-
-    /**
-     * @param list<string> $excludeUris
-     */
-    /**
-     * @return array<string, array{0: string}>
-     */
-    public static function nearMissReferers(): array
-    {
-        return [
-            'same host, http'       => ['http://invoiceplane.example/invoices'],
-            'same host, other port' => ['https://invoiceplane.example:8443/invoices'],
-            'host as a suffix'      => ['https://invoiceplane.example.evil.test/x'],
-            'control character'     => ["https://invoiceplane.example/a\x01b"],
-            'line feed'             => ["https://invoiceplane.example/a\nb"],
-            'delete character'      => ["https://invoiceplane.example/a\x7Fb"],
-            'markup'                => ['https://invoiceplane.example/a<script>'],
-        ];
-    }
-
     #[Test]
     #[DataProvider('nearMissReferers')]
     public function it_replaces_a_near_miss_referer_with_the_safe_default(string $referer): void
@@ -372,6 +353,25 @@ class SecurityHelperTest extends TestCase
 
         /* Act and assert */
         self::assertSame($referer, get_safe_referer($referer, 'sessions/login'));
+    }
+
+    /**
+     * Runs verify_csrf_token() as a POST, restoring REQUEST_METHOD afterwards.
+     */
+    private function verifyAsPost(): bool
+    {
+        $originalMethod            = $_SERVER['REQUEST_METHOD'] ?? null;
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        try {
+            return verify_csrf_token();
+        } finally {
+            if ($originalMethod === null) {
+                unset($_SERVER['REQUEST_METHOD']);
+            } else {
+                $_SERVER['REQUEST_METHOD'] = $originalMethod;
+            }
+        }
     }
 
     private function setRequestUri(string $uriString, array $excludeUris): void

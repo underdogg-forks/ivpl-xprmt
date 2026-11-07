@@ -44,7 +44,7 @@ final class UserClientAssignmentReadAuthorizationTest extends AbstractTestCase
     public static function sessionBackedEndpoints(): array
     {
         return [
-            'modal_add_user_client'  => ['modal'],
+            'modal_add_user_client' => ['modal'],
         ];
     }
 

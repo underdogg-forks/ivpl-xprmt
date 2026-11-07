@@ -7,33 +7,31 @@
     "config": {
         "sort-packages": true,
         "allow-plugins": {
-            "php-http/discovery": true,
-            "infection/extension-installer": true
+            "php-http/discovery": true
         }
     },
     "require": {
         "endroid/qr-code": "^4.8.5",
-        "ezyang/htmlpurifier": "^4.19.1",
-        "guzzlehttp/guzzle": "^7.16.1",
+        "ezyang/htmlpurifier": "^4.19",
+        "guzzlehttp/guzzle": "^7.15.2",
         "moneyphp/money": "^4.9",
         "mpdf/mpdf": "^8.3.1",
         "paragonie/random_compat": "^2.0.21",
         "phpmailer/phpmailer": "^6.12",
         "pocketarc/codeigniter": "3.4",
         "setasign/fpdf": "^1.9",
-        "setasign/fpdi": "^2.6.9",
+        "setasign/fpdi": "^2.6.8",
         "smhg/sepa-qr-data": "^1.2",
-        "stripe/stripe-php": "^14.10.1",
-        "vlucas/phpdotenv": "^5.8.0"
+        "stripe/stripe-php": "^14.10",
+        "vlucas/phpdotenv": "^5.6.4"
     },
     "require-dev": {
-        "filp/whoops": "^2.18.7",
-        "infection/infection": "^0.35.8",
-        "laravel/pint": "^1.32.1",
-        "phpunit/phpunit": "^10.5.66",
-        "rector/rector": "^2.8.1",
-        "squizlabs/php_codesniffer": "^3.13.6",
-        "symfony/var-dumper": "^6.4.48"
+        "filp/whoops": "^2.18.4",
+        "laravel/pint": "^1.30.0",
+        "phpunit/phpunit": "^10.5",
+        "rector/rector": "^2.5.8",
+        "squizlabs/php_codesniffer": "^3.13.5",
+        "symfony/var-dumper": "^6.4.43"
     },
     "autoload-dev": {
         "psr-4": {

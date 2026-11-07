@@ -145,8 +145,9 @@ class Mdl_User_Clients extends MY_Model
         $user_type      = (int) $CI->session->userdata('user_type');
         $user_client_id = (int) $user_client_id;
 
-        // Non-admin users cannot manage authorization mappings
         // Only admin users (type 1) can manage user-client mappings
         return (bool) ($user_type === 1);
+
+        // Non-admin users cannot manage authorization mappings
     }
 }

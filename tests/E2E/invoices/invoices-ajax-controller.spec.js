@@ -115,7 +115,7 @@ test.describe('Invoices AJAX — save', () => {
     });
   }
 
-  test.skip('it rejects an invoice number with unsafe characters', async ({ page }) => {
+  test('it rejects an invoice number with unsafe characters', async ({ page }) => {
     /* Arrange */
     const invoice = await createInvoice(page);
     const before = invoice.number;

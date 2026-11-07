@@ -55,7 +55,6 @@ runs:
             [ -n "$extension" ] || continue
             case "$extension" in
               json|ctype|fileinfo|pdo) continue ;;
-              sqlite|pdo_sqlite) package='sqlite3' ;;
               mysql|pdo_mysql) package='mysql' ;;
               pdo_pgsql) package='pgsql' ;;
               dom) package='xml' ;;
@@ -98,7 +97,7 @@ runs:
       run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
     - name: Cache Composer dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ steps.composer-cache.outputs.dir }}
         key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}

@@ -43,7 +43,7 @@ final class UsersFormAuthorizationTest extends AbstractTestCase
     public function it_refuses_a_peer_administrator_opening_the_primary_administrators_form_without_leaking_the_record(): void
     {
         /* Arrange */
-        $peerId = $this->seedUser(['user_type' => 1, 'user_name' => 'Peer Admin', 'user_email' => 'peer@test.local']);
+        $peerId  = $this->seedUser(['user_type' => 1, 'user_name' => 'Peer Admin', 'user_email' => 'peer@test.local']);
         $primary = $this->databaseFetchOne('ip_users', ['user_id' => 1]);
         $this->actingAsAdmin($peerId);
 
