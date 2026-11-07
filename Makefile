@@ -21,13 +21,14 @@ PHPSTAN_TMPDIR    ?= .phpstan.cache/tmp
 DOCKER_USER       ?= ivpldock
 CONTAINER_NAME    ?= ivpldock-workspace-1
 MARIADB_CONTAINER ?= mariadb
-DOCKER_PROJECT_DIR ?= /var/www/projects/exprmt
+DOCKER_PROJECT_DIR ?= /var/www/projects/invoiceplane/ivpl-xprmt
 
 DB_HOSTNAME       ?= mariadb
 DB_PORT           ?= 3306
-DB_DATABASE       ?= invoiceplane_test
+DB_DATABASE       ?= invoiceplane_xprmt_test
 DB_USERNAME       ?= root
 DB_PASSWORD       ?= root
+DB_DRIVER         ?= mysqli
 
 FILTER            ?=
 SUITE             ?=
@@ -68,7 +69,7 @@ help:
 		'  make db-prepare                      Prepare local sandbox MariaDB' \
 		'' \
 		'Docker:' \
-		'  make docker-db-prepare               Rebuild invoiceplane_test in MariaDB container' \
+		'  make docker-db-prepare               Rebuild ivpl_xprmt_test in MariaDB container' \
 		'  make docker-test                     Prepare DB and run PHPUnit in workspace' \
 		'  make docker-test-slow                Prepare DB and run only the slow/flaky groups' \
 		'  make docker-test-filter FILTER=Name  Prepare DB and run filtered PHPUnit' \
