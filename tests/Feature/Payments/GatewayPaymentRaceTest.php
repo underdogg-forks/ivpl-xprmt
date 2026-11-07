@@ -43,6 +43,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_does_not_double_record_when_two_distinct_stripe_callbacks_race(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -158,6 +159,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_keeps_one_row_when_the_same_stripe_intent_is_replayed_concurrently(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -189,6 +191,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_still_records_a_single_full_balance_payment(): void
     {
         /* Arrange: a gateway callback always pays the exact outstanding balance */

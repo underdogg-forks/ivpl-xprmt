@@ -25,8 +25,6 @@ class Stripe extends Base_Controller
     public function __construct()
     {
         parent::__construct();
-
-        $this->useTestHttpClientIfConfigured();
         $this->load->library('crypt');
         $this->load->model('invoices/mdl_invoices');
         $this->load->helper('file_security');
@@ -253,22 +251,5 @@ class Stripe extends Base_Controller
     protected function stripeClient(): StripeClient
     {
         return $this->stripe ??= new StripeClient($this->crypt->decode(get_setting('gateway_stripe_apiKey')));
-    }
-
-    /**
-     * Test seam: in the testing environment only, replay a queue of canned HTTP responses (a JSON array of
-     * ['status' => int, 'body' => string] in STRIPE_MOCK_RESPONSES) instead of calling the Stripe API.
-     */
-    private function useTestHttpClientIfConfigured(): void
-    {
-        if ((defined('ENVIRONMENT') ? ENVIRONMENT : '') !== 'testing') {
-            return;
-        }
-
-        $queue = json_decode((string) getenv('STRIPE_MOCK_RESPONSES'), true);
-
-        if (is_array($queue) && class_exists(\Tests\Fakes\Payments\FakeStripeHttpClient::class)) {
-            \Stripe\ApiRequestor::setHttpClient(new \Tests\Fakes\Payments\FakeStripeHttpClient($queue));
-        }
     }
 }

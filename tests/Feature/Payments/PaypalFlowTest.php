@@ -131,6 +131,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_creates_a_paypal_order_for_a_payable_invoice(): void
     {
         /* Arrange */
@@ -166,6 +167,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_returns_500_when_paypal_returns_malformed_json_for_create_order(): void
     {
         /* Arrange */
@@ -198,6 +200,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_returns_500_when_paypal_response_is_missing_the_order_id(): void
     {
         /* Arrange */
