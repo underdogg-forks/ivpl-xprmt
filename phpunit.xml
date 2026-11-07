@@ -24,11 +24,16 @@
       develop on purpose: run them with the phpunit CLI option group set to unmerged-fix to list exactly what develop still lacks.
       The default run (this branch's purpose) tests develop as it is.
     -->
+    <!--
+      "needs-gateway-mock": tests that replay canned PayPal or Stripe responses. The hooks that arm them
+      (PAYPAL_MOCK_RESPONSES, STRIPE_MOCK_RESPONSES) are not in upstream develop, so they live on ivpl/modules-180.
+    -->
     <groups>
         <exclude>
             <group>slow</group>
             <group>flaky</group>
             <group>unmerged-fix</group>
+            <group>needs-gateway-mock</group>
         </exclude>
     </groups>
 

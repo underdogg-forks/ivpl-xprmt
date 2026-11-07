@@ -77,6 +77,7 @@ final class StripeCallbackFailureTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_redirects_to_the_invoice_and_logs_the_attempt_when_a_paid_session_has_no_payment_intent(): void
     {
         /* Arrange: invoice resolved, then the handler throws (no payment_intent) */
@@ -101,6 +102,7 @@ final class StripeCallbackFailureTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_redirects_to_the_invoice_after_a_successful_payment(): void
     {
         /* Arrange: positive control for the redirect destination and the recorded payment */

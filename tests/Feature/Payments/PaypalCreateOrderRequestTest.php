@@ -32,6 +32,7 @@ final class PaypalCreateOrderRequestTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_asks_paypal_to_charge_the_invoice_balance_bound_to_that_invoice(): void
     {
         /* Arrange */

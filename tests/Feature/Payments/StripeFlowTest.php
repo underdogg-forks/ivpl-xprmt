@@ -179,6 +179,7 @@ class StripeFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_creates_a_checkout_session_for_a_payable_invoice(): void
     {
         /* Arrange */
@@ -225,6 +226,7 @@ class StripeFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_sends_a_jpy_invoice_total_as_100_minor_units_to_stripe_checkout(): void
     {
         /* Arrange */
@@ -270,6 +272,7 @@ class StripeFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_records_a_paid_callback_and_creates_a_payment(): void
     {
         /* Arrange */
