@@ -44,3 +44,8 @@ _scratch/
 _scratch/
 phpstan.cache
 test-results/
+
+# Playwright output and the login state global-setup.js writes on every run
+/playwright-report/
+/playwright/.cache/
+/tests/E2E/.auth/
