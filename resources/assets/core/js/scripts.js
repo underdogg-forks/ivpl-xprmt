@@ -343,10 +343,16 @@ $(function () {
             jqXHR.setRequestHeader('X-' + tokenName, tokenVal);
 
             // Append safely to serialized query strings without duplicates
-            if (typeof options.data === 'string') {
+            if (options.data === undefined || options.data === null) {
+                options.data = encodeURIComponent(tokenName) + '=' + encodeURIComponent(tokenVal);
+            } else if (typeof options.data === 'string') {
                 const encodedName = encodeURIComponent(tokenName);
                 if (options.data.indexOf(encodedName + '=') === -1 && options.data.indexOf(tokenName + '=') === -1) {
                     options.data += (options.data.length > 0 ? '&' : '') + encodedName + '=' + encodeURIComponent(tokenVal);
+                }
+            } else if (window.FormData && options.data instanceof FormData) {
+                if (!options.data.has(tokenName)) {
+                    options.data.append(tokenName, tokenVal);
                 }
             } else if ($.isPlainObject(options.data)) {
                 if (!options.data[tokenName]) {

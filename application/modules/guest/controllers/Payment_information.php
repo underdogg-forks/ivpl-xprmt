@@ -116,7 +116,7 @@ class Payment_Information extends Base_Controller
      * Load the stripe payments page
      * with the pertinent data.
      *
-     * @return View the stripe page view
+     * @return void
      */
     protected function stripe($invoice_url_key)
     {
@@ -134,7 +134,7 @@ class Payment_Information extends Base_Controller
      *
      * @param string $invoice_url_key
      *
-     * @return View the paypal page view
+     * @return void
      */
     protected function paypal($invoice_url_key)
     {

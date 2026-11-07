@@ -139,7 +139,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         $this->mockPaypal([
             $this->authResponse(),
-            ['status' => 201, 'body' => json_encode(['id' => 'PAYPAL-ORDER123', 'status' => 'CREATED'])],
+            ['status' => 201, 'body' => json_encode(['id' => 'PAYPAL-ORDER-123', 'status' => 'CREATED'])],
         ]);
 
         /* Act */
@@ -147,7 +147,7 @@ class PaypalFlowTest extends AbstractTestCase
 
         /* Assert: Error Semantics (C) */
         $json = json_decode($response->body(), true);
-        self::assertSame('PAYPAL-ORDER123', $json['id'] ?? null);
+        self::assertSame('PAYPAL-ORDER-123', $json['id'] ?? null);
         self::assertSame('CREATED', $json['status'] ?? null);
         self::assertArrayHasKey('csrf_token', $json);
 
@@ -245,7 +245,7 @@ class PaypalFlowTest extends AbstractTestCase
         $paymentCountBefore          = $this->databaseCount('ip_payments');
 
         /* Act */
-        $response = $this->get('/guest/gateways/paypal/paypal_capture_payment/ORDER1');
+        $response = $this->get('/guest/gateways/paypal/paypal_capture_payment/ORDER-1');
 
         /* Assert: Error Semantics (C) */
         $this->assertResponseStatusCode($response, 404);
@@ -261,7 +261,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertResponseStatusCode($response2, 404);
 
         /* Assert: Idempotency (E) */
-        $response3 = $this->get('/guest/gateways/paypal/paypal_capture_payment/ORDER1');
+        $response3 = $this->get('/guest/gateways/paypal/paypal_capture_payment/ORDER-1');
         $this->assertResponseStatusCode($response3, 404);
     }
 
@@ -281,7 +281,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER1');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-1');
 
         /* Assert: Error Semantics (C) */
         self::assertTrue($response->isRedirect() || $response->statusCode() === 200);
@@ -300,7 +300,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame('50.00', $payment['payment_amount']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER1');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-1');
         self::assertTrue($response2->isRedirect() || $response2->statusCode() === 200);
     }
 
@@ -320,7 +320,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER2');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-2');
 
         /* Assert: no money is booked for funds that have not settled */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-PENDING']);
@@ -358,7 +358,7 @@ class PaypalFlowTest extends AbstractTestCase
         $paymentBefore = $this->databaseCount('ip_payments');
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER4');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-4');
 
         /* Assert: Business Logic (A) */
         self::assertSame('Payment failed. Please try again.', $response->sessionValue('alert_error'));
@@ -368,7 +368,7 @@ class PaypalFlowTest extends AbstractTestCase
         self::assertSame($paymentBefore, $this->databaseCount('ip_payments'));
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER4');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-4');
         self::assertSame('Payment failed. Please try again.', $response2->sessionValue('alert_error'));
     }
 
@@ -384,7 +384,7 @@ class PaypalFlowTest extends AbstractTestCase
             $this->orderDetailsResponse($invoiceId, '50.00'),
             $this->captureResponse(['invoice_id' => $invoiceId, 'amount' => '50.00', 'capture_id' => 'CAP-LATER'], 'PENDING'),
         ]);
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER3');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-3');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-LATER']);
 
         $this->mockPaypal([
@@ -394,7 +394,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER3');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-3');
 
         /* Assert */
         $payment = $this->databaseFetchOne('ip_payments', ['payment_external_id' => 'CAP-LATER']);
@@ -420,7 +420,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER3');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-3');
 
         /* Assert: Business Logic (A) */
         $this->assertDatabaseCount('ip_payments', 1, ['payment_external_id' => 'CAP-DUP']);
@@ -438,7 +438,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame('50.00', $payment['payment_amount']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER3');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-3');
         $this->assertDatabaseCount('ip_payments', 1, ['payment_external_id' => 'CAP-DUP']);
     }
 
@@ -458,7 +458,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER4');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-4');
 
         /* Assert: Business Logic (A) */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-ALREADY-PAID']);
@@ -475,7 +475,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame('0.00', $amounts['invoice_balance']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER4');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-4');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-ALREADY-PAID']);
     }
 
@@ -495,7 +495,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER5');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-5');
 
         /* Assert: Business Logic (A) */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-BAD-CCY']);
@@ -512,7 +512,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame('EUR', $currencySetting['setting_value']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER5');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-5');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-BAD-CCY']);
     }
 
@@ -532,7 +532,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER6');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-6');
 
         /* Assert: Business Logic (A) */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-SHORT']);
@@ -549,7 +549,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame('50.00', $amounts['invoice_balance']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER6');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-6');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-SHORT']);
     }
 
@@ -572,7 +572,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER9');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-9');
 
         /* Assert: Business Logic (A) — funds are never recorded against either invoice */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-INVOICE-MISMATCH']);
@@ -590,7 +590,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $otherInvoiceId, 'invoice_balance' => '50.00']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER9');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-9');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-INVOICE-MISMATCH']);
     }
 
@@ -612,7 +612,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER10');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-10');
 
         /* Assert: Business Logic (A) */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-POST-CAPTURE-CCY']);
@@ -630,7 +630,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame('50.00', $amounts['invoice_balance']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER10');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-10');
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-POST-CAPTURE-CCY']);
     }
 
@@ -656,12 +656,12 @@ class PaypalFlowTest extends AbstractTestCase
                         ]],
                     ],
                 ]],
-                'id' => 'PAYPAL-ORDERDECLINED',
+                'id' => 'PAYPAL-ORDER-DECLINED',
             ])],
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER7');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-7');
 
         /* Assert: Business Logic (A) */
         $this->assertDatabaseMissing('ip_payments', ['invoice_id' => $invoiceId]);
@@ -679,7 +679,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertSame($invoiceId, (int) $merchantResponse['invoice_id']);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER7');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-7');
         $this->assertDatabaseMissing('ip_payments', ['invoice_id' => $invoiceId]);
     }
 
@@ -700,7 +700,7 @@ class PaypalFlowTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER8');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-8');
 
         /* Assert: Error Semantics (C) */
         self::assertSame('Invoice Not Found', $response->sessionValue('alert_error'));
@@ -724,7 +724,7 @@ class PaypalFlowTest extends AbstractTestCase
         $this->assertNotNull($draftInvoice);
 
         /* Assert: Idempotency (E) */
-        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER8');
+        $response2 = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-8');
         self::assertSame('Invoice Not Found', $response2->sessionValue('alert_error'));
     }
 
@@ -779,7 +779,7 @@ class PaypalFlowTest extends AbstractTestCase
                     ]],
                 ],
             ]],
-            'id' => 'PAYPAL-ORDERRESOURCE',
+            'id' => 'PAYPAL-ORDER-RESOURCE',
         ])];
     }
 
@@ -795,7 +795,7 @@ class PaypalFlowTest extends AbstractTestCase
                 'invoice_id' => $invoiceId,
                 'amount'     => ['value' => $amount, 'currency_code' => $currency],
             ]],
-            'id' => 'PAYPAL-ORDERRESOURCE',
+            'id' => 'PAYPAL-ORDER-RESOURCE',
         ])];
     }
 }

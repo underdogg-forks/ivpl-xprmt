@@ -28,7 +28,7 @@ class Setup extends MX_Controller
         }
 
         if (env_bool('SETUP_COMPLETED', false)) {
-            show_error('The setup is locked because installation has already been completed.', 403);
+            show_error('The setup has already been completed. To re-run the setup, set SETUP_COMPLETED=false in ipconfig.php.', 403);
         }
 
         parent::__construct();
@@ -374,10 +374,11 @@ class Setup extends MX_Controller
     {
         $checks = [];
 
-        $php_required  = '5.6';
+        $php_required  = '8.2';
         $php_installed = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
 
-        if ($php_installed < $php_required) {
+        // version_compare(), not <: numeric strings compare as numbers, so '8.10' < '8.2'.
+        if (version_compare($php_installed, $php_required, '<')) {
             $this->errors += 1;
 
             $checks[] = [
@@ -451,6 +452,7 @@ class Setup extends MX_Controller
     }
 
     /**
+     * /**
      * Get user-friendly error message for database configuration validation error.
      *
      * @param string $error_code The internal error code from validate_db_config_parameter()

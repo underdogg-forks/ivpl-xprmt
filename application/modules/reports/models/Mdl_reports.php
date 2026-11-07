@@ -124,6 +124,8 @@ class Mdl_Reports extends CI_Model
      */
     public function invoice_aging()
     {
+        // CURDATE(), not NOW(): invoice_date_due is a DATE, and comparing it with a datetime made the
+        // boundary days (exactly 15 and 30 days overdue) fall into no bucket while still being in the total.
         $this->db->select('client_name, client_surname');
 
         $this->db->select('
@@ -561,7 +563,7 @@ class Mdl_Reports extends CI_Model
                                 WHERE inv.client_id=ip_clients.client_id
                                     AND ' . $this->db->escape($from_date) . ' <= inv.invoice_date_created
                                     AND ' . $this->db->escape($to_date) . ' >= inv.invoice_date_created
-                                    AND ' . (int) $minQuantity . ' <=
+                                    AND ' . (int) $this->db->escape($minQuantity) . ' <=
                                     (
                                         SELECT SUM(amounts2.invoice_total) FROM ip_invoice_amounts amounts2
                                             WHERE amounts2.invoice_id IN

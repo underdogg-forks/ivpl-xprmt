@@ -22,7 +22,9 @@ class Paypal extends Base_Controller
     {
         parent::__construct();
         $this->load->helper('file_security');
-        $this->_create_client();
+        // paypal_capture_payment() needs this and previously never loaded it,
+        // so every capture attempt fataled on a null $this->mdl_invoices.
+        $this->load->model('invoices/mdl_invoices');
     }
 
     /**
@@ -41,8 +43,6 @@ class Paypal extends Base_Controller
         }
 
         // Check if the invoice exists and is billable
-        $this->load->model('invoices/mdl_invoices');
-
         $invoice = $this->mdl_invoices->guest_visible()->where('ip_invoices.invoice_url_key', $invoice_url_key)->get()->row();
 
         // Security: Verify the invoice exists and is guest-visible
@@ -58,7 +58,7 @@ class Paypal extends Base_Controller
         }
 
         //create the order
-        $paypal_client = $this->lib_paypal->createOrder([
+        $paypal_client = $this->paypal()->createOrder([
             'invoice_id'    => $invoice->invoice_id,
             'currency_code' => get_setting('gateway_paypal_currency'),
             'value'         => $invoice->invoice_balance,
@@ -135,7 +135,7 @@ class Paypal extends Base_Controller
             return;
         }
 
-        $paypal_response = $this->lib_paypal->captureOrder($order_id);
+        $paypal_response = $this->paypal()->captureOrder($order_id);
 
         //handle the payment
         if ($paypal_response['status']) {
@@ -286,7 +286,8 @@ class Paypal extends Base_Controller
                 // The invoice balance is not updated; the transaction awaits PayPal settlement confirmation.
                 // This prevents reconciliation issues where invoices are marked paid before funds are actually received.
 
-                // $capture_data / $capture_id only exist inside the COMPLETED branch above, so read the capture here.
+                // $capture_data and $capture_id only exist inside the COMPLETED branch above, so
+                // read the pending capture from the PayPal response itself.
                 $pending_capture = $paypal_object->purchase_units[0]->payments->captures[0] ?? null;
                 $invoice_id      = $pending_capture->invoice_id ?? null;
                 $capture_id      = $pending_capture->id ?? null;
@@ -395,17 +396,31 @@ class Paypal extends Base_Controller
     }
 
     /**
+     * The PayPal client authorizes against PayPal's API when it is constructed, so it is built
+     * only once a request has passed its local guards. Constructing it in __construct() made
+     * every request - including ones that must simply 404 - depend on PayPal being reachable.
+     */
+    private function paypal(): PaypalLib
+    {
+        if (empty($this->lib_paypal)) {
+            $this->_create_client();
+        }
+
+        return $this->lib_paypal;
+    }
+
+    /**
      * Checks a PayPal order against the current invoice before any funds are captured.
      *
      * Returns the user-facing error message when the order must not be captured (order unreadable,
      * invoice no longer public, already paid, or the order no longer matches the invoice's
-     * currency / balance), or null when it is safe to capture. On success, the invoice id
-     * the order was verified against is written to $validated_invoice_id so the caller can
-     * confirm the capture response still names the same invoice.
+     * currency / balance), or null when it is safe to capture. On success, the
+     * invoice id the order was verified against is written to $validated_invoice_id
+     * so the caller can confirm the capture response still names the same invoice.
      */
     private function _capture_preflight_error(string $order_id, ?string &$validated_invoice_id = null): ?string
     {
-        $response = $this->lib_paypal->showOrderDetails($order_id);
+        $response = $this->paypal()->showOrderDetails($order_id);
 
         if ( ! $response['status']) {
             log_message('error', __CLASS__ . '::' . __FUNCTION__ . ' - Could not read PayPal order before capture; capture skipped');
@@ -460,7 +475,7 @@ class Paypal extends Base_Controller
      */
     private function _paypal_order_invoice_id(string $order_id): ?string
     {
-        $response = $this->lib_paypal->showOrderDetails($order_id);
+        $response = $this->paypal()->showOrderDetails($order_id);
 
         if ( ! $response['status']) {
             return null;

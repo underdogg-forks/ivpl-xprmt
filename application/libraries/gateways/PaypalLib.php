@@ -23,6 +23,8 @@ class PaypalLib
 
     protected string $partner_attribution_id = 'ANGELLFREEInc_SP'; // Partner attribution.
 
+    protected PaypalRequestExecutor $executor;
+
     public function __construct(array $params)
     {
         $params['demo'] && $this->endpoint = 'https://api-m.sandbox.paypal.com';
@@ -37,6 +39,8 @@ class PaypalLib
         ]));
 
         log_message('debug', 'Paypal library client created');
+
+        $this->executor = new PaypalRequestExecutor($this->client);
     }
 
     /**
@@ -48,9 +52,8 @@ class PaypalLib
      */
     public function createOrder(array $order_information): string|array
     {
-        log_message('debug', 'Paypal library order creation started');
-        try {
-            $response = $this->client->request('POST', 'v2/checkout/orders', [
+        $result = $this->executor->execute(
+            fn () => $this->client->request('POST', 'v2/checkout/orders', [
                 'headers' => $this->buildHeaders([
                     'request_id'   => $this->generateRequestId('create'),
                     'content_type' => 'application/json',
@@ -66,15 +69,15 @@ class PaypalLib
                     ]],
                     'intent' => 'CAPTURE',
                 ]),
-            ]);
-            log_message('debug', 'Paypal library order creation completed');
+            ]),
+            'order creation'
+        );
 
-            return $response->getBody()->getContents();
-        } catch (ClientException $clientException) {
-            log_message('debug', 'Paypal library order creation failed');
-
-            return ['status' => false, 'error' => $clientException];
+        if ($result['status']) {
+            return $result['response']->getBody()->getContents();
         }
+
+        return ['status' => false, 'error' => $result['error']];
     }
 
     /**
@@ -84,23 +87,19 @@ class PaypalLib
      */
     public function captureOrder(string $order_id): array
     {
-        log_message('debug', 'Paypal library order capturing started');
-        try {
-            $order_id = $this->validateOrderId($order_id);
-            $response = $this->client->request('POST', 'v2/checkout/orders/' . $order_id . '/capture', [
-                'headers' => $this->buildHeaders([
-                    'request_id'   => $this->generateRequestId('capture'),
-                    'content_type' => 'application/json',
-                ]),
-            ]);
-            log_message('debug', 'Paypal library order capturing completed');
+        return $this->executor->execute(
+            function () use ($order_id) {
+                $order_id = $this->validateOrderId($order_id);
 
-            return ['status' => true, 'response' => $response];
-        } catch (ClientException|InvalidArgumentException $exception) {
-            log_message('debug', 'Paypal library order capturing failed');
-
-            return ['status' => false, 'error' => $exception];
-        }
+                return $this->client->request('POST', 'v2/checkout/orders/' . $order_id . '/capture', [
+                    'headers' => $this->buildHeaders([
+                        'request_id'   => $this->generateRequestId('capture'),
+                        'content_type' => 'application/json',
+                    ]),
+                ]);
+            },
+            'order capturing'
+        );
     }
 
     /**
@@ -110,23 +109,19 @@ class PaypalLib
      */
     public function showOrderDetails(string $order_id): array
     {
-        log_message('debug', 'Paypal library show order started');
-        try {
-            $order_id = $this->validateOrderId($order_id);
-            $response = $this->client->request('GET', 'v2/checkout/orders/' . $order_id, [
-                'headers' => $this->buildHeaders([
-                    'content_type' => 'application/json',
-                    'prefer'       => 'return=representation', // returns more detailed response object.
-                ]),
-            ]);
-            log_message('debug', 'Paypal library show order completed');
+        return $this->executor->execute(
+            function () use ($order_id) {
+                $order_id = $this->validateOrderId($order_id);
 
-            return ['status' => true, 'response' => $response];
-        } catch (ClientException|InvalidArgumentException $exception) {
-            log_message('debug', 'Paypal library show order failed');
-
-            return ['status' => false, 'error' => $exception];
-        }
+                return $this->client->request('GET', 'v2/checkout/orders/' . $order_id, [
+                    'headers' => $this->buildHeaders([
+                        'content_type' => 'application/json',
+                        'prefer'       => 'return=representation',
+                    ]),
+                ]);
+            },
+            'show order details'
+        );
     }
 
     /** Centralized headers for PayPal REST calls. */
@@ -182,7 +177,7 @@ class PaypalLib
     {
         log_message('debug', 'Paypal library authorization started');
         try {
-            $response = $this->client->request('post', 'v1/oauth2/token', [
+            $response = $this->client->request('POST', 'v1/oauth2/token', [
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded',
                 ],
@@ -205,21 +200,34 @@ class PaypalLib
     }
 
     /**
-     * In the testing environment only, replay a queue of canned HTTP responses instead of calling the real PayPal
-     * API. The queue is a JSON array of ['status' => int, 'body' => string] entries in the PAYPAL_MOCK_RESPONSES
-     * environment variable, consumed in the order this library calls PayPal.
+     * In the test environment only, replay a queue of canned HTTP responses
+     * instead of calling the real PayPal API. The queue is supplied by the
+     * test as a JSON-encoded array (via AbstractTestCase::withEnvironment())
+     * under PAYPAL_MOCK_RESPONSES, each entry shaped like
+     * ['status' => int, 'body' => string]. Responses are consumed in the
+     * order this library calls them (authorize() first, then whichever
+     * action the controller invokes).
      */
     private static function testHandlerStack(): ?HandlerStack
     {
-        if ((defined('ENVIRONMENT') ? ENVIRONMENT : '') !== 'testing' && ! defined('CI_TESTING')) {
+        if (ENVIRONMENT !== 'testing' && ! defined('CI_TESTING')) {
             return null;
         }
 
         $fixture = getenv('PAYPAL_MOCK_RESPONSES');
-        $queue   = $fixture === false || $fixture === '' ? null : json_decode($fixture, true);
 
-        if ( ! is_array($queue) || ! class_exists(\Tests\Fakes\Payments\FakePaypalHttpClient::class)) {
+        if ($fixture === false || $fixture === '') {
             return null;
+        }
+
+        $queue = json_decode($fixture, true);
+
+        if ( ! is_array($queue)) {
+            return null;
+        }
+
+        if ( ! class_exists(\Tests\Fakes\Payments\FakePaypalHttpClient::class)) {
+            throw new \RuntimeException('PayPal test HTTP client is unavailable.');
         }
 
         return \Tests\Fakes\Payments\FakePaypalHttpClient::handlerStack($queue);
@@ -237,7 +245,7 @@ class PaypalLib
      */
     private function validateOrderId(string $order_id): string
     {
-        if ( ! preg_match('/^[A-Za-z0-9]+$/', $order_id)) {
+        if ( ! preg_match('/^[A-Za-z0-9\-_]+$/', $order_id)) {
             throw new InvalidArgumentException('Invalid PayPal order ID format');
         }
 

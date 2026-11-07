@@ -407,7 +407,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
                 'invoice_id' => $invoiceId,
                 'amount'     => ['value' => $amount, 'currency_code' => 'EUR'],
             ]],
-            'id' => 'PAYPAL-ORDER' . $captureId,
+            'id' => 'PAYPAL-ORDER-' . $captureId,
         ])];
         $capture = ['status' => 200, 'body' => json_encode([
             'purchase_units' => [[
@@ -420,12 +420,12 @@ class GatewayPaymentRaceTest extends AbstractTestCase
                     ]],
                 ],
             ]],
-            'id' => 'PAYPAL-ORDER' . $captureId,
+            'id' => 'PAYPAL-ORDER-' . $captureId,
         ])];
 
         return [
             'method' => 'POST',
-            'uri'    => '/guest/gateways/paypal/paypal_capture_payment/ORDER' . preg_replace('/[^A-Za-z0-9]/', '', $captureId),
+            'uri'    => '/guest/gateways/paypal/paypal_capture_payment/ORDER-' . $captureId,
             'env'    => ['PAYPAL_MOCK_RESPONSES' => json_encode([$auth, $orderDetails, $capture])],
         ];
     }

@@ -117,6 +117,11 @@ class Mdl_Users extends Response_Model
             'user_company' => [
                 'field' => 'user_company',
             ],
+            'user_einvoice_identifier' => [
+                'field' => 'user_einvoice_identifier',
+                'label' => trans('user_einvoice_identifier'),
+                'rules' => 'trim',
+            ],
             'user_address_1' => [
                 'field' => 'user_address_1',
             ],
@@ -230,6 +235,11 @@ class Mdl_Users extends Response_Model
             'user_company' => [
                 'field' => 'user_company',
             ],
+            'user_einvoice_identifier' => [
+                'field' => 'user_einvoice_identifier',
+                'label' => trans('user_einvoice_identifier'),
+                'rules' => 'trim',
+            ],
             'user_address_1' => [
                 'field' => 'user_address_1',
             ],
@@ -304,7 +314,7 @@ class Mdl_Users extends Response_Model
             'user_password' => [
                 'field' => 'user_password',
                 'label' => trans('password'),
-                'rules' => 'required',
+                'rules' => 'required|min_length[8]',
             ],
             'user_passwordv' => [
                 'field' => 'user_passwordv',
@@ -359,6 +369,7 @@ class Mdl_Users extends Response_Model
             'user_passwordreset_token_expiry' => null,
         ];
 
+        $this->db->set('user_auth_version', 'user_auth_version + 1', false);
         $this->db->where('user_id', $user_id);
         $this->db->update('ip_users', $db_array);
 

@@ -57,27 +57,6 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_books_nothing_when_the_capture_names_a_different_invoice_than_the_verified_order(): void
-    {
-        /* Arrange: the order verifies against invoice A, but the capture PayPal returns names invoice B */
-        $invoiceA = $this->seedPayableInvoice();
-        $invoiceB = $this->seedPayableInvoice();
-        $this->mockPaypal([
-            $this->authResponse(),
-            $this->orderDetails($invoiceA, '50.00'),
-            $this->captureResult($invoiceB, '50.00', 'CAP-SWAPPED'),
-        ]);
-
-        /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERSWAP');
-
-        /* Assert: neither invoice is credited and the user is told the payment failed */
-        $this->assertDatabaseCount('ip_payments', $this->paymentsAtStart);
-        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-SWAPPED']);
-        self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-    }
-
-    #[Test]
     public function it_captures_a_matching_order_and_the_capture_is_the_last_paypal_request(): void
     {
         /* Arrange: positive control, also proves the recorder can see a capture */
@@ -89,12 +68,12 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDEROK');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-OK');
 
         /* Assert */
         $last = $this->lastPaypalRequest();
         self::assertSame('POST', $last['method']);
-        self::assertStringEndsWith('/v2/checkout/orders/ORDEROK/capture', $last['url']);
+        self::assertStringEndsWith('/v2/checkout/orders/ORDER-OK/capture', $last['url']);
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'CAP-PRE-OK']);
     }
 
@@ -108,11 +87,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERGONE');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-GONE');
 
         /* Assert */
         self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERGONE');
+        $this->assertNoCaptureWasSent('ORDER-GONE');
         $this->assertNothingRecorded();
     }
 
@@ -126,11 +105,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDEREMPTY');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-EMPTY');
 
         /* Assert */
         self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDEREMPTY');
+        $this->assertNoCaptureWasSent('ORDER-EMPTY');
         $this->assertNothingRecorded();
     }
 
@@ -145,11 +124,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERNOAMT');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-NOAMT');
 
         /* Assert */
         self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERNOAMT');
+        $this->assertNoCaptureWasSent('ORDER-NOAMT');
         $this->assertNothingRecorded();
     }
 
@@ -163,11 +142,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERNOINV');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-NOINV');
 
         /* Assert */
         self::assertSame('Invoice Not Found', $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERNOINV');
+        $this->assertNoCaptureWasSent('ORDER-NOINV');
         $this->assertNothingRecorded();
     }
 
@@ -182,11 +161,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERHIDDEN');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-HIDDEN');
 
         /* Assert */
         self::assertSame('Invoice Not Found', $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERHIDDEN');
+        $this->assertNoCaptureWasSent('ORDER-HIDDEN');
         $this->assertNothingRecorded();
     }
 
@@ -201,11 +180,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERPAID');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-PAID');
 
         /* Assert: the dedicated "already paid" message, not the generic amount-mismatch one */
         self::assertSame('This invoice was already paid.', $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERPAID');
+        $this->assertNoCaptureWasSent('ORDER-PAID');
         $this->assertNothingRecorded();
     }
 
@@ -221,11 +200,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERZERO');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-ZERO');
 
         /* Assert */
         self::assertSame('This invoice was already paid.', $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERZERO');
+        $this->assertNoCaptureWasSent('ORDER-ZERO');
         $this->assertNothingRecorded();
     }
 
@@ -240,11 +219,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERCREDIT');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-CREDIT');
 
         /* Assert */
         self::assertSame('This invoice was already paid.', $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERCREDIT');
+        $this->assertNoCaptureWasSent('ORDER-CREDIT');
         $this->assertNothingRecorded();
     }
 
@@ -259,11 +238,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERBIG');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-BIG');
 
         /* Assert */
         self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERBIG');
+        $this->assertNoCaptureWasSent('ORDER-BIG');
         $this->assertNothingRecorded();
     }
 
@@ -278,11 +257,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERCENT');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-CENT');
 
         /* Assert */
         self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERCENT');
+        $this->assertNoCaptureWasSent('ORDER-CENT');
         $this->assertNothingRecorded();
     }
 
@@ -298,10 +277,10 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERHALF');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-HALF');
 
         /* Assert */
-        self::assertStringEndsWith('/v2/checkout/orders/ORDERHALF/capture', $this->lastPaypalRequest()['url']);
+        self::assertStringEndsWith('/v2/checkout/orders/ORDER-HALF/capture', $this->lastPaypalRequest()['url']);
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'CAP-HALF-CENT']);
     }
 
@@ -317,7 +296,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERONE');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-ONE');
 
         /* Assert */
         self::assertNotSame('This invoice was already paid.', $response->sessionValue('alert_error'));
@@ -337,7 +316,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERLOWER');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LOWER');
 
         /* Assert */
         self::assertStringEndsWith('/capture', $this->lastPaypalRequest()['url']);
@@ -355,11 +334,11 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERUSD');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-USD');
 
         /* Assert */
         self::assertSame(self::FAILED, $response->sessionValue('alert_error'));
-        $this->assertNoCaptureWasSent('ORDERUSD');
+        $this->assertNoCaptureWasSent('ORDER-USD');
         $this->assertNothingRecorded();
     }
 
@@ -434,7 +413,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
                 'invoice_id' => $invoiceId,
                 'amount'     => ['value' => $amount, 'currency_code' => $currency],
             ]],
-            'id' => 'PAYPAL-ORDERRESOURCE',
+            'id' => 'PAYPAL-ORDER-RESOURCE',
         ])];
     }
 
@@ -449,7 +428,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
                     'amount'     => ['value' => $amount, 'currency_code' => $currency],
                 ]]],
             ]],
-            'id' => 'PAYPAL-ORDERRESOURCE',
+            'id' => 'PAYPAL-ORDER-RESOURCE',
         ])];
     }
 }

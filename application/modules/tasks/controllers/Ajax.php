@@ -41,15 +41,9 @@ class Ajax extends Admin_Controller
     {
         $this->load->model('mdl_tasks');
 
-        $ids = $this->input->post('task_ids');
-
-        if (empty($ids)) {
-            $this->json_encode_ajax([]);
-
-            return;
-        }
-
-        $tasks = $this->mdl_tasks->where_in('task_id', $ids)->get()->result();
+        $task_ids = $this->input->post('task_ids') ?? [];
+        // CI3's where_in() throws on an empty array rather than matching nothing.
+        $tasks = $task_ids === [] ? [] : $this->mdl_tasks->where_in('task_id', $task_ids)->get()->result();
         foreach ($tasks as $task) {
             $task->task_price = format_amount($task->task_price);
         }

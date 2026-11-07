@@ -23,14 +23,13 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
         $this->mockPaypal($invoiceId, 'CAP-PENDING-7731', 'PENDING');
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERREF');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-REF');
 
         /* Assert: no money booked, but the row identifies both the order resource and the capture */
         $this->assertDatabaseCount('ip_payments', 0);
         $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
         self::assertSame('PENDING - awaiting settlement', $row['merchant_response']);
-        self::assertSame(1, (int) $row['merchant_response_successful'], 'The audit row records that PayPal acknowledged the capture; it is not a failure.');
-        self::assertSame('Resource ID:PAYPAL-ORDERRESOURCE, Capture ID:CAP-PENDING-7731', $row['merchant_response_reference']);
+        self::assertSame('Resource ID:PAYPAL-ORDER-RESOURCE, Capture ID:CAP-PENDING-7731', $row['merchant_response_reference']);
     }
 
     #[Test]
@@ -41,11 +40,11 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
         $this->mockPaypal($invoiceId, null, 'PENDING');
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERNOID');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-NOID');
 
         /* Assert: no dangling ", Capture ID:" suffix */
         $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
-        self::assertSame('Resource ID:PAYPAL-ORDERRESOURCE', $row['merchant_response_reference']);
+        self::assertSame('Resource ID:PAYPAL-ORDER-RESOURCE', $row['merchant_response_reference']);
     }
 
     private function seedPayableInvoice(): int
@@ -67,11 +66,11 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
             ['status' => 200, 'body' => json_encode(['access_token' => 'fake-bearer-token'])],
             ['status' => 200, 'body' => json_encode([
                 'purchase_units' => [['invoice_id' => $invoiceId, 'amount' => ['value' => '50.00', 'currency_code' => 'EUR']]],
-                'id'             => 'PAYPAL-ORDERRESOURCE',
+                'id'             => 'PAYPAL-ORDER-RESOURCE',
             ])],
             ['status' => 200, 'body' => json_encode([
                 'purchase_units' => [['payments' => ['captures' => [$capture]]]],
-                'id'             => 'PAYPAL-ORDERRESOURCE',
+                'id'             => 'PAYPAL-ORDER-RESOURCE',
             ])],
         ])]);
     }

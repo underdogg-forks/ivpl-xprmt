@@ -71,7 +71,9 @@ class ParsePhpstanResultsTest extends AbstractTestCase
         // Suppress the Markdown output the bootstrap code echoes to stdout.
         ob_start();
         require_once self::scriptPath();
-        ob_get_clean();
+        $output = ob_get_clean();
+
+        self::assertSame('', $output);
 
         self::$scriptLoaded = true;
     }
