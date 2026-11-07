@@ -15,6 +15,10 @@ const phpServer = (baseUrl, extraEnv = '') =>
   `${extraEnv}PHP_CLI_SERVER_WORKERS=4 IP_URL=${baseUrl} REMOVE_INDEXPHP=true SETUP_COMPLETED=true DB_HOSTNAME=\${DB_HOSTNAME:-127.0.0.1} ` +
   `php -d variables_order=EGPCS -S localhost:${new URL(baseUrl).port} -t . bootstrap/test-server.php`;
 
+// Two passes (tests/E2E/run-with-diagnostic-rerun.mjs). The first records nothing, which keeps it fast. Only the tests that
+// failed in it are run again with E2E_DIAGNOSTICS=1: a trace, a video and a screenshot for each, in separate folders.
+const diagnostics = !!process.env.E2E_DIAGNOSTICS;
+
 export default defineConfig({
   testDir: './tests/E2E',
   testMatch: '**/*.spec.js',
@@ -24,14 +28,10 @@ export default defineConfig({
   // both. Keep this in step with the PHPUnit Feature suite's per-test reset.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // No in-place retries and no early stop: every test runs once, then the failures are re-run with diagnostics, which
+  // also tells a flaky test (passes on the re-run) from a broken one.
+  retries: 0,
   workers: 1,
-  // Stop the whole CI run after the first test that still fails after its
-  // retries — including a PHP error/500 caught by tests/E2E/test.js's page
-  // fixture. That's a real crash, not test flakiness; burning the remaining
-  // ~14 minutes of the suite on it before anyone finds out is pure waste.
-  // Unset locally so a debugging session sees every failure in one run.
-  maxFailures: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { open: 'never' }],
     ['list'],
@@ -41,9 +41,9 @@ export default defineConfig({
   globalSetup: path.resolve('./tests/E2E/global-setup.js'),
   use: {
     baseURL: E2E_BASE_URL,
-    trace: 'on-first-retry',
+    trace: diagnostics ? 'on' : 'off',
     screenshot: 'only-on-failure',
-    video: 'on-first-retry',
+    video: diagnostics ? 'on' : 'off',
     storageState: 'tests/E2E/.auth/admin.json',
   },
   projects: [
