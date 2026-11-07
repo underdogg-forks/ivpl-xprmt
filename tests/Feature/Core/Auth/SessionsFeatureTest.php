@@ -223,7 +223,7 @@ class SessionsFeatureTest extends AbstractTestCase
     {
         /* Arrange: logout is a POST (see LogoutCsrfTest for the CSRF-gate coverage) */
         $this->actingAsAdmin();
-        $control = $this->get('/supplier_invoices');
+        $control = $this->get('/tax_rates');
 
         /* Act */
         $response = $this->post('/sessions/logout');

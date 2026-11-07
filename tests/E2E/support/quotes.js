@@ -82,7 +82,6 @@ export const savePayload = (quoteId) => ({
   notes: '',
   quote_discount_percent: '0',
   quote_discount_amount: '0',
-  service_id: '',
   items: '[]',
 });
 

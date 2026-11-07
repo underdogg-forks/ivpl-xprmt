@@ -30,9 +30,7 @@ const MAY_IMPORT_PLAYWRIGHT = [path.join(E2E, "support", "auth.js")];
 
 // Spec files that exist but declare no tests yet. This list may only shrink: the test below fails when a
 // listed file gains tests (remove it from here) and when an unlisted file has none.
-const PLACEHOLDER_SPECS = [
-    "tests/E2E/core/Integrations/qonto-einvoice-generation.spec.js",
-];
+const PLACEHOLDER_SPECS = [];
 
 const declaresTests = (source) => /^\s*test\(/m.test(source) || /\beinvoiceFlowSuite\(/.test(source);
 const allFiles = walk(TESTS);

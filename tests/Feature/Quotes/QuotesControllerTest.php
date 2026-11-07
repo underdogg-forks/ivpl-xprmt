@@ -646,7 +646,7 @@ class QuotesControllerTest extends AbstractTestCase
             'quote_id'           => (string) $quoteId, 'quote_status_id' => '2', 'quote_number' => 'QSIGN-' . $quoteId,
             'quote_date_created' => date('Y-m-d'), 'quote_date_expires' => date('Y-m-d', strtotime('+15 days')),
             'quote_password'     => '', 'notes' => '', 'quote_discount_percent' => '0', 'quote_discount_amount' => '0',
-            'service_id'         => '', 'items' => json_encode($items),
+            'items'              => json_encode($items),
         ], $extra));
     }
 

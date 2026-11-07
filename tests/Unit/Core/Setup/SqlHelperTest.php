@@ -80,27 +80,4 @@ class SqlHelperTest extends TestCase
             $statements[1]
         );
     }
-
-    #[Test]
-    public function it_preserves_every_statement_of_the_real_consolidated_1_8_0_migration(): void
-    {
-        /* Arrange */
-        $file = ROOT_PATH . '/application/modules/setup/sql/045_1.8.0.sql';
-        $sql  = (string) file_get_contents($file);
-        $this->assertNotSame('', $sql);
-
-        /* Act */
-        $statements = split_sql_statements($sql);
-
-        /* Assert — the file ends on the ip_quotes.service_id ALTER; it must
-           survive the split intact (this file has em dashes in its comments). */
-        $last = $statements[count($statements) - 1];
-        $this->assertStringContainsString('`ip_quotes`', $last);
-        $this->assertStringContainsString('`service_id`', $last);
-        $this->assertStringEndsWith('`notes`', rtrim($last, "; \n"));
-
-        // Nothing after the last real ';' is silently dropped.
-        $reassembled = implode(";\n", $statements) . ';';
-        $this->assertStringContainsString('ADD COLUMN IF NOT EXISTS `service_id` INT(11) DEFAULT 0 AFTER `notes`', $reassembled);
-    }
 }

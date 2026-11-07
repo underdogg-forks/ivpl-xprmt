@@ -346,19 +346,6 @@ export async function createProject(page, overrides = {}) {
   return { id, name };
 }
 
-export async function createService(page, overrides = {}) {
-  const name = overrides.service_name ?? uniq('Service');
-  const id = await createByForm(page, {
-    formPath: '/services/form',
-    indexPath: '/services',
-    editSegment: 'services/form',
-    marker: name,
-    fields: { service_name: name, ...overrides },
-  });
-
-  return { id, name };
-}
-
 export async function createTask(page, overrides = {}) {
   const name = overrides.task_name ?? uniq('Task');
   const id = await createByForm(page, {

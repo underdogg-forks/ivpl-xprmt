@@ -15,7 +15,7 @@ final class SessionInvalidationTest extends AbstractTestCase
         $this->actingAsAdmin($userId);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseStatusCode($response, 200);
@@ -28,14 +28,14 @@ final class SessionInvalidationTest extends AbstractTestCase
         /* Arrange */
         $userId = $this->seedAdmin();
         $this->actingAsAdmin($userId);
-        $before = $this->get('/supplier_invoices');
+        $before = $this->get('/tax_rates');
         $this->databaseUpdate('ip_users', [
             'user_password'     => password_hash('NewPassword456!', PASSWORD_DEFAULT),
             'user_auth_version' => 1,
         ], ['user_id' => $userId]);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert: the same session worked until the password changed, then no longer does */
         $this->assertResponseOk($before);
@@ -49,13 +49,13 @@ final class SessionInvalidationTest extends AbstractTestCase
         /* Arrange */
         $userId = $this->seedAdmin();
         $this->actingAsAdmin($userId);
-        $before = $this->get('/supplier_invoices');
+        $before = $this->get('/tax_rates');
         $this->databaseUpdate('ip_users', [
             'user_password' => password_hash('AnotherPassword789!', PASSWORD_DEFAULT),
         ], ['user_id' => $userId]);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseOk($before);
@@ -88,7 +88,7 @@ final class SessionInvalidationTest extends AbstractTestCase
 
         /* Assert: the OTHER session of the same account is rejected on its next request */
         $this->sessionData = $attackerSession;
-        $rejected          = $this->get('/supplier_invoices');
+        $rejected          = $this->get('/tax_rates');
         $this->assertResponseRedirectsToRoute($rejected, 'sessions/login');
         self::assertSame('', $rejected->body(), 'A session that did not make the change must not survive it.');
     }
@@ -111,7 +111,7 @@ final class SessionInvalidationTest extends AbstractTestCase
          * SAME session that just changed its own password must still be authorized —
          * not caught by the very invalidation it just triggered for every other session. */
         $this->sessionData = $changeResponse->session();
-        $response          = $this->get('/supplier_invoices');
+        $response          = $this->get('/tax_rates');
         $this->assertResponseStatusCode($response, 200);
         self::assertNotSame('', $response->body(), 'The acting user must not be logged out by their own password change.');
     }
@@ -162,11 +162,11 @@ final class SessionInvalidationTest extends AbstractTestCase
         /* Arrange */
         $userId = $this->seedAdmin();
         $this->actingAsAdmin($userId);
-        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->assertResponseOk($this->get('/tax_rates'));
         $this->databaseUpdate('ip_users', ['user_active' => 0], ['user_id' => $userId]);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
@@ -179,11 +179,11 @@ final class SessionInvalidationTest extends AbstractTestCase
         /* Arrange */
         $userId = $this->seedAdmin();
         $this->actingAsAdmin($userId);
-        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->assertResponseOk($this->get('/tax_rates'));
         $this->databaseUpdate('ip_users', ['user_type' => 2], ['user_id' => $userId]);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
@@ -196,11 +196,11 @@ final class SessionInvalidationTest extends AbstractTestCase
         /* Arrange */
         $userId = $this->seedAdmin();
         $this->actingAsAdmin($userId);
-        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->assertResponseOk($this->get('/tax_rates'));
         $this->databaseDelete('ip_users', ['user_id' => $userId]);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
@@ -216,7 +216,7 @@ final class SessionInvalidationTest extends AbstractTestCase
         unset($this->sessionData['user_id']);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
@@ -230,11 +230,11 @@ final class SessionInvalidationTest extends AbstractTestCase
          * only the auth version is bumped, as a forced "log out everywhere" would do. */
         $userId = $this->seedAdmin();
         $this->actingAsAdmin($userId);
-        $this->assertResponseOk($this->get('/supplier_invoices'));
+        $this->assertResponseOk($this->get('/tax_rates'));
         $this->databaseUpdate('ip_users', ['user_auth_version' => 99], ['user_id' => $userId]);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');
@@ -250,7 +250,7 @@ final class SessionInvalidationTest extends AbstractTestCase
         unset($this->sessionData['user_credential']);
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert: still authorised, and now bound, so a later password change can end it */
         $this->assertResponseStatusCode($response, 200);
@@ -258,7 +258,7 @@ final class SessionInvalidationTest extends AbstractTestCase
 
         $this->sessionData = $response->session();
         $this->databaseUpdate('ip_users', ['user_password' => password_hash('ChangedAfterBinding1!', PASSWORD_DEFAULT)], ['user_id' => $userId]);
-        $after = $this->get('/supplier_invoices');
+        $after = $this->get('/tax_rates');
         $this->assertResponseRedirectsToRoute($after, 'sessions/login');
     }
 
@@ -271,7 +271,7 @@ final class SessionInvalidationTest extends AbstractTestCase
         $this->sessionData['user_type'] = '2';
 
         /* Act */
-        $response = $this->get('/supplier_invoices');
+        $response = $this->get('/tax_rates');
 
         /* Assert: the session snapshot is checked, not just the database */
         $this->assertResponseRedirectsToRoute($response, 'sessions/login');

@@ -101,7 +101,7 @@ trait UsesCodeIgniterModels
         return $ci;
     }
 
-    /** Instantiate a model by its module-relative file, e.g. "integrations/models/Merchant_responses_model". */
+    /** Instantiate a model by its module-relative file, e.g. "payments/models/Mdl_payments". */
     protected function ciModel(string $relative): object
     {
         $this->bootCodeIgniter();
