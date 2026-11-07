@@ -23,9 +23,9 @@ final class GetDeleteRefusalTest extends AbstractTestCase
     public static function deleteActions(): array
     {
         return [
-            'import'         => ['/import/delete/', 'ip_imports', 'import_id'],
-            'invoice group'  => ['/invoice_groups/delete/', 'ip_invoice_groups', 'invoice_group_id'],
-            'custom value'   => ['/custom_values/delete/', 'ip_custom_values', 'custom_values_id'],
+            'import'        => ['/import/delete/', 'ip_imports', 'import_id'],
+            'invoice group' => ['/invoice_groups/delete/', 'ip_invoice_groups', 'invoice_group_id'],
+            'custom value'  => ['/custom_values/delete/', 'ip_custom_values', 'custom_values_id'],
         ];
     }
 
