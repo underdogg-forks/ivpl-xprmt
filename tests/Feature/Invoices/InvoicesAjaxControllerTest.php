@@ -234,9 +234,9 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     public function it_saves_an_invoice_whose_number_contains_an_ampersand_and_a_semicolon(): void
     {
         /* Arrange: invoice group formats are free text, so such numbers exist and must stay saveable */
-        $clientId  = $this->seedClient();
-        $invoiceId = $this->seedInvoice($clientId, ['invoice_number' => 'A&B;2026-001']);
-        $payload   = $this->validSavePayload($invoiceId);
+        $clientId                  = $this->seedClient();
+        $invoiceId                 = $this->seedInvoice($clientId, ['invoice_number' => 'A&B;2026-001']);
+        $payload                   = $this->validSavePayload($invoiceId);
         $payload['invoice_number'] = 'A&B;2026-001';
 
         /* Act */

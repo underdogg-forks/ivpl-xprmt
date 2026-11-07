@@ -150,30 +150,6 @@ class Ajax extends Admin_Controller
         }
     }
 
-    /**
-     * Whether the request names an existing user (a non-empty id) that the acting user may not manage. An empty id is a
-     * user that is still being created, whose assignments live in the session; a non-empty id is always authorised,
-     * before it is used to choose between the session and the stored assignments (CWE-639 / CWE-862).
-     *
-     * @param mixed $user_id
-     */
-    private function denies_user_client_access($user_id): bool
-    {
-        if ($user_id === null || $user_id === '') {
-            return false;
-        }
-
-        $this->load->model('user_clients/mdl_user_clients');
-
-        if ($this->mdl_user_clients->can_manage_user_clients($user_id)) {
-            return false;
-        }
-
-        show_error(trans('access_denied'), 403);
-
-        return true;
-    }
-
     public function modal_add_user_client($user_id = null)
     {
         if ($this->denies_user_client_access($user_id)) {
@@ -213,5 +189,29 @@ class Ajax extends Admin_Controller
         ];
 
         $this->layout->load_view('users/modal_user_client', $data);
+    }
+
+    /**
+     * Whether the request names an existing user (a non-empty id) that the acting user may not manage. An empty id is a
+     * user that is still being created, whose assignments live in the session; a non-empty id is always authorised,
+     * before it is used to choose between the session and the stored assignments (CWE-639 / CWE-862).
+     *
+     * @param mixed $user_id
+     */
+    private function denies_user_client_access($user_id): bool
+    {
+        if ($user_id === null || $user_id === '') {
+            return false;
+        }
+
+        $this->load->model('user_clients/mdl_user_clients');
+
+        if ($this->mdl_user_clients->can_manage_user_clients($user_id)) {
+            return false;
+        }
+
+        show_error(trans('access_denied'), 403);
+
+        return true;
     }
 }
