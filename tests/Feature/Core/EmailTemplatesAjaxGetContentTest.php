@@ -31,6 +31,7 @@ class EmailTemplatesAjaxGetContentTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_returns_null_for_an_unknown_template_id(): void
     {
         /* Arrange */

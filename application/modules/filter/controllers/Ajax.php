@@ -32,10 +32,8 @@ class Ajax extends Admin_Controller
             }
         }
 
-        $invoices = $this->mdl_invoices->get()->result();
-
         $data = [
-            'invoices'         => $invoices,
+            'invoices'         => $this->mdl_invoices->get()->result(),
             'invoice_statuses' => $this->mdl_invoices->statuses(),
         ];
 
@@ -56,10 +54,8 @@ class Ajax extends Admin_Controller
             }
         }
 
-        $quotes = $this->mdl_quotes->get()->result();
-
         $data = [
-            'quotes'         => $quotes,
+            'quotes'         => $this->mdl_quotes->get()->result(),
             'quote_statuses' => $this->mdl_quotes->statuses(),
         ];
 

@@ -58,9 +58,7 @@ $invoice_idx                    = 1;
                 <td>
                     <a href="<?php echo site_url('clients/view/' . $invoice->client_id); ?>"
                        title="<?php _trans('view_client'); ?>">
-                        <?php
-                        _htmlsc(format_client($invoice));
-                ?>
+                        <?php _htmlsc(format_client($invoice)); ?>
                     </a>
                 </td>
 

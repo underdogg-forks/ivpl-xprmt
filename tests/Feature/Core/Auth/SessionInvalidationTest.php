@@ -23,6 +23,7 @@ final class SessionInvalidationTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rejects_an_old_session_after_the_password_changes(): void
     {
         /* Arrange */
@@ -224,6 +225,7 @@ final class SessionInvalidationTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rejects_a_session_when_only_the_auth_version_changed(): void
     {
         /* Arrange: the password hash (so the credential fingerprint) stays identical;

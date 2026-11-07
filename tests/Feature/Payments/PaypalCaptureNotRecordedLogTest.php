@@ -26,6 +26,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_logs_one_error_naming_the_capture_when_a_completed_capture_is_rejected_after_the_money_moved(): void
     {
         /* Arrange: the order verifies in EUR, but the capture PayPal returns is in USD, so it is refused */
@@ -49,6 +50,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_log_a_reconciliation_error_for_a_capture_that_was_booked(): void
     {
         /* Arrange: positive control, a matching capture is recorded */

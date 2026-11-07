@@ -154,10 +154,10 @@
                 </li>
                 <li>
                     <a href="<?php echo site_url('users/form/'
-                                        . $this->session->userdata('user_id')); ?>"
+                        . $this->session->userdata('user_id')); ?>"
                        class="tip icon" data-placement="bottom"
                        title="<?php
-                                        _htmlsc($this->session->userdata('user_name'));
+                        _htmlsc($this->session->userdata('user_name'));
                 if ($this->session->userdata('user_company')) {
                     echo ' (' . htmlsc($this->session->userdata('user_company')) . ')';
                 }
@@ -176,7 +176,7 @@
                         <?php _csrf_field(); ?>
                         <button type="submit" class="tip icon logout" data-placement="bottom"
                                 title="<?php _trans('logout'); ?>"
-                                style="background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer;">
+                                style="background: none; border: none; padding: 15px; margin: 0; font: inherit; color: inherit; cursor: pointer;">
                             <i class="fa fa-power-off"></i>
                             <span class="visible-xs">&nbsp;<?php _trans('logout'); ?></span>
                         </button>

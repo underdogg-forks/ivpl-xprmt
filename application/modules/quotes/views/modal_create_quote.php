@@ -63,8 +63,7 @@
                         <?php endif; ?>
                     </select>
                 </div>
-	    </div>
-
+            </div>
 
             <div class="form-group has-feedback">
                 <label for="quote_date_created">

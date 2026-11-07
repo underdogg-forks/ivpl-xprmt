@@ -327,6 +327,7 @@ class FilterAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_treats_glob_metacharacters_in_the_archive_query_literally(): void
     {
         /* Arrange */

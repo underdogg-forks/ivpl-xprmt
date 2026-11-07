@@ -13,6 +13,7 @@ use Tests\AbstractTestCase;
 class PaymentInformationFormTest extends AbstractTestCase
 {
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_redirects_for_an_unknown_invoice_key(): void
     {
         /* Arrange */

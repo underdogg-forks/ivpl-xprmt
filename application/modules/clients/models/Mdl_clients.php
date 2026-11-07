@@ -57,11 +57,6 @@ class Mdl_Clients extends Response_Model
             'client_active' => [
                 'field' => 'client_active',
             ],
-            'client_disable_reminders' => [
-                'field' => 'client_disable_reminders',
-                'label' => trans('disable_payment_reminders'),
-                'rules' => 'in_list[0,1]',
-            ],
             'client_language' => [
                 'field' => 'client_language',
                 'label' => trans('language'),
@@ -339,9 +334,9 @@ class Mdl_Clients extends Response_Model
         $CI = & get_instance();
 
         // Normalize to integer to prevent type juggling
-        $user_type = (int) $CI->session->userdata('user_type');
-        $user_id   = (int) $CI->session->userdata('user_id');
-        $client_id = (int) $client_id;
+        $user_type  = (int) $CI->session->userdata('user_type');
+        $user_id    = (int) $CI->session->userdata('user_id');
+        $client_id  = (int) $client_id;
 
         // Admin users (type 1) have access to all clients
         if ($user_type === 1) {

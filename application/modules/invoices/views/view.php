@@ -91,7 +91,6 @@ if ($invoice->invoice_status_id == 1 && ! $invoice->creditinvoice_parent_id) {
                     invoice_id: <?php echo $invoice_id; ?>,
                     invoice_number: $('#invoice_number').val(),
                     invoice_date_created: $('#invoice_date_created').val(),
-                    invoice_time_created: '<?php echo date('H:i:s'); ?>',
                     invoice_date_due: $('#invoice_date_due').val(),
                     invoice_status_id: $('#invoice_status_id').val(),
                     invoice_password: $('#invoice_password').val(),
@@ -337,6 +336,7 @@ if ($einvoice->user) {
                         <?php _trans('send_email'); ?>
                     </a>
                 </li>
+                <li class="divider"></li>
                 <li>
                     <a href="#" id="btn_create_recurring"
                        data-invoice-id="<?php echo $invoice_id; ?>">
@@ -491,7 +491,7 @@ if ($einvoice->name) {
                                     <label for="invoice_number"><?php _trans('invoice'); ?> #</label>
                                     <input type="text" id="invoice_number" class="form-control"
 <?php if ($invoice->invoice_number) : ?>
-                                           value="<?php _htmlsc($invoice->invoice_number); ?>"
+                                           value="<?php echo htmlsc($invoice->invoice_number); ?>"
 <?php else : ?>
                                            placeholder="<?php _trans('not_set'); ?>"
 <?php endif; ?>
@@ -563,7 +563,7 @@ foreach ($payment_methods as $payment_method) {
     ?>
                                         <option <?php check_select($invoice->payment_method, $payment_method->payment_method_id) ?>
                                             value="<?php echo $payment_method->payment_method_id; ?>">
-                                            <?php _htmlsc($payment_method->payment_method_name); ?>
+                                            <?php echo htmlsc($payment_method->payment_method_name); ?>
                                         </option>
 <?php
 } // End foreach
@@ -615,7 +615,6 @@ if ($invoice->invoice_status_id != 1) {
 
                         </div>
                     </div>
-
                 </div>
 
             </div>

@@ -67,12 +67,8 @@ function sanitize_email_template_html(string $html): string
             } else {
                 $config->set('Cache.SerializerPath', $cache_dir);
             }
-        } elseif (is_writable($cache_dir)) {
-            $config->set('Cache.SerializerPath', $cache_dir);
         } else {
-            // A read-only deployment must still sanitize content without
-            // emitting cache-write warnings or failing the request.
-            $config->set('Cache.SerializerPath', null);
+            $config->set('Cache.SerializerPath', $cache_dir);
         }
 
         // Allow safe HTML tags for email templates

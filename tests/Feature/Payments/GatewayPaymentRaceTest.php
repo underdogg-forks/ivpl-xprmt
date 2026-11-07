@@ -78,6 +78,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_double_record_when_two_distinct_paypal_captures_race(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -121,6 +122,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
      * reconciliation, not silently flagged as a success and not an uncaught 500.
      */
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_logs_the_losing_paypal_capture_as_unsuccessful_not_silently_successful(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {

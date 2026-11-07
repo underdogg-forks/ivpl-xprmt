@@ -229,7 +229,7 @@ class Invoices extends Admin_Controller
 
     public function delete($invoice_id): void
     {
-        if ( ! $this->ensure_valid_post_request('invoices/status/all')) {
+        if ( ! $this->ensure_valid_post_request('invoices/index')) {
             return;
         }
 
@@ -257,7 +257,7 @@ class Invoices extends Admin_Controller
         }
 
         // Redirect to invoice index
-        redirect('invoices/status/all');
+        redirect('invoices/index');
     }
 
     /**

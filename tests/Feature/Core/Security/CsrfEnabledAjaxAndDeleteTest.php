@@ -94,6 +94,7 @@ final class CsrfEnabledAjaxAndDeleteTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_accepts_a_json_ajax_post_with_a_valid_token_when_the_token_regenerates(): void
     {
         /* Arrange: with regeneration on, json_encode_ajax() echoes the next token back to the client */

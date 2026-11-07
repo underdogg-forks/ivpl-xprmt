@@ -19,10 +19,16 @@
       subprocesses, long running) or #[Group('flaky')] (order or timing
       dependent) at the method or class level.
     -->
+    <!--
+      "unmerged-fix": tests for fixes that exist on prep/v180 but are not in upstream develop. They fail against
+      develop on purpose: run them with the phpunit CLI option group set to unmerged-fix to list exactly what develop still lacks.
+      The default run (this branch's purpose) tests develop as it is.
+    -->
     <groups>
         <exclude>
             <group>slow</group>
             <group>flaky</group>
+            <group>unmerged-fix</group>
         </exclude>
     </groups>
 

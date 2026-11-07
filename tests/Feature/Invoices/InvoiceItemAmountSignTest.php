@@ -115,6 +115,7 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
 
     #[Test]
     #[DataProvider('discountsLargerThanTheInvoice')]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rolls_back_the_whole_save_when_the_discounts_would_make_the_total_negative(array $discount): void
     {
         [$invoiceId, $itemId] = $this->invoiceWithOneItem();
@@ -132,6 +133,7 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rolls_back_earlier_items_when_a_later_line_has_no_name(): void
     {
         [$invoiceId, $itemId] = $this->invoiceWithOneItem();
@@ -145,6 +147,7 @@ final class InvoiceItemAmountSignTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rolls_back_the_items_when_the_invoice_number_is_invalid(): void
     {
         [$invoiceId, $itemId] = $this->invoiceWithOneItem();

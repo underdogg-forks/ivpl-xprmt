@@ -38,6 +38,7 @@ class MerchantResponseLogsXssTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_escapes_the_merchant_response_message(): void
     {
         /* Arrange */
@@ -52,6 +53,7 @@ class MerchantResponseLogsXssTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_escapes_the_merchant_response_driver(): void
     {
         /* Arrange */
@@ -66,6 +68,7 @@ class MerchantResponseLogsXssTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_escapes_the_merchant_response_reference(): void
     {
         /* Arrange */
@@ -80,6 +83,7 @@ class MerchantResponseLogsXssTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_escapes_the_merchant_response_id(): void
     {
         /* Arrange */

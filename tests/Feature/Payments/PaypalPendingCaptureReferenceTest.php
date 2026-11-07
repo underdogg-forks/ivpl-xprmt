@@ -16,6 +16,7 @@ use Tests\AbstractTestCase;
 final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
 {
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_records_the_capture_id_of_a_pending_capture_in_the_merchant_response_reference(): void
     {
         /* Arrange */
@@ -33,6 +34,7 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_keeps_the_order_resource_reference_when_the_pending_capture_has_no_id(): void
     {
         /* Arrange */

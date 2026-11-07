@@ -278,6 +278,7 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_refuses_to_delete_an_item_through_another_quotes_url(): void
     {
         /* Arrange: the item belongs to quote B, the request is addressed to quote A */
@@ -496,6 +497,7 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_reports_an_unknown_quote_in_the_conversion_modal(): void
     {
         /* Act */

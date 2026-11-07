@@ -157,7 +157,6 @@ class Mdl_Invoices extends Response_Model
                 'rules' => 'required',
             ],
             'invoice_time_created' => [
-                'field' => 'invoice_time_created',
                 'rules' => 'required',
             ],
             'invoice_group_id' => [
@@ -172,7 +171,7 @@ class Mdl_Invoices extends Response_Model
             'user_id' => [
                 'field' => 'user_id',
                 'label' => trans('user'),
-                'rules' => 'required',
+                'rule'  => 'required',
             ],
             'payment_method' => [
                 'field' => 'payment_method',
@@ -203,7 +202,6 @@ class Mdl_Invoices extends Response_Model
                 'rules' => 'required',
             ],
             'invoice_time_created' => [
-                'field' => 'invoice_time_created',
                 'rules' => 'required',
             ],
             'invoice_password' => [
@@ -433,10 +431,6 @@ class Mdl_Invoices extends Response_Model
         // Check if is SUMEX
         $this->load->model('invoice_groups/mdl_invoice_groups');
 
-        $cid = $this->mdl_clients->where('ip_clients.client_id', $db_array['client_id'])->get()->row()->client_id;
-
-        $db_array['client_id'] = $cid;
-
         $db_array['invoice_date_created'] = date_to_mysql($db_array['invoice_date_created']);
         $db_array['invoice_date_due']     = $this->get_date_due($db_array['invoice_date_created']);
         $db_array['invoice_terms']        = get_setting('default_invoice_terms');
@@ -556,14 +550,7 @@ class Mdl_Invoices extends Response_Model
         $invoice_array = [];
 
         if ( ! empty($invoice_number)) {
-            // Literal match (same shape as the old '*_*<number>*.pdf' glob): the number comes from
-            // user input, so glob metacharacters ("*", "?", "[") and "/" must not be interpreted.
-            $needle = '/_.*' . preg_quote((string) $invoice_number, '/') . '/';
-            foreach (glob(UPLOADS_ARCHIVE_FOLDER . '*.pdf') ?: [] as $file) {
-                if (preg_match($needle, basename($file)) === 1) {
-                    $invoice_array[] = $file;
-                }
-            }
+            $invoice_array = glob(UPLOADS_ARCHIVE_FOLDER . '*_*' . $invoice_number . '*.pdf');
         } else {
             foreach (glob(UPLOADS_ARCHIVE_FOLDER . '*.pdf') as $file) {
                 $invoice_array[] = $file;

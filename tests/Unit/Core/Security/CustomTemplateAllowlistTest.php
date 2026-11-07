@@ -35,6 +35,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_lists_a_custom_invoice_pdf_template_configured_in_ipconfig(): void
     {
         /* Arrange */
@@ -54,6 +55,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_lists_a_custom_invoice_public_template_configured_in_ipconfig(): void
     {
         /* Arrange */
@@ -72,6 +74,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_lists_a_custom_quote_pdf_template_configured_in_ipconfig(): void
     {
         /* Arrange */
@@ -91,6 +94,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_lists_a_custom_quote_public_template_configured_in_ipconfig(): void
     {
         /* Arrange */
@@ -109,6 +113,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_keeps_built_in_templates_alongside_a_custom_one(): void
     {
         /* Arrange */
@@ -125,6 +130,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_lists_multiple_comma_separated_custom_templates(): void
     {
         /* Arrange */
@@ -203,6 +209,7 @@ class CustomTemplateAllowlistTest extends TestCase
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_keeps_the_valid_name_and_drops_the_invalid_one_from_a_mixed_list(): void
     {
         /* Arrange */

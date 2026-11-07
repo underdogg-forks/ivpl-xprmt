@@ -234,12 +234,8 @@ class Ajax extends Admin_Controller
         $item_id = $this->input->post('item_id');
         $this->load->model('mdl_quotes');
 
-        // Only continue if the quote exists and the item really belongs to it; deleting by bare
-        // item id would let one quote's URL remove (and recalculate) another quote's line.
-        $item_belongs_to_quote = ! empty($item_id)
-            && $this->db->where(['item_id' => $item_id, 'quote_id' => $quote_id])->count_all_results('ip_quote_items') > 0;
-
-        if ($item_belongs_to_quote && $this->mdl_quotes->get_by_id($quote_id)) {
+        // Only continue if the quote exists or no item id was provided
+        if ($this->mdl_quotes->get_by_id($quote_id) || empty($item_id)) {
             // Delete quote item
             $this->load->model('mdl_quote_items');
             $item = $this->mdl_quote_items->delete($item_id);
@@ -273,13 +269,11 @@ class Ajax extends Admin_Controller
             'clients/mdl_clients',
         ]);
 
-        $quote = $this->mdl_quotes->where('ip_quotes.quote_id', $this->input->post('quote_id'))->get()->row();
-
         $data = [
             'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
             'tax_rates'      => $this->mdl_tax_rates->get()->result(),
             'quote_id'       => $this->security->xss_clean($this->input->post('quote_id')),
-            'quote'          => $quote,
+            'quote'          => $this->mdl_quotes->where('ip_quotes.quote_id', $this->input->post('quote_id'))->get()->row(),
             'client'         => $this->mdl_clients->get_by_id($this->input->post('client_id')),
         ];
 
@@ -467,20 +461,10 @@ class Ajax extends Admin_Controller
             'quotes/mdl_quotes',
         ]);
 
-        $quote = $this->mdl_quotes->get_by_id($quote_id);
-
-        if ( ! $quote) {
-            $response = [
-                'success'           => 0,
-                'validation_errors' => trans('quote_not_found'),
-            ];
-            exit(json_encode($response));
-        }
-
         $data = [
             'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
             'quote_id'       => $this->security->xss_clean($quote_id),
-            'quote'          => $quote,
+            'quote'          => $this->mdl_quotes->where('ip_quotes.quote_id', $quote_id)->get()->row(),
         ];
 
         $this->load->view('quotes/modal_quote_to_invoice', $data);

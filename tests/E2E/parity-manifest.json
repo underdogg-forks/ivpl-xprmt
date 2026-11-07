@@ -432,18 +432,6 @@
       "it_displays_empty_invoice_list_when_no_invoices_exist",
       "it_displays_invoice_with_client_information"
     ],
-    "Invoices/CronRemindersFeatureTest.php": [
-      "it_sends_a_before_due_reminder_for_an_invoice_matching_the_offset",
-      "it_skips_reminders_when_reminders_are_disabled_globally",
-      "it_skips_reminders_for_invoices_with_client_opt_out",
-      "it_skips_reminders_for_invoices_with_invoice_level_opt_out",
-      "it_skips_reminders_for_already_paid_invoices",
-      "it_does_not_send_duplicate_reminders_for_the_same_offset",
-      "it_respects_the_maximum_reminders_limit_per_invoice",
-      "it_rejects_the_cron_request_with_wrong_cron_key",
-      "it_handles_mailer_not_configured_gracefully",
-      "it_logs_a_failed_send_summary_at_error_level_for_production_visibility"
-    ],
     "Invoices/GuestInvoiceViewScopeTest.php": [
       "it_serves_a_guest_the_invoice_of_an_assigned_client",
       "it_answers_404_for_an_invoice_of_another_client_and_leaks_nothing",

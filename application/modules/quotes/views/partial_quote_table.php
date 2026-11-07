@@ -44,9 +44,7 @@ $quote_idx                    = 1;
                 <td>
                     <a href="<?php echo site_url('clients/view/' . $quote->client_id); ?>"
                        title="<?php _trans('view_client'); ?>">
-                        <?php
-                        _htmlsc(format_client($quote));
-                ?>
+                        <?php _htmlsc(format_client($quote)); ?>
                     </a>
                 </td>
                 <td class="amount last">
