@@ -409,17 +409,9 @@ class MY_Model extends CI_Model
         if (method_exists($this, $validation_rules)) {
             $this->validation_rules = $validation_rules;
 
-            // Force fresh form_validation instance with correct CI context
             $this->load->library('form_validation');
-            $this->form_validation->CI =& get_instance();
 
-            $rules = $this->{$validation_rules}();
-            $this->form_validation->set_rules($rules);
-
-            // Debug: log the rules being set
-            $fp = fopen("/tmp/val_debug.log", "a");
-            fwrite($fp, "Rules set: " . json_encode($rules) . "\n");
-            fclose($fp);
+            $this->form_validation->set_rules($this->{$validation_rules}());
 
             $run = $this->form_validation->run();
 
@@ -427,7 +419,6 @@ class MY_Model extends CI_Model
 
             return $run;
         }
-        return false;
     }
 
     /**

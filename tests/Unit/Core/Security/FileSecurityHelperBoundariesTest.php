@@ -31,6 +31,22 @@ final class FileSecurityHelperBoundariesTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, array{0: string, 1: bool}>
+     */
+    public static function ports(): array
+    {
+        return [
+            'zero'          => ['0', false],
+            'one'           => ['1', true],
+            'default mysql' => ['3306', true],
+            'top'           => ['65535', true],
+            'just above'    => ['65536', false],
+            'huge'          => ['999999', false],
+            'not a number'  => ['33x6', false],
+        ];
+    }
+
     #[Test]
     #[DataProvider('unsafeNames')]
     public function it_refuses_the_name_with_the_matching_reason(string $name, string $error): void
@@ -78,21 +94,5 @@ final class FileSecurityHelperBoundariesTest extends TestCase
 
         /* Assert */
         self::assertSame($valid, $result['valid']);
-    }
-
-    /**
-     * @return array<string, array{0: string, 1: bool}>
-     */
-    public static function ports(): array
-    {
-        return [
-            'zero'          => ['0', false],
-            'one'           => ['1', true],
-            'default mysql' => ['3306', true],
-            'top'           => ['65535', true],
-            'just above'    => ['65536', false],
-            'huge'          => ['999999', false],
-            'not a number'  => ['33x6', false],
-        ];
     }
 }

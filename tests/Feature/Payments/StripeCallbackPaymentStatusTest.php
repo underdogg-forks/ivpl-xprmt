@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use Cryptor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -25,7 +26,7 @@ final class StripeCallbackPaymentStatusTest extends AbstractTestCase
         parent::setUp();
 
         require_once ROOT_PATH . '/application/libraries/Cryptor.php';
-        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_apiKey', 'setting_value' => \Cryptor::Encrypt('sk_test_fake_key', self::ENCRYPTION_KEY)]);
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_apiKey', 'setting_value' => Cryptor::Encrypt('sk_test_fake_key', self::ENCRYPTION_KEY)]);
     }
 
     /**

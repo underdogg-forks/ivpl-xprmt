@@ -32,24 +32,14 @@ module.exports = function(grunt) {
         options: {
           implementation: sass,
           outputStyle: "expanded",
-          sourceMap: true,
-          includePaths: [
-            "node_modules/bootstrap-sass/assets/stylesheets",
-            "node_modules/font-awesome/scss",
-            "node_modules/select2/src/scss"
-          ]
+          sourceMap: true
         },
         files: sassFiles()
       },
       build: {
         options: {
           implementation: sass,
-          outputStyle: "compressed",
-          includePaths: [
-            "node_modules/bootstrap-sass/assets/stylesheets",
-            "node_modules/font-awesome/scss",
-            "node_modules/select2/src/scss"
-          ]
+          outputStyle: "compressed"
         },
         files: sassFiles()
       }

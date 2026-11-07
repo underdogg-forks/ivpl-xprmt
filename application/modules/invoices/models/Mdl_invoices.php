@@ -191,7 +191,7 @@ class Mdl_Invoices extends Response_Model
             'invoice_number' => [
                 'field' => 'invoice_number',
                 'label' => trans('invoice') . ' #',
-                'rules' => 'regex_match[/^(?!.*[<>"\x00-\x1F]).*$/]|is_unique[ip_invoices.invoice_number' . (($this->id) ? '.invoice_id.' . $this->id : '') . ']',
+                'rules' => 'regex_match[/^[^<>"\x00-\x1F]*$/]|is_unique[ip_invoices.invoice_number' . (($this->id) ? '.invoice_id.' . $this->id : '') . ']',
             ],
             'invoice_date_created' => [
                 'field' => 'invoice_date_created',
@@ -201,9 +201,6 @@ class Mdl_Invoices extends Response_Model
             'invoice_date_due' => [
                 'field' => 'invoice_date_due',
                 'label' => trans('due_date'),
-                'rules' => 'required',
-            ],
-            'invoice_time_created' => [
                 'rules' => 'required',
             ],
             'invoice_password' => [

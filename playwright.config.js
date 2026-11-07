@@ -18,10 +18,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  timeout: 60 * 1000,
-  globalTimeout: 20 * 60 * 1000,
-  // Skip tests that exceed 10s (they'll be retried once, then marked as skipped)
-  expect: { timeout: 5 * 1000 },
+  // Stop the whole CI run after the first test that still fails after its
+  // retries — including a PHP error/500 caught by tests/E2E/test.js's page
+  // fixture. That's a real crash, not test flakiness; burning the remaining
+  // ~14 minutes of the suite on it before anyone finds out is pure waste.
+  // Unset locally so a debugging session sees every failure in one run.
+  maxFailures: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { open: 'never' }],
     ['list'],

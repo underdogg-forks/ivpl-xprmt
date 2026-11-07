@@ -271,7 +271,7 @@ class Settings extends Admin_Controller
         // Security: Validate type parameter against allowed values
         $allowed_types = ['invoice', 'login'];
         if ( ! in_array($type, $allowed_types, true)) {
-            log_message('info', sprintf(
+            log_message('error', sprintf(
                 'Invalid logo type specified: %s by user %s',
                 sanitize_for_logging($type),
                 sanitize_for_logging((string) $this->session->userdata('user_id'))

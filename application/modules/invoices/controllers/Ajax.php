@@ -695,5 +695,5 @@ class Ajax extends Admin_Controller
         }
 
         return [];
-}
+    }
 }
