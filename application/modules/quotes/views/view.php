@@ -317,9 +317,7 @@ if ($quote->quote_status_id == 1) {
                     </h3>
                     <br>
                     <div class="client-address">
-<?php
-$this->layout->load_view('clients/partial_client_address', ['client' => $quote]);
-?>
+                        <?php $this->layout->load_view('clients/partial_client_address', ['client' => $quote]); ?>
                     </div>
 <?php if ($quote->client_phone || $quote->client_email) : ?>
                         <hr>

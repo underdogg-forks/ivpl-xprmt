@@ -102,6 +102,7 @@ class PaymentsTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_creates_an_order_from_the_payment_information(): void
     {
         $this->setUpPaypalLib();

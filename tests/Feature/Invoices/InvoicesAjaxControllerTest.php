@@ -94,6 +94,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_fails_to_create_an_invoice_without_invoice_time_created(): void
     {
         /* Arrange */
@@ -111,6 +112,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_fails_to_create_an_invoice_without_user_id(): void
     {
         /* Arrange */
@@ -196,6 +198,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rejects_an_invoice_number_with_unsafe_characters(): void
     {
         /* Arrange */
@@ -313,6 +316,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_refuses_to_delete_an_item_through_another_invoices_url(): void
     {
         /* Arrange: the item belongs to invoice B, the request is addressed to invoice A */

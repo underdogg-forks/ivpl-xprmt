@@ -137,13 +137,8 @@ function invoice_qrcode($invoice_id, $width = 64): string
         $invoice = $CI->mdl_invoices->get_by_id($invoice_id);
 
         if ((float) $invoice->invoice_balance) {
-            // #1450: Use direct instantiation instead of CI->load->library() which caches the object.
-            // When generating multiple invoices in one request (cron, bulk operations),
-            // the cached QrCode instance would reuse the first invoice's data for all subsequent invoices.
-            // Direct instantiation ensures each invoice gets its own QrCode instance with correct data.
-            require_once APPPATH . 'libraries/QrCode.php';
-            $qrcode          = new QrCode(['invoice' => $invoice]);
-            $qrcode_data_uri = $qrcode->generate();
+            $CI->load->library('QrCode', ['invoice' => $invoice]);
+            $qrcode_data_uri = $CI->qrcode->generate();
 
             $numeric_width = (int) $width;
             $width         = '';

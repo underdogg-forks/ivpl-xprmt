@@ -268,6 +268,7 @@ class SettingsControllerTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_warns_admins_when_setup_security_flags_are_not_enabled(): void
     {
         /* Arrange */
@@ -468,6 +469,7 @@ class SettingsControllerTest extends AbstractTestCase
 
     #[Test]
     #[DataProvider('invalidAdminSettingValues')]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_refuses_an_invalid_admin_setting_and_saves_none_of_the_batch(string $key, string $value): void
     {
         /*
@@ -493,6 +495,7 @@ class SettingsControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_refuses_a_decimal_point_identical_to_the_thousands_separator(): void
     {
         /* Arrange: the two separators must remain distinguishable in a formatted amount */

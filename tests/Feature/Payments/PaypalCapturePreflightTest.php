@@ -57,6 +57,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_captures_a_matching_order_and_the_capture_is_the_last_paypal_request(): void
     {
         /* Arrange: positive control, also proves the recorder can see a capture */
@@ -78,6 +79,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_when_paypal_cannot_return_the_order_details(): void
     {
         /* Arrange: PayPal answers the pre-capture order lookup with a 404 */
@@ -96,6 +98,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_when_the_order_has_no_purchase_unit(): void
     {
         /* Arrange */
@@ -114,6 +117,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_when_the_order_names_an_invoice_but_no_amount(): void
     {
         /* Arrange */
@@ -133,6 +137,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_when_the_order_names_an_invoice_that_does_not_exist(): void
     {
         /* Arrange */
@@ -151,6 +156,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_when_the_invoice_has_left_the_guest_visible_statuses(): void
     {
         /* Arrange: the invoice was moved out of sent/viewed/paid after the order was created */
@@ -170,6 +176,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_a_fully_paid_invoice_and_says_it_was_already_paid(): void
     {
         /* Arrange */
@@ -189,6 +196,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_a_zero_amount_order_against_a_zero_balance(): void
     {
         /* Arrange: balance 0 and an order of 0.00 would satisfy the amount comparison, so only
@@ -209,6 +217,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_against_an_overpaid_invoice(): void
     {
         /* Arrange: a negative balance (credit) is "nothing left to pay" too */
@@ -228,6 +237,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_an_order_larger_than_the_balance(): void
     {
         /* Arrange: the balance was reduced (e.g. an offline payment) after the order was created */
@@ -247,6 +257,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_an_order_one_cent_away_from_the_balance(): void
     {
         /* Arrange */
@@ -266,6 +277,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_captures_an_order_within_half_a_cent_of_the_balance(): void
     {
         /* Arrange: float noise below the documented 0.005 tolerance must not block a real payment */
@@ -285,6 +297,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_still_captures_an_invoice_with_exactly_one_currency_unit_outstanding(): void
     {
         /* Arrange: the "already paid" guard is balance <= 0, so a balance of 1.00 is a live debt */
@@ -304,6 +317,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_compares_the_order_currency_case_insensitively(): void
     {
         /* Arrange: gateway setting and PayPal both use lower case */
@@ -324,6 +338,7 @@ final class PaypalCapturePreflightTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_capture_an_order_in_another_currency_even_when_the_amount_matches(): void
     {
         /* Arrange */

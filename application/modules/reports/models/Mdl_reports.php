@@ -124,8 +124,6 @@ class Mdl_Reports extends CI_Model
      */
     public function invoice_aging()
     {
-        // CURDATE(), not NOW(): invoice_date_due is a DATE, and comparing it with a datetime made the
-        // boundary days (exactly 15 and 30 days overdue) fall into no bucket while still being in the total.
         $this->db->select('client_name, client_surname');
 
         $this->db->select('
@@ -135,8 +133,8 @@ class Mdl_Reports extends CI_Model
                 (
                     SELECT invoice_id FROM ip_invoices
                         WHERE ip_invoices.client_id = ip_clients.client_id
-                            AND invoice_date_due <= DATE_SUB(CURDATE(),INTERVAL 1 DAY)
-                            AND invoice_date_due >= DATE_SUB(CURDATE(), INTERVAL 15 DAY)
+                            AND invoice_date_due <= DATE_SUB(NOW(),INTERVAL 1 DAY)
+                            AND invoice_date_due >= DATE_SUB(NOW(), INTERVAL 15 DAY)
                 )
         ) AS range_1', false);
 
@@ -147,8 +145,8 @@ class Mdl_Reports extends CI_Model
                 (
                     SELECT invoice_id FROM ip_invoices
                         WHERE ip_invoices.client_id = ip_clients.client_id
-                            AND invoice_date_due <= DATE_SUB(CURDATE(),INTERVAL 16 DAY)
-                            AND invoice_date_due >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                            AND invoice_date_due <= DATE_SUB(NOW(),INTERVAL 16 DAY)
+                            AND invoice_date_due >= DATE_SUB(NOW(), INTERVAL 30 DAY)
                 )
         ) AS range_2', false);
 
@@ -159,7 +157,7 @@ class Mdl_Reports extends CI_Model
                 (
                     SELECT invoice_id FROM ip_invoices
                         WHERE ip_invoices.client_id = ip_clients.client_id
-                            AND invoice_date_due <= DATE_SUB(CURDATE(),INTERVAL 31 DAY)
+                            AND invoice_date_due <= DATE_SUB(NOW(),INTERVAL 31 DAY)
                 )
         ) AS range_3', false);
 
@@ -170,7 +168,7 @@ class Mdl_Reports extends CI_Model
                 (
                     SELECT invoice_id FROM ip_invoices
                         WHERE ip_invoices.client_id = ip_clients.client_id
-                            AND invoice_date_due <= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+                            AND invoice_date_due <= DATE_SUB(NOW(), INTERVAL 1 DAY)
                 )
         ) AS total_balance', false);
 
@@ -563,7 +561,7 @@ class Mdl_Reports extends CI_Model
                                 WHERE inv.client_id=ip_clients.client_id
                                     AND ' . $this->db->escape($from_date) . ' <= inv.invoice_date_created
                                     AND ' . $this->db->escape($to_date) . ' >= inv.invoice_date_created
-                                    AND ' . (int) $this->db->escape($minQuantity) . ' <=
+                                    AND ' . (int) $minQuantity . ' <=
                                     (
                                         SELECT SUM(amounts2.invoice_total) FROM ip_invoice_amounts amounts2
                                             WHERE amounts2.invoice_id IN

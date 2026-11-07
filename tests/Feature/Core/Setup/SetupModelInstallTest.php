@@ -89,6 +89,7 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_seeds_default_settings_without_overwriting_existing_ones(): void
     {
         $model = new Mdl_Setup();
@@ -123,6 +124,7 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_converts_every_table_to_innodb(): void
     {
         $model = new Mdl_Setup();
@@ -137,6 +139,7 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_converts_a_leftover_myisam_table_when_the_hook_runs_again(): void
     {
         $model = new Mdl_Setup();

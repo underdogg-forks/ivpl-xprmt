@@ -36,6 +36,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
 
     #[Test]
     #[DataProvider('neverSettledStatuses')]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_books_no_payment_for_any_status_other_than_completed(string $status): void
     {
         /* Arrange */
@@ -62,6 +63,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_treats_a_lowercase_pending_status_as_pending_not_as_failed_or_settled(): void
     {
         /* Arrange */
@@ -87,6 +89,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_still_books_a_completed_capture_reported_in_mixed_case(): void
     {
         /* Arrange: positive control for the case-folding tests above */
@@ -105,6 +108,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_acknowledges_a_pending_capture_without_an_invoice_reference_but_writes_nothing(): void
     {
         /* Arrange: the capture itself carries no invoice_id (the preflight order lookup still matches) */
@@ -151,6 +155,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_books_exactly_one_payment_when_a_pending_capture_later_completes_after_repeated_pending_callbacks(): void
     {
         /* Arrange */

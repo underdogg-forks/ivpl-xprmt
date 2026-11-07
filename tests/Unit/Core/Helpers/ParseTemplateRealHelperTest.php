@@ -60,6 +60,7 @@ final class ParseTemplateRealHelperTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_returns_null_and_empty_templates_unchanged(): void
     {
         /* Act + Assert */
@@ -68,6 +69,7 @@ final class ParseTemplateRealHelperTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_returns_a_null_template_without_raising_a_deprecation(): void
     {
         /* Act: a null Cc/Bcc/from-name template reaches parse_template() on every invoice email; preg_match_all(null) is deprecated */

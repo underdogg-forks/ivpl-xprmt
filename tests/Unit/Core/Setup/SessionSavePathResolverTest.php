@@ -92,6 +92,7 @@ class SessionSavePathResolverTest extends TestCase
     // -- Wiring guards: the fix must stay connected to the real boot path --
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_routes_the_sess_save_path_config_through_the_resolver(): void
     {
         $source = (string) file_get_contents(

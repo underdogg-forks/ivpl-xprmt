@@ -41,6 +41,7 @@ final class PaypalLibLazyAuthTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_authorizes_lazily_on_the_first_real_api_call(): void
     {
         putenv('PAYPAL_MOCK_RESPONSES=' . json_encode([
@@ -60,6 +61,7 @@ final class PaypalLibLazyAuthTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_authorizes_only_once_across_multiple_api_calls(): void
     {
         // Only one access_token response queued: a second authorize() attempt
@@ -80,6 +82,7 @@ final class PaypalLibLazyAuthTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_fails_cleanly_instead_of_crashing_when_authorization_is_rejected(): void
     {
         // A 401 here makes Guzzle itself throw a ClientException out of authorize().

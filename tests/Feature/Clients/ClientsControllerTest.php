@@ -155,6 +155,7 @@ class ClientsControllerTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_deletes_a_client(): void
     {
         /* Arrange */
@@ -175,6 +176,7 @@ class ClientsControllerTest extends AbstractTestCase
     // -------------------------------------------------------------------------
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_still_deletes_a_client_when_csrf_protection_is_on_and_the_token_is_valid(): void
     {
         /* Arrange */

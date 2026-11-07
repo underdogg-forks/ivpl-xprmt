@@ -19,7 +19,7 @@
                     invoice_time_created: '<?php echo date('H:i:s') ?>',
                     invoice_password: $('#invoice_password').val(),
                     user_id: '<?php echo $this->session->userdata('user_id'); ?>',
-                    payment_method: $('#payment_method_id').val(),
+                    payment_method: $('#payment_method_id').val()
                 },
                 function (data) {
                     var response = json_parse(data, <?php echo (int) IP_DEBUG; ?>);
@@ -29,7 +29,6 @@
                     }
                     else {
                         // The validation was not successful
-                        close_loader();
                         $('.control-group').removeClass('has-error');
                         for (var key in response.validation_errors) {
                             $('#' + key).parent().parent().addClass('has-error');
@@ -38,6 +37,7 @@
                 });
         });
     });
+
 </script>
 
 <div id="create-invoice" class="modal modal-lg"
@@ -68,7 +68,6 @@
                     </select>
                 </div>
             </div>
-
 
             <div class="form-group has-feedback">
                 <label for="invoice_date_created"><?php _trans('invoice_date'); ?></label>

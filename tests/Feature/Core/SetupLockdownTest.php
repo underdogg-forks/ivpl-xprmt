@@ -125,6 +125,7 @@ final class SetupLockdownTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_tells_the_visitor_why_the_setup_is_blocked(): void
     {
         /* Arrange */

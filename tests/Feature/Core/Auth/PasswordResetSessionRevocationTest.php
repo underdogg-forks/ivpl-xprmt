@@ -26,6 +26,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_ends_a_pre_existing_session_after_the_password_is_reset_through_the_real_endpoint(): void
     {
         /* Arrange: an admin holds a live session (e.g. a stolen cookie), then the owner resets the password */
@@ -54,6 +55,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_increments_the_auth_version_once_and_replaces_the_credential_fingerprint_on_reset(): void
     {
         /* Arrange */
@@ -82,6 +84,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_changes_only_the_resetting_users_credentials_and_leaves_every_other_user_alone(): void
     {
         /* Arrange */
@@ -105,6 +108,7 @@ final class PasswordResetSessionRevocationTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_keeps_an_existing_session_alive_when_the_reset_is_rejected_for_a_wrong_token(): void
     {
         /* Arrange */

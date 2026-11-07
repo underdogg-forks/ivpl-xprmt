@@ -84,6 +84,7 @@ class ProductsAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_returns_an_empty_result_when_no_product_ids_are_selected(): void
     {
         /* Arrange */

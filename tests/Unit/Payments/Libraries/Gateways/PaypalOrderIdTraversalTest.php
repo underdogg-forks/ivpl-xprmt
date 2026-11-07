@@ -84,6 +84,7 @@ final class PaypalOrderIdTraversalTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_sends_a_well_formed_order_id_to_exactly_the_capture_path(): void
     {
         /* Act: positive control, so the refusals above are not simply "everything fails" */

@@ -266,6 +266,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_records_a_completed_capture_and_creates_a_payment(): void
     {
         /* Arrange */
@@ -305,6 +306,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_record_a_pending_capture_as_a_settled_payment(): void
     {
         /* Arrange */
@@ -373,6 +375,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_records_the_payment_once_the_same_capture_later_completes(): void
     {
         /* Arrange: first the capture is pending, then PayPal reports it completed */
@@ -554,6 +557,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rejects_a_completed_capture_whose_invoice_id_does_not_match_the_preflight_verified_order(): void
     {
         /* Arrange: preflight verifies the order against $invoiceId, but the COMPLETED
@@ -595,6 +599,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rejects_a_completed_capture_whose_currency_diverges_from_the_preflight_verified_order(): void
     {
         /* Arrange: preflight verifies the order in EUR, but the COMPLETED capture response
@@ -635,6 +640,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_records_a_declined_capture_as_an_unsuccessful_merchant_response(): void
     {
         /* Arrange */
@@ -684,6 +690,7 @@ class PaypalFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_rejects_capture_before_calling_paypal_when_the_invoice_is_not_guest_visible(): void
     {
         /* Arrange: draft invoice — never guest_visible(). The preflight check now does this

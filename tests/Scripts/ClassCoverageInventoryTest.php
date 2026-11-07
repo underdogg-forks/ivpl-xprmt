@@ -30,6 +30,7 @@ final class ClassCoverageInventoryTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_keeps_the_committed_markdown_inventory_in_sync(): void
     {
         /* Arrange */

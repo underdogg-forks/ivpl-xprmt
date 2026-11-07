@@ -366,12 +366,10 @@ abstract class AbstractTestCase extends PhpUnitTestCase
             return;
         }
 
-        if ( ! function_exists('session_credential_fingerprint')) {
-            require_once dirname(__DIR__) . '/application/helpers/ip_security_helper.php';
-        }
-
+        // The application computes this with config_item('encryption_key'), which is env('ENCRYPTION_KEY');
+        // the parent process has no CI config loaded, so use the same source directly.
         $this->sessionData['user_auth_version'] = (int) ($user['user_auth_version'] ?? 0);
-        $this->sessionData['user_credential']   = session_credential_fingerprint((string) $user['user_password']);
+        $this->sessionData['user_credential']   = hash_hmac('sha256', (string) $user['user_password'], (string) env('ENCRYPTION_KEY'));
     }
 
     private function normalizeUri(string $uri): string

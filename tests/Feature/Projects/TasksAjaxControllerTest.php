@@ -45,6 +45,7 @@ class TasksAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_returns_an_empty_result_when_no_task_ids_are_selected(): void
     {
         /* Arrange */
@@ -56,6 +57,7 @@ class TasksAjaxControllerTest extends AbstractTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_requires_an_ajax_request(): void
     {
         /* Arrange */

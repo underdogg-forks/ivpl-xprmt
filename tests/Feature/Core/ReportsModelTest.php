@@ -187,6 +187,7 @@ final class ReportsModelTest extends AbstractTestCase
     // -- aging ---------------------------------------------------------------
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_puts_every_overdue_balance_into_exactly_one_aging_bucket(): void
     {
         /* Arrange: one invoice per day offset, each with a distinct power-of-two balance so a

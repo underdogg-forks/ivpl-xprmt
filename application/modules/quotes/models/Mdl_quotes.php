@@ -319,14 +319,7 @@ class Mdl_Quotes extends Response_Model
 
         // Get the client id for the submitted quote
         $this->load->model('clients/mdl_clients');
-
-        $client_row = $this->mdl_clients->where('ip_clients.client_id', $db_array['client_id'])->get()->row();
-        if ( ! $client_row) {
-            $cid = 0;
-        } else {
-            $cid = $client_row->client_id;
-        }
-
+        $cid                   = $this->mdl_clients->where('ip_clients.client_id', $db_array['client_id'])->get()->row()->client_id;
         $db_array['client_id'] = $cid;
 
         $db_array['quote_date_created'] = date_to_mysql($db_array['quote_date_created']);
