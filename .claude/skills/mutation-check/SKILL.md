@@ -114,6 +114,34 @@ value with the production code); assert a value you worked out by hand.
 After strengthening a test, re-run the same command and confirm the mutant now dies. Also confirm
 the baseline is still green.
 
+## When the change alters what a shared method returns on failure or absence
+
+The operators above break the code you wrote. They do not ask whether the behaviour you chose is
+safe for the code that calls it. A change to what a base class, a helper or a model method returns
+when something fails, is missing or is empty changes every caller at once, and a test that pins the
+new return value only proves the new value is returned. It happened here: `MY_Model::result()` and
+its siblings were changed to return an empty result when the database rejected a query. Callers
+read an empty result as "no such record", so `Mdl_Custom_Values::used()` called a value whose lookup
+had failed "unused" and `delete()` would have removed it. The accessor test passed, every operator
+mutant died, and a reviewer found it.
+
+When a change alters the failure, absence or empty-result behaviour of a shared method:
+
+1. **List the callers** (`git grep` the method and its siblings) and write down, for each, what it
+   does when it receives that value although the true answer is "I could not find out". Authorisation,
+   "is it in use", "does it exist", "is the balance covered" and anything that deletes or pays are the
+   ones that matter.
+2. **Test at the consumer, not the accessor.** The assertion is "a value whose usage could not be
+   checked is not deleted", through a real request, with a healthy-database control that proves the
+   same request does act when it can.
+3. **Add the behavioural mutant by hand.** Make the failure path answer the way you decided against
+   (empty, null, true) and confirm a consumer-level test fails. If only the accessor test fails, the
+   consequence is untested.
+4. **Prefer the answer that fails closed** (stop the request, deny, keep the data) over one that
+   continues with a guess, unless every caller was checked.
+
+The same applies to changed defaults, a widened `try/catch`, a swallowed exception and a new fallback.
+
 ## TDD loop with it
 
 1. Write the failing test (red), implement (green).
