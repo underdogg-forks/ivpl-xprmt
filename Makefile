@@ -50,7 +50,7 @@ PHPUNIT_ARGS = $(if $(FILTER),--filter "$(FILTER)") $(if $(SUITE),--testsuite "$
 	db-prepare docker-db-prepare docker-test docker-test-slow docker-test-filter docker-test-suite \
 	docker-test-custom-templates docker-phpstan docker-lint-php docker-shell \
 	docker-pint \
-	status clean
+	coverage-inventory status clean
 
 help:
 	@printf '%s\n' \
@@ -66,6 +66,7 @@ help:
 		'  make phpstan                         Run PHPStan' \
 		'  make lint-php                        Syntax-check tracked PHP files' \
 		'  make db-prepare                      Prepare local sandbox MariaDB' \
+		'  make coverage-inventory              Write tests/Support/class-coverage-inventory.md (git-ignored)' \
 		'' \
 		'Docker:' \
 		'  make docker-db-prepare               Rebuild invoiceplane_test in MariaDB container' \
@@ -183,6 +184,9 @@ docker-lint-php:
 
 docker-shell:
 	$(DOCKER_EXEC_INTERACTIVE) bash
+
+coverage-inventory:
+	$(PHP) tests/Support/generate-class-coverage-inventory.php
 
 status:
 	git status --short --branch
