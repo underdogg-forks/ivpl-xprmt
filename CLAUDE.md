@@ -78,13 +78,11 @@ vendor/bin/phpstan analyse              # static analysis (level 0, baseline in 
 php .claude/skills/config-parity-guard/audit.php   # every mutating endpoint is tested with CSRF on
 ```
 
-After adding, removing or renaming test files, regenerate the class inventory, otherwise
-`ClassCoverageInventoryTest` fails:
+The class coverage inventory (`tests/Support/class-coverage-inventory.md`) is a generated, git-ignored
+name-based ledger. It is not committed and no test compares it; write it when you want to read it:
 
 ```bash
-php -r 'require "tests/Support/ClassCoverageInventory.php"; $r = getcwd();
-  file_put_contents("$r/tests/Support/class-coverage-inventory.md",
-  ClassCoverageInventory::toMarkdown(ClassCoverageInventory::build($r)));'
+make coverage-inventory
 ```
 
 ### Test conventions
@@ -219,12 +217,10 @@ after a merge (#1706) first went green on the second attempt, having started red
   entry for a directory with no files left breaks `composer install` autoload generation).
 - **625 skipped, not failed.** See "Do not export `DB_*`" above — a masked DB run looks like a
   clean pass unless you check the skip count.
-- Regenerate `tests/Support/class-coverage-inventory.md` (see the command above) after any of
-  this — removing `UserAuthorizationService`'s test changes the file-to-test mapping.
 
 ### Line coverage (PCOV)
 
-`tests/Support/class-coverage-inventory.md` is only a name search. For executed-line coverage,
+The generated `tests/Support/class-coverage-inventory.md` is only a name search. For executed-line coverage,
 including code that feature tests run in the request subprocess:
 
 ```bash
@@ -290,14 +286,12 @@ When creating paired PRs (tests for prep/v180, implementation for upstream):
 
 2. **Study existing patterns before writing code**:
    - Read similar test files to understand conventions (`#[Test]` per method, not just class)
-   - Know that adding tests requires regenerating `tests/Support/class-coverage-inventory.md`
    - Verify all code patterns match the codebase style
 
 3. **Batch the work (single-go approach)**:
    - Checkout both branches locally
    - Add implementation code to both branches
    - Add comprehensive tests to prep/v180 branch only
-   - On prep/v180: regenerate class coverage inventory
    - `php -l` syntax check on all changed PHP files
    - Commit both branches with complete, verified code
    - Create both PRs in parallel
@@ -305,7 +299,6 @@ When creating paired PRs (tests for prep/v180, implementation for upstream):
 4. **Verify before pushing**:
    - `php -l application/**/*.php tests/**/*.php` — catch syntax errors
    - Review test file structure against existing tests in repo
-   - Ensure generated files (`class-coverage-inventory.md`) are updated
    - Don't push until tests have proper `#[Test]` attributes per method
 
 **Avoids iterative failures**: Complete, tested code on first PR creation means no CI red → fix → push cycles.
