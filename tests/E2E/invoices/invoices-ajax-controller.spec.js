@@ -8,6 +8,8 @@
 import { test, expect } from '../test.js';
 import { createClient, createInvoice, uniq } from '../support/fixtures.js';
 import { dbInsert, dbQuery } from '../support/db.js';
+import { countInvoiceRows, seedInvoiceRow } from '../support/invoices.js';
+import { seedClientRow } from '../support/quotes.js';
 
 const XHR = { 'X-Requested-With': 'XMLHttpRequest' };
 
@@ -418,5 +420,24 @@ test.describe('Invoices AJAX — modals', () => {
     /* Assert */
     expect(body).toContain('name="parent_id"');
     expect(body).toContain(`value="${invoice.id}"`);
+  });
+});
+
+test.describe('Invoices AJAX — delete_item ownership', () => {
+  test("it refuses to delete an item through another invoice's url", async ({ page }) => {
+    /* Arrange: the item belongs to invoice B, the request is addressed to invoice A */
+    const clientId = seedClientRow();
+    const invoiceA = seedInvoiceRow(clientId);
+    const invoiceB = seedInvoiceRow(clientId);
+    const itemOfB = dbInsert('ip_invoice_items', {
+      invoice_id: invoiceB, item_tax_rate_id: 0, item_date_added: '2026-10-04', item_name: 'Belongs to B', item_description: '', item_quantity: '1.00', item_price: '10.00', item_order: 0,
+    });
+
+    /* Act */
+    const response = await page.request.post(`/invoices/ajax/delete_item/${invoiceA}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, form: { item_id: String(itemOfB) } });
+
+    /* Assert */
+    expect((await response.json()).success).toBe(0);
+    expect(countInvoiceRows('ip_invoice_items', `item_id = ${itemOfB} AND invoice_id = ${invoiceB}`)).toBe(1);
   });
 });
