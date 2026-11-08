@@ -156,6 +156,17 @@ class Mdl_Invoice_Amounts extends CI_Model
     }
 
     /**
+     * Takes the row lock of the invoice. Every writer of an invoice's items and discount takes this one first, so two of
+     * them cannot each hold item rows the other waits for. Call it inside a transaction, before touching the items.
+     *
+     * @param $invoice_id
+     */
+    public function lock_invoice($invoice_id): void
+    {
+        $this->db->query('SELECT invoice_id FROM ip_invoices WHERE invoice_id = ? FOR UPDATE', [(int) $invoice_id]);
+    }
+
+    /**
      * @param $invoice_id
      * @param $invoice_total
      *

@@ -86,6 +86,7 @@ class Ajax extends Admin_Controller
             $this->load->model('invoices/mdl_invoice_amounts');
             $this->mdl_invoice_amounts->negative_total_refused = false;
             $this->db->trans_begin();
+            $this->mdl_invoice_amounts->lock_invoice($invoice_id);
 
             foreach ($items as $item) {
                 // Check if an item has either a quantity + price or name or description
