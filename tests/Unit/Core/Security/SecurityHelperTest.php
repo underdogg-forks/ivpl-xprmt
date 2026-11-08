@@ -42,6 +42,66 @@ class SecurityHelperTest extends TestCase
     }
 
     #[Test]
+    public function it_allows_a_referer_from_the_same_base_url(): void
+    {
+        /* Arrange: the login page of this installation, with a default that must NOT be used */
+        unset($_SERVER['HTTP_REFERER']);
+        $referer = 'https://invoiceplane.example/sessions/login';
+
+        /* Act */
+        $result = get_safe_referer($referer, 'sessions/passwordreset');
+
+        /* Assert */
+        self::assertSame($referer, $result, 'A referer from the same host, scheme and port is returned as it is.');
+    }
+
+    #[Test]
+    public function it_rejects_a_referer_from_an_external_domain(): void
+    {
+        /* Arrange: a plain foreign host, a host that only starts with ours, and a userinfo trick that reads like ours */
+        unset($_SERVER['HTTP_REFERER']);
+        $lookalikes = [
+            'https://evil.example/steal',
+            'https://invoiceplane.example.evil.example/steal',
+            'https://invoiceplane.example@evil.example/steal',
+        ];
+
+        foreach ($lookalikes as $referer) {
+            /* Act */
+            $result = get_safe_referer($referer, 'sessions/passwordreset');
+
+            /* Assert */
+            self::assertSame('sessions/passwordreset', $result, "{$referer} must be replaced by the safe default.");
+        }
+    }
+
+    #[Test]
+    public function it_returns_the_safe_default_when_referer_is_empty(): void
+    {
+        /* Arrange: neither an argument nor a Referer header */
+        unset($_SERVER['HTTP_REFERER']);
+
+        /* Act */
+        $result = get_safe_referer('', 'sessions/passwordreset');
+
+        /* Assert */
+        self::assertSame('sessions/passwordreset', $result);
+    }
+
+    #[Test]
+    public function it_rejects_a_referer_that_starts_with_a_double_slash(): void
+    {
+        /* Arrange: a protocol-relative URL names another host without a scheme */
+        unset($_SERVER['HTTP_REFERER']);
+
+        /* Act */
+        $result = get_safe_referer('//evil.example/steal', 'sessions/passwordreset');
+
+        /* Assert */
+        self::assertSame('sessions/passwordreset', $result);
+    }
+
+    #[Test]
     public function it_rejects_a_missing_get_csrf_token(): void
     {
         /* Arrange */

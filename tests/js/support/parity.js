@@ -74,14 +74,6 @@ function analyse() {
 
 const readManifest = () => JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
 
-// A hollow PHPUnit test (tests/Support/hollow-tests.json) proves nothing, so it gets no e2e mirror.
-function exemptMethodsOf(manifest) {
-    const hollow = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/Support/hollow-tests.json"), "utf8"));
-    const fromHollow = Object.fromEntries(Object.entries(hollow)
-        .filter(([key]) => key.startsWith("tests/Feature/"))
-        .map(([key, reason]) => [key.slice("tests/Feature/".length), `hollow, no e2e mirror: ${reason}`]));
-
-    return { ...fromHollow, ...(manifest.exemptMethods ?? {}) };
-}
+const exemptMethodsOf = (manifest) => ({ ...(manifest.exemptMethods ?? {}) });
 
 module.exports = { analyse, readManifest, exemptMethodsOf, MANIFEST, ROOT, FEATURE };

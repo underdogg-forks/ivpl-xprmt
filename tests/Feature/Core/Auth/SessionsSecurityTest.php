@@ -2,530 +2,367 @@
 
 namespace Tests\Feature\Core\Auth;
 
-use DateTime;
+use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
 /**
- * Unit tests for Sessions controller security helpers.
+ * The password-reset guards of the Sessions controller, driven through real requests.
  *
- * Extracted and tested in isolation — no CI3 bootstrap required.
+ * These used to assert against StubSessionsSecurity, a copy of the logic declared inside the test file, so no
+ * production code ran and a broken controller could not fail them. Every test below sends a request and reads
+ * what the controller did: the redirect, the stored token and expiry, and the rows in ip_login_log.
  *
- * Covered:
- *  - _get_safe_referer() open-redirect guard
- *  - token format validation (alphanumeric-only guard)
- *  - password reset token expiry arithmetic
- *  - bot user-agent detection
- *  - IP-based rate-limit window filtering
- *  - MAX_PASSWORD_RESET_EXPIRY_MINUTES enforcement
+ * Covered: the token format guard, the stored expiry, the PASSWORD_RESET_TOKEN_EXPIRY_MINUTES cap, the bot
+ * user-agent block and the per-IP rate limit (5 requests in 60 minutes). The referer guard is a helper and is
+ * tested in tests/Unit/Core/Security/SecurityHelperTest.php.
  */
-#[Group('unit')]
 #[Group('security')]
 #[Group('sessions')]
 class SessionsSecurityTest extends AbstractTestCase
 {
-    private StubSessionsSecurity $security;
+    private const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->security = new StubSessionsSecurity(baseUrl: 'https://invoiceplane.example.com/');
+        $this->actingAsGuest();
     }
 
-    /**
-     * @return array<string, array{0: string, 1: bool}>
-     */
-    public static function expiryFormatProvider(): array
-    {
-        return [
-            // description => [stored expiry string, accepted?]
-            'canonical timestamp'                  => ['2020-01-01 12:00:00', true],
-            'canonical boundary timestamp'         => ['2099-12-31 23:59:59', true],
-            'garbage time-only string'             => ['25:99:99', false],
-            'out-of-range month and day'           => ['2020-13-40 00:00:00', false],
-            'non-date string'                      => ['not-a-date', false],
-            'non-canonical single-digit fields'    => ['2026-8-10 9:05:07', false],
-            'non-canonical double space'           => ['2099-01-01  12:00:00', false],
-            'zero date (right shape, unreal date)' => ['0000-00-00 00:00:00', false],
-        ];
-    }
-
-    #[Group('hollow')]
-    #[Test]
-    public function it_allows_a_referer_from_the_same_base_url(): void
-    {
-        /* Arrange */
-
-        /* Act */
-        $result = $this->security->getSafeReferer('https://invoiceplane.example.com/sessions/login');
-
-        /* Assert */
-        self::assertSame(
-            'https://invoiceplane.example.com/sessions/login',
-            $result,
-            'A referer from the same domain must be returned as-is.'
-        );
-    }
-
-    #[Group('hollow')]
-    #[Test]
-    public function it_rejects_a_referer_from_an_external_domain(): void
-    {
-        /* Arrange */
-
-        /* Act */
-        $result = $this->security->getSafeReferer('https://evil.example.com/steal');
-
-        /* Assert */
-        self::assertSame(
-            'sessions/passwordreset',
-            $result,
-            'An external referer must be replaced by the safe default.'
-        );
-    }
-
-    #[Group('hollow')]
-    #[Test]
-    public function it_returns_the_safe_default_when_referer_is_empty(): void
-    {
-        /* Arrange */
-
-        /* Act */
-        $result = $this->security->getSafeReferer('');
-
-        /* Assert */
-        self::assertSame(
-            'sessions/passwordreset',
-            $result,
-            'An empty referer must return the safe default URL.'
-        );
-    }
-
-    #[Group('hollow')]
-    #[Test]
-    public function it_rejects_a_referer_that_starts_with_a_double_slash(): void
-    {
-        /* Arrange */
-
-        /* Act */
-        $result = $this->security->getSafeReferer('//evil.example.com/steal');
-
-        /* Assert */
-        self::assertSame(
-            'sessions/passwordreset',
-            $result,
-            'A protocol-relative referer to an external domain must be rejected.'
-        );
-    }
-
-    #[Group('hollow')]
     #[Test]
     public function it_accepts_an_alphanumeric_password_reset_token(): void
     {
-        /* Arrange */
+        /* Arrange: a well-formed token that belongs to nobody */
+        $token = 'abc123XYZ';
 
         /* Act */
+        $response = $this->get('/sessions/passwordreset/' . $token);
 
-        /* Assert */
-        self::assertTrue(
-            $this->security->isValidTokenFormat('abc123XYZ'),
-            'A purely alphanumeric token must pass format validation.'
-        );
+        /* Assert: it passed the format guard (the attempt was counted) and was then refused as unknown, not as malformed */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/passwordreset');
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->tokenKey($token), 'log_count' => 1]);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_accepts_a_hex_token_of_typical_length(): void
     {
-        /* Arrange */
+        /* Arrange: a real 32-character hex token whose digest is stored with a future expiry */
+        $token  = bin2hex(random_bytes(16));
+        $userId = $this->seedUserWithResetToken($token, gmdate('Y-m-d H:i:s', time() + 900));
 
         /* Act */
-        $token = bin2hex(random_bytes(16));
+        $response = $this->get('/sessions/passwordreset/' . $token);
 
-        /* Assert */
-        self::assertTrue(
-            $this->security->isValidTokenFormat($token),
-            'A 32-character hex token (typical reset token) must pass format validation.'
-        );
+        /* Assert: the reset form is shown instead of a redirect, and the token is still usable */
+        self::assertSame(200, $response->statusCode());
+        self::assertSame(hash('sha256', $token), $this->tokenOf($userId));
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_rejects_a_token_containing_a_path_traversal_sequence(): void
     {
-        /* Arrange */
+        /* Arrange: dots are allowed in a URL segment, so ".." reaches the controller */
+        $token = 'abc..def';
 
         /* Act */
+        $response = $this->get('/sessions/passwordreset/' . $token);
 
-        /* Assert */
-        self::assertFalse(
-            $this->security->isValidTokenFormat('../etc/passwd'),
-            'A token containing [../] must fail format validation.'
-        );
+        /* Assert: sent to the home page, and the attempt never reached the token counter */
+        $this->assertRedirectsToHome($response);
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->tokenKey($token)]);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_rejects_a_token_containing_a_slash(): void
     {
-        /* Arrange */
+        /* Arrange: an encoded slash decodes to a character outside the allowed set */
+        $token = 'valid%2Finvalid';
 
         /* Act */
+        $response = $this->get('/sessions/passwordreset/' . $token);
 
         /* Assert */
-        self::assertFalse(
-            $this->security->isValidTokenFormat('valid/invalid'),
-            'A token containing a forward slash must fail format validation.'
-        );
+        $this->assertRedirectsToHome($response);
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->tokenKey(rawurldecode($token))]);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_rejects_a_token_containing_special_characters(): void
     {
-        /* Arrange */
+        /* Arrange: characters the URI filter lets through but the token format does not */
+        foreach (['tok~en', 'tok:en', 'tok.en'] as $token) {
+            /* Act */
+            $response = $this->get('/sessions/passwordreset/' . $token);
 
-        /* Act */
-
-        /* Assert */
-        self::assertFalse(
-            $this->security->isValidTokenFormat('token<script>'),
-            'A token containing special characters must fail format validation.'
-        );
+            /* Assert */
+            $this->assertRedirectsToHome($response);
+            $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->tokenKey($token)]);
+        }
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_considers_an_expired_token_as_expired(): void
     {
-        /* Arrange */
+        /* Arrange: a valid token whose expiry passed a minute ago */
+        $token  = bin2hex(random_bytes(16));
+        $userId = $this->seedUserWithResetToken($token, gmdate('Y-m-d H:i:s', time() - 60));
 
         /* Act */
-        $expiry = new DateTime('-1 minute', new DateTimeZone('UTC'));
+        $response = $this->get('/sessions/passwordreset/' . $token);
 
-        /* Assert */
-        self::assertTrue(
-            $this->security->isTokenExpired($expiry->format('Y-m-d H:i:s')),
-            'A token with an expiry timestamp in the past must be considered expired.'
-        );
+        /* Assert: refused with the generic message, and the token is burnt */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/passwordreset');
+        self::assertSame('This password reset link has expired. Please request a new password reset.', $response->sessionValue('alert_error'));
+        self::assertSame('', $this->tokenOf($userId));
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_considers_a_future_token_as_not_expired(): void
     {
-        /* Arrange */
+        /* Arrange: the same valid token, expiring in fifteen minutes */
+        $token  = bin2hex(random_bytes(16));
+        $userId = $this->seedUserWithResetToken($token, gmdate('Y-m-d H:i:s', time() + 900));
 
         /* Act */
-        $expiry = new DateTime('+15 minutes', new DateTimeZone('UTC'));
+        $response = $this->get('/sessions/passwordreset/' . $token);
 
-        /* Assert */
-        self::assertFalse(
-            $this->security->isTokenExpired($expiry->format('Y-m-d H:i:s')),
-            'A token with an expiry timestamp in the future must NOT be considered expired.'
-        );
+        /* Assert: the form is shown and the token is still usable */
+        self::assertSame(200, $response->statusCode());
+        self::assertSame(hash('sha256', $token), $this->tokenOf($userId));
     }
 
-    #[Group('hollow')]
+    #[Test]
+    public function it_accepts_only_canonical_password_reset_expiry_strings(): void
+    {
+        /* Arrange: every expiry a DATETIME column can hold that is not a usable future timestamp */
+        $cases = [
+            'canonical future timestamp'           => [gmdate('Y-m-d H:i:s', time() + 900), true],
+            'canonical timestamp in the past'      => ['2020-01-01 12:00:00', false],
+            'zero date (right shape, unreal date)' => ['0000-00-00 00:00:00', false],
+            'no stored expiry at all'              => [null, false],
+        ];
+
+        foreach ($cases as $label => [$expiry, $accepted]) {
+            $token  = bin2hex(random_bytes(16));
+            $userId = $this->seedUserWithResetToken($token, $expiry);
+
+            /* Act */
+            $response = $this->get('/sessions/passwordreset/' . $token);
+
+            /* Assert */
+            if ($accepted) {
+                self::assertSame(200, $response->statusCode(), $label);
+                self::assertSame(hash('sha256', $token), $this->tokenOf($userId), $label);
+            } else {
+                $this->assertResponseRedirectsToRoute($response, 'sessions/passwordreset');
+                self::assertSame('', $this->tokenOf($userId), "{$label}: the token must be burnt");
+            }
+        }
+    }
+
     #[Test]
     public function it_enforces_the_max_expiry_minutes_cap_of_1440(): void
     {
-        /* Arrange */
+        /* Arrange: one minute past the 24 hour cap, and the cap itself */
+        $beyond  = $this->requestResetWithExpiryMinutes('1441');
+        $atLimit = $this->requestResetWithExpiryMinutes('1440');
 
-        /* Act */
-        $requested = $this->security->clampExpiryMinutes(9999);
-
-        /* Assert */
-        self::assertSame(
-            15,
-            $requested,
-            'An out-of-range PASSWORD_RESET_TOKEN_EXPIRY_MINUTES must fall back to the 15-minute default.'
-        );
+        /* Assert: 1441 is refused and falls back to the 15 minute default, 1440 is honoured */
+        self::assertEqualsWithDelta(15 * 60, $beyond, 120);
+        self::assertEqualsWithDelta(1440 * 60, $atLimit, 120);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_allows_a_valid_expiry_minutes_value_within_range(): void
     {
-        /* Arrange */
-
-        /* Act */
-        $result = $this->security->clampExpiryMinutes(30);
+        /* Arrange + Act */
+        $seconds = $this->requestResetWithExpiryMinutes('45');
 
         /* Assert */
-        self::assertSame(
-            30,
-            $result,
-            'A value of 30 minutes is within 1-1440 and must be returned unchanged.'
-        );
+        self::assertEqualsWithDelta(45 * 60, $seconds, 120);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_rejects_a_zero_expiry_minutes_and_falls_back_to_default(): void
     {
-        /* Arrange */
-
-        /* Act */
-        $result = $this->security->clampExpiryMinutes(0);
+        /* Arrange + Act: 0 would make every link dead on arrival */
+        $seconds = $this->requestResetWithExpiryMinutes('0');
 
         /* Assert */
-        self::assertSame(
-            15,
-            $result,
-            'An expiry_minutes value of 0 is invalid and must fall back to the 15-minute default.'
-        );
+        self::assertEqualsWithDelta(15 * 60, $seconds, 120);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_detects_curl_as_a_bot_user_agent(): void
     {
         /* Arrange */
+        $userId = $this->seedActiveUser('bot-curl@test.local');
+        $this->withServer(['HTTP_USER_AGENT' => 'curl/7.85.0']);
 
         /* Act */
+        $response = $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'bot-curl@test.local']);
 
-        /* Assert */
-        self::assertTrue(
-            $this->security->isBotUserAgent('curl/7.85.0'),
-            'curl must be identified as a bot/automated tool.'
-        );
+        /* Assert: bounced to the login page, no token issued, and the rate limiter was not even touched */
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $this->tokenOf($userId));
+        $this->assertDatabaseMissing('ip_login_log', ['login_name' => $this->ipKey()]);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_detects_python_requests_as_a_bot_user_agent(): void
     {
         /* Arrange */
+        $userId = $this->seedActiveUser('bot-python@test.local');
+        $this->withServer(['HTTP_USER_AGENT' => 'python-requests/2.28.0']);
 
         /* Act */
+        $response = $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'bot-python@test.local']);
 
         /* Assert */
-        self::assertTrue(
-            $this->security->isBotUserAgent('python-requests/2.28.0'),
-            'python-requests must be identified as a bot.'
-        );
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $this->tokenOf($userId));
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_detects_an_empty_user_agent_as_a_bot(): void
     {
-        /* Arrange */
+        /* Arrange: a request that sends no User-Agent header at all */
+        $userId = $this->seedActiveUser('bot-empty@test.local');
+        $this->withServer(['HTTP_USER_AGENT' => '']);
 
         /* Act */
+        $response = $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'bot-empty@test.local']);
 
         /* Assert */
-        self::assertTrue(
-            $this->security->isBotUserAgent(''),
-            'An empty user-agent must be treated as a bot/automated request.'
-        );
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $this->tokenOf($userId));
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_does_not_flag_a_normal_browser_user_agent_as_a_bot(): void
     {
-        /* Arrange */
+        /* Arrange: positive control, the identical request from a browser */
+        $userId = $this->seedActiveUser('browser@test.local');
+        $this->withServer(['HTTP_USER_AGENT' => self::BROWSER_USER_AGENT]);
 
         /* Act */
-        $browser = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'browser@test.local']);
 
-        /* Assert */
-        self::assertFalse(
-            $this->security->isBotUserAgent($browser),
-            'A standard browser user-agent must NOT be flagged as a bot.'
-        );
+        /* Assert: the same request that a bot loses gets a token */
+        self::assertNotSame('', $this->tokenOf($userId), 'A browser must be allowed to request a reset.');
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_removes_attempts_outside_the_rate_limit_time_window(): void
     {
-        /* Arrange */
-        $now        = time();
-        $windowSecs = 3600;
-
-        $attempts = [
-            $now - 7200,
-            $now - 5000,
-            $now - 1800,
-            $now - 100,
-            $now - 30,
-        ];
+        /* Arrange: the IP hit the limit two hours ago, far outside the 60 minute window */
+        $userId = $this->seedActiveUser('old-attempts@test.local');
+        $this->seedLog($this->ipKey(), 5, '-2 hours');
 
         /* Act */
-        $filtered = $this->security->filterAttemptsWithinWindow($attempts, $windowSecs);
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'old-attempts@test.local']);
 
-        /* Assert */
-        self::assertCount(
-            3,
-            $filtered,
-            'Only attempts within the last 3600 seconds must be retained.'
-        );
+        /* Assert: the stale counter is not held against the request, and the count starts again at 1 */
+        self::assertNotSame('', $this->tokenOf($userId));
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->ipKey(), 'log_count' => 1]);
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_considers_the_ip_rate_limited_when_attempt_count_meets_the_threshold(): void
     {
-        /* Arrange */
-        $now      = time();
-        $attempts = array_fill(0, 5, $now - 10);
+        /* Arrange: exactly 5 attempts counted for this IP just now */
+        $userId = $this->seedActiveUser('limited@test.local');
+        $this->seedLog($this->ipKey(), 5, 'now');
 
         /* Act */
-        $isLimited = $this->security->isRateLimited(attempts: $attempts, maxAttempts: 5, windowSeconds: 3600);
+        $response = $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'limited@test.local']);
 
         /* Assert */
-        self::assertTrue(
-            $isLimited,
-            'Exactly 5 attempts against a max of 5 must trigger the rate limit.'
-        );
+        $this->assertResponseRedirectsToRoute($response, 'sessions/login');
+        self::assertSame('', $this->tokenOf($userId));
     }
 
-    #[Group('hollow')]
     #[Test]
     public function it_does_not_rate_limit_when_attempt_count_is_below_the_threshold(): void
     {
-        /* Arrange */
-        $now      = time();
-        $attempts = array_fill(0, 4, $now - 10);
+        /* Arrange: 4 attempts, one below the limit */
+        $userId = $this->seedActiveUser('not-limited@test.local');
+        $this->seedLog($this->ipKey(), 4, 'now');
 
         /* Act */
-        $isLimited = $this->security->isRateLimited(attempts: $attempts, maxAttempts: 5, windowSeconds: 3600);
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => 'not-limited@test.local']);
 
         /* Assert */
-        self::assertFalse(
-            $isLimited,
-            '4 attempts against a max of 5 must NOT trigger the rate limit.'
-        );
+        self::assertNotSame('', $this->tokenOf($userId));
+        $this->assertDatabaseHas('ip_login_log', ['login_name' => $this->ipKey(), 'log_count' => 5]);
     }
 
-    #[Group('hollow')]
-    #[Test]
-    public function it_accepts_only_canonical_password_reset_expiry_strings(): void
+    private function requestResetWithExpiryMinutes(string $minutes): int
     {
-        /* Arrange */
-        foreach (self::expiryFormatProvider() as [$expiry, $accepted]) {
-            /* Act */
-            $result = $this->security->isCanonicalExpiry($expiry);
+        $this->withEnvironment(['PASSWORD_RESET_TOKEN_EXPIRY_MINUTES' => $minutes]);
+        $email  = 'expiry-' . $minutes . '-' . bin2hex(random_bytes(3)) . '@test.local';
+        $userId = $this->seedActiveUser($email);
 
-            /* Assert */
-            self::assertSame(
-                $accepted,
-                $result,
-                sprintf('Expiry string "%s" must be %s.', $expiry, $accepted ? 'accepted' : 'rejected')
-            );
-        }
-    }
-}
+        $this->post('/sessions/passwordreset', ['btn_reset' => '1', 'email' => $email]);
 
-class StubSessionsSecurity
-{
-    private const MAX_EXPIRY_MINUTES = 1440;
+        $expiry = (string) ($this->databaseFetchOne('ip_users', ['user_id' => $userId])['user_passwordreset_token_expiry'] ?? '');
+        self::assertNotSame('', $expiry, 'A reset request must store a token expiry.');
 
-    private const BOT_SIGNATURES = [
-        'curl', 'wget', 'python-requests', 'go-http-client',
-        'java/', 'apache-httpclient', 'okhttp', 'httpclient',
-        'bot', 'spider', 'crawler', 'scraper',
-        'postman', 'insomnia', 'paw/',
-    ];
-
-    public function __construct(private readonly string $baseUrl) {}
-
-    public function getSafeReferer(string $referer): string
-    {
-        if (empty($referer)) {
-            return 'sessions/passwordreset';
-        }
-
-        if (str_starts_with($referer, $this->baseUrl)) {
-            return $referer;
-        }
-
-        return 'sessions/passwordreset';
+        return (new DateTimeImmutable($expiry, new DateTimeZone('UTC')))->getTimestamp() - time();
     }
 
-    public function isValidTokenFormat(string $token): bool
+    private function assertRedirectsToHome(\Tests\Integration\Support\HttpResponse $response): void
     {
-        return (bool) preg_match('/^[a-zA-Z0-9\-_]+$/', $token);
+        self::assertTrue($response->isRedirect(), 'Expected a redirect, got status ' . $response->statusCode() . '.');
+        self::assertContains(trim((string) parse_url($response->redirectUrl(), PHP_URL_PATH), '/'), ['', 'index.php'], 'A malformed token must send the visitor to the home page.');
     }
 
-    public function isTokenExpired(string $expiryTimestamp): bool
+    private function tokenKey(string $token): string
     {
-        $utc    = new DateTimeZone('UTC');
-        $expiry = new DateTime($expiryTimestamp, $utc);
-        $now    = new DateTime('now', $utc);
-
-        return $now > $expiry;
+        return 'password_reset_token:' . hash('sha256', $token);
     }
 
-    /**
-     * Strict expiry parsing, mirroring Sessions::_reject_expired_password_reset_token().
-     *
-     * A stored expiry is accepted only when it matches the exact, anchored canonical
-     * Y-m-d H:i:s shape and createFromFormat() parses it with no warnings/errors. This
-     * rejects out-of-range values (25:99:99), rolled-over dates (2020-13-40 00:00:00), and
-     * non-canonical spacing/single-digit fields (2026-8-10 9:05:07) that createFromFormat()
-     * would otherwise normalize silently.
-     */
-    public function isCanonicalExpiry(string $raw): bool
+    private function ipKey(): string
     {
-        if ( ! preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $raw)) {
-            return false;
-        }
-
-        $utc          = new DateTimeZone('UTC');
-        $parsed       = DateTime::createFromFormat('!Y-m-d H:i:s', $raw, $utc);
-        $parse_errors = DateTime::getLastErrors();
-
-        if ($parsed === false) {
-            return false;
-        }
-
-        return ! ($parse_errors !== false
-            && ($parse_errors['warning_count'] > 0 || $parse_errors['error_count'] > 0));
+        return 'password_reset_ip:' . hash('sha256', '127.0.0.1');
     }
 
-    public function clampExpiryMinutes(int $minutes): int
+    private function tokenOf(int $userId): string
     {
-        if ($minutes < 1 || $minutes > self::MAX_EXPIRY_MINUTES) {
-            return 15;
-        }
-
-        return $minutes;
+        return (string) ($this->databaseFetchOne('ip_users', ['user_id' => $userId])['user_passwordreset_token'] ?? '');
     }
 
-    public function isBotUserAgent(string $userAgent): bool
+    private function seedLog(string $key, int $count, string $when): void
     {
-        if (empty($userAgent)) {
-            return true;
-        }
-
-        $lower = mb_strtolower($userAgent);
-
-        foreach (self::BOT_SIGNATURES as $sig) {
-            if (str_contains($lower, $sig)) {
-                return true;
-            }
-        }
-
-        return false;
+        $this->databaseInsert('ip_login_log', [
+            'login_name' => $key, 'log_count' => $count, 'log_create_timestamp' => date('Y-m-d H:i:s', strtotime($when)),
+        ]);
     }
 
-    public function filterAttemptsWithinWindow(array $timestamps, int $windowSeconds): array
+    private function seedActiveUser(string $email): int
     {
-        $cutoff = time() - $windowSeconds;
-
-        return array_values(array_filter($timestamps, fn (int $ts): bool => $ts > $cutoff));
+        return $this->databaseInsert('ip_users', [
+            'user_name'         => 'Reset Tester', 'user_password' => password_hash('irrelevant-pw', PASSWORD_BCRYPT),
+            'user_psalt'        => bin2hex(random_bytes(10)), 'user_email' => $email, 'user_type' => 1, 'user_active' => 1,
+            'user_date_created' => date('Y-m-d H:i:s'), 'user_date_modified' => date('Y-m-d H:i:s'),
+        ]);
     }
 
-    public function isRateLimited(array $attempts, int $maxAttempts, int $windowSeconds): bool
+    private function seedUserWithResetToken(string $token, ?string $expiry): int
     {
-        $active = $this->filterAttemptsWithinWindow($attempts, $windowSeconds);
-
-        return count($active) >= $maxAttempts;
+        return $this->databaseInsert('ip_users', [
+            'user_name'                       => 'reset_' . bin2hex(random_bytes(3)),
+            'user_email'                      => 'reset+' . bin2hex(random_bytes(3)) . '@example.com',
+            'user_password'                   => password_hash('OriginalPass123!', PASSWORD_BCRYPT),
+            'user_psalt'                      => bin2hex(random_bytes(10)),
+            'user_type'                       => 1,
+            'user_active'                     => 1,
+            'user_passwordreset_token'        => hash('sha256', $token),
+            'user_passwordreset_token_expiry' => $expiry,
+            'user_date_created'               => date('Y-m-d H:i:s'),
+            'user_date_modified'              => date('Y-m-d H:i:s'),
+        ]);
     }
 }
