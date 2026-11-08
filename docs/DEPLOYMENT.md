@@ -82,7 +82,32 @@ Do not replace them with `<requestFiltering><hiddenSegments>`: that matches a se
 also block `/index.php/import`.
 
 `web.config` applies when the IIS site root is the project root. With the site root set to `public/`
-(recommended, see below) the private folders are not under the site at all.
+(recommended, see below) the private folders are not under the site at all, and the project-root `web.config` is not
+read, so it does not provide the routing for clean URLs either. Add a `web.config` to `public/` that sends requests
+for files and folders that do not exist to the front controller and keeps the requested path (`{R:1}`), set
+`REMOVE_INDEXPHP=true` in `ipconfig.php`, and make `index.php` the default document of the site:
+
+```xml
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <rule name="Route clean URLs to the front controller" stopProcessing="true">
+          <match url="^(.*)$" />
+          <conditions logicalGrouping="MatchAll">
+            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+          </conditions>
+          <action type="Rewrite" url="index.php/{R:1}" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+With it `/sessions/login` reaches `index.php/sessions/login`; without it IIS answers `404` for every route except
+`/index.php/...`.
 
 Clean URLs (`REMOVE_INDEXPHP=true` in `ipconfig.php`): `web.config` contains a routing rule that sends requests for
 files and folders that do not exist to the front controller. It ships switched off, because `REMOVE_INDEXPHP=false` is
@@ -95,19 +120,23 @@ first (any content) and remove it afterwards:
 
 ```bash
 echo canary > uploads/archive/iis-check.txt
+echo canary > vendor/iis-check.txt
 
-# every one of these must answer 404; --path-as-is stops curl from tidying the path before it is sent
+# every one of these must answer 404 (the control further down must answer 200); --path-as-is stops curl from tidying the path before it is sent
 curl -s -o /dev/null -w "%{http_code}\n" --path-as-is https://your-domain.com/uploads/archive/iis-check.txt
 curl -s -o /dev/null -w "%{http_code}\n" --path-as-is https://your-domain.com/uploads/archive./iis-check.txt
 curl -s -o /dev/null -w "%{http_code}\n" --path-as-is "https://your-domain.com/uploads//archive/iis-check.txt"
 curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/composer.json
-curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/vendor/autoload.php
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/vendor/iis-check.txt
 curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/ipconfig.php
+
+# control: a .txt file outside the private folders must answer 200, so a 404 above is the rule and not a missing file type
+curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/public/robots.txt
 
 # and the site itself must still answer 200
 curl -s -o /dev/null -w "%{http_code}\n" https://your-domain.com/index.php/sessions/login
 
-rm uploads/archive/iis-check.txt
+rm uploads/archive/iis-check.txt vendor/iis-check.txt
 ```
 
 If the second command answers `200`, the rule does not cover the Windows spelling of the folder and the archive is
