@@ -30,7 +30,10 @@
     "Core/Integrations/QontoInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/SuperPdpInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/QontoEInvoiceGenerationTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server."
+    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server.",
+    "Core/NameQueryMatchingTest.php": "Switches the database server's global sql_mode (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with sql_mode ''.",
+    "Clients/ClientsAjaxOnlyFullGroupByTest.php": "Switches the database server's global sql_mode (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with sql_mode ''.",
+    "Core/UsersAjaxOnlyFullGroupByTest.php": "Switches the database server's global sql_mode (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with sql_mode ''."
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
