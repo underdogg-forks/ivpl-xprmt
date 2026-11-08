@@ -15,6 +15,7 @@ use Tests\AbstractTestCase;
  */
 #[Group('security')]
 #[Group('payments')]
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class StripeCallbackPaymentStatusTest extends AbstractTestCase
 {
     // Matches ipconfig.php's ENCRYPTION_KEY for the test DB, so the request subprocess can decrypt the fake API key;
@@ -58,7 +59,6 @@ final class StripeCallbackPaymentStatusTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_books_the_payment_for_a_paid_session(): void
     {
         /* Arrange: positive control with the same session shape */

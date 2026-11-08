@@ -13,6 +13,7 @@ use Tests\AbstractTestCase;
  */
 #[Group('security')]
 #[Group('payments')]
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class PaypalCreateOrderRequestTest extends AbstractTestCase
 {
     private string $captureFile = '';
@@ -32,7 +33,6 @@ final class PaypalCreateOrderRequestTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_asks_paypal_to_charge_the_invoice_balance_bound_to_that_invoice(): void
     {
         /* Arrange */
@@ -44,7 +44,7 @@ final class PaypalCreateOrderRequestTest extends AbstractTestCase
             'PAYPAL_MOCK_REQUEST_CAPTURE' => $this->captureFile,
             'PAYPAL_MOCK_RESPONSES'       => json_encode([
                 ['status' => 200, 'body' => json_encode(['access_token' => 'fake-bearer-token'])],
-                ['status' => 201, 'body' => json_encode(['id' => 'ORDER-NEW-1', 'status' => 'CREATED'])],
+                ['status' => 201, 'body' => json_encode(['id' => 'ORDERNEW-1', 'status' => 'CREATED'])],
             ]),
         ]);
 
@@ -53,7 +53,7 @@ final class PaypalCreateOrderRequestTest extends AbstractTestCase
 
         /* Assert: the order id is handed back, and the request PayPal received names this invoice and its balance */
         self::assertSame(200, $response->statusCode(), 'Body: ' . substr($response->body(), 0, 300));
-        $this->assertResponseBodyContains($response, 'ORDER-NEW-1');
+        $this->assertResponseBodyContains($response, 'ORDERNEW-1');
 
         $sent = json_decode((string) file_get_contents($this->captureFile), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('POST', $sent['method']);

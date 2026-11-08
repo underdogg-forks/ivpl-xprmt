@@ -15,6 +15,7 @@ use ReflectionProperty;
  * including requests that should 404 on a local guard before ever touching
  * the PayPal API.
  */
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class PaypalLibLazyAuthTest extends TestCase
 {
     protected function tearDown(): void
@@ -41,16 +42,15 @@ final class PaypalLibLazyAuthTest extends TestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_authorizes_lazily_on_the_first_real_api_call(): void
     {
         putenv('PAYPAL_MOCK_RESPONSES=' . json_encode([
             ['status' => 200, 'body' => json_encode(['access_token' => 'fake-token'])],
-            ['status' => 200, 'body' => json_encode(['id' => 'ORDER-1', 'purchase_units' => []])],
+            ['status' => 200, 'body' => json_encode(['id' => 'ORDER1', 'purchase_units' => []])],
         ]));
 
         $lib    = new PaypalLib(['client_id' => 'id', 'client_secret' => 'secret', 'demo' => true]);
-        $result = $lib->showOrderDetails('ORDER-1');
+        $result = $lib->showOrderDetails('ORDER1');
 
         self::assertTrue($result['status']);
 
@@ -61,28 +61,26 @@ final class PaypalLibLazyAuthTest extends TestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_authorizes_only_once_across_multiple_api_calls(): void
     {
         // Only one access_token response queued: a second authorize() attempt
         // would consume the next (order-details) response instead and break.
         putenv('PAYPAL_MOCK_RESPONSES=' . json_encode([
             ['status' => 200, 'body' => json_encode(['access_token' => 'fake-token'])],
-            ['status' => 200, 'body' => json_encode(['id' => 'ORDER-1', 'purchase_units' => []])],
-            ['status' => 200, 'body' => json_encode(['id' => 'ORDER-2', 'purchase_units' => []])],
+            ['status' => 200, 'body' => json_encode(['id' => 'ORDER1', 'purchase_units' => []])],
+            ['status' => 200, 'body' => json_encode(['id' => 'ORDER2', 'purchase_units' => []])],
         ]));
 
         $lib = new PaypalLib(['client_id' => 'id', 'client_secret' => 'secret', 'demo' => true]);
 
-        $first  = $lib->showOrderDetails('ORDER-1');
-        $second = $lib->showOrderDetails('ORDER-2');
+        $first  = $lib->showOrderDetails('ORDER1');
+        $second = $lib->showOrderDetails('ORDER2');
 
         self::assertTrue($first['status']);
         self::assertTrue($second['status']);
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_fails_cleanly_instead_of_crashing_when_authorization_is_rejected(): void
     {
         // A 401 here makes Guzzle itself throw a ClientException out of authorize().
@@ -95,7 +93,7 @@ final class PaypalLibLazyAuthTest extends TestCase
         ]));
 
         $lib    = new PaypalLib(['client_id' => 'id', 'client_secret' => 'secret', 'demo' => true]);
-        $result = $lib->showOrderDetails('ORDER-1');
+        $result = $lib->showOrderDetails('ORDER1');
 
         self::assertFalse($result['status']);
         self::assertInstanceOf(ClientException::class, $result['error']);

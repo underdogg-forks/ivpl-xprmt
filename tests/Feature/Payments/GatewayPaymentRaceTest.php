@@ -22,6 +22,7 @@ use Tests\AbstractTestCase;
  * holds every round: at most one payment per invoice, balance never negative,
  * paid never above total.
  */
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 class GatewayPaymentRaceTest extends AbstractTestCase
 {
     private const ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef';
@@ -43,7 +44,6 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_does_not_double_record_when_two_distinct_stripe_callbacks_race(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -79,7 +79,6 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_double_record_when_two_distinct_paypal_captures_race(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -123,7 +122,6 @@ class GatewayPaymentRaceTest extends AbstractTestCase
      * reconciliation, not silently flagged as a success and not an uncaught 500.
      */
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_logs_the_losing_paypal_capture_as_unsuccessful_not_silently_successful(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -159,7 +157,6 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_keeps_one_row_when_the_same_stripe_intent_is_replayed_concurrently(): void
     {
         for ($round = 1; $round <= self::RACE_ROUNDS; $round++) {
@@ -191,7 +188,6 @@ class GatewayPaymentRaceTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_still_records_a_single_full_balance_payment(): void
     {
         /* Arrange: a gateway callback always pays the exact outstanding balance */
@@ -412,7 +408,7 @@ class GatewayPaymentRaceTest extends AbstractTestCase
                 'invoice_id' => $invoiceId,
                 'amount'     => ['value' => $amount, 'currency_code' => 'EUR'],
             ]],
-            'id' => 'PAYPAL-ORDER-' . $captureId,
+            'id' => 'PAYPAL-ORDER' . $captureId,
         ])];
         $capture = ['status' => 200, 'body' => json_encode([
             'purchase_units' => [[
@@ -425,12 +421,12 @@ class GatewayPaymentRaceTest extends AbstractTestCase
                     ]],
                 ],
             ]],
-            'id' => 'PAYPAL-ORDER-' . $captureId,
+            'id' => 'PAYPAL-ORDER' . $captureId,
         ])];
 
         return [
             'method' => 'POST',
-            'uri'    => '/guest/gateways/paypal/paypal_capture_payment/ORDER-' . $captureId,
+            'uri'    => '/guest/gateways/paypal/paypal_capture_payment/ORDER' . preg_replace('/[^A-Za-z0-9]/', '', $captureId),
             'env'    => ['PAYPAL_MOCK_RESPONSES' => json_encode([$auth, $orderDetails, $capture])],
         ];
     }

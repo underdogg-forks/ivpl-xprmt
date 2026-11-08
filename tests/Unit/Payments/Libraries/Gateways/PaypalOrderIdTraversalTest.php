@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
  * touched this (PaypalRequestExecutorTest) throws its own exception and catches it, so it proved nothing. These send
  * hostile ids through the real library and read what, if anything, reached the HTTP transport.
  */
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class PaypalOrderIdTraversalTest extends TestCase
 {
     private string $captureFile;
@@ -28,7 +29,7 @@ final class PaypalOrderIdTraversalTest extends TestCase
         putenv('PAYPAL_MOCK_REQUEST_CAPTURE=' . $this->captureFile);
         putenv('PAYPAL_MOCK_RESPONSES=' . json_encode([
             ['status' => 200, 'body' => json_encode(['access_token' => 'fake-token'])],
-            ['status' => 200, 'body' => json_encode(['id' => 'ORDER-1', 'purchase_units' => []])],
+            ['status' => 200, 'body' => json_encode(['id' => 'ORDER1', 'purchase_units' => []])],
         ]));
     }
 
@@ -84,17 +85,16 @@ final class PaypalOrderIdTraversalTest extends TestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_sends_a_well_formed_order_id_to_exactly_the_capture_path(): void
     {
         /* Act: positive control, so the refusals above are not simply "everything fails" */
-        $result = $this->lib()->showOrderDetails('ORDER-1_a');
+        $result = $this->lib()->showOrderDetails('ORDER1_a');
 
         /* Assert */
         self::assertTrue($result['status']);
         $sent = json_decode((string) file_get_contents($this->captureFile), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('GET', $sent['method']);
-        self::assertStringEndsWith('/v2/checkout/orders/ORDER-1_a', $sent['url']);
+        self::assertStringEndsWith('/v2/checkout/orders/ORDER1_a', $sent['url']);
     }
 
     private function lib(): PaypalLib

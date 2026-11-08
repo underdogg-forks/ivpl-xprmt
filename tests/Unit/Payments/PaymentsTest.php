@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 class PaymentsTest extends TestCase
 {
     private string $captureFile;
@@ -102,7 +103,6 @@ class PaymentsTest extends TestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_creates_an_order_from_the_payment_information(): void
     {
         $this->setUpPaypalLib();
@@ -133,7 +133,7 @@ class PaymentsTest extends TestCase
 
         /* Assert */
 
-        self::assertSame('{"id":"ORDER-123","status":"CREATED"}', $response);
+        self::assertSame('{"id":"ORDER123","status":"CREATED"}', $response);
 
         $request = json_decode((string) file_get_contents($this->captureFile), true, 512, JSON_THROW_ON_ERROR);
 
@@ -207,7 +207,7 @@ class PaymentsTest extends TestCase
         putenv('PAYPAL_MOCK_RESPONSES=' . json_encode([
             ['status' => 200, 'body' => '{"access_token":"test-bearer-token"}'],
 
-            ['status' => 201, 'body' => '{"id":"ORDER-123","status":"CREATED"}'],
+            ['status' => 201, 'body' => '{"id":"ORDER123","status":"CREATED"}'],
         ]));
 
         putenv('PAYPAL_MOCK_REQUEST_CAPTURE=' . $this->captureFile);

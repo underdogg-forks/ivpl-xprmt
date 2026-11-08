@@ -17,6 +17,7 @@ use Tests\AbstractTestCase;
  */
 #[Group('security')]
 #[Group('payments')]
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class PaypalCaptureStatusGapTest extends AbstractTestCase
 {
     /** @return array<string, array{0: string}> */
@@ -36,7 +37,6 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
 
     #[Test]
     #[DataProvider('neverSettledStatuses')]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_books_no_payment_for_any_status_other_than_completed(string $status): void
     {
         /* Arrange */
@@ -49,7 +49,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-STATUS');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERSTATUS');
 
         /* Assert */
         self::assertTrue($response->isRedirect() || $response->statusCode() === 200);
@@ -63,7 +63,6 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_treats_a_lowercase_pending_status_as_pending_not_as_failed_or_settled(): void
     {
         /* Arrange */
@@ -75,7 +74,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LOWER');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERLOWER');
 
         /* Assert */
         $this->assertDatabaseCount('ip_payments', 0);
@@ -89,7 +88,6 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_still_books_a_completed_capture_reported_in_mixed_case(): void
     {
         /* Arrange: positive control for the case-folding tests above */
@@ -101,14 +99,13 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-MIXED');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERMIXED');
 
         /* Assert */
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'CAP-MIXED', 'payment_amount' => '50.00']);
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_acknowledges_a_pending_capture_without_an_invoice_reference_but_writes_nothing(): void
     {
         /* Arrange: the capture itself carries no invoice_id (the preflight order lookup still matches) */
@@ -118,12 +115,12 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
             $this->orderDetailsResponse($invoiceId, '50.00'),
             ['status' => 200, 'body' => json_encode([
                 'purchase_units' => [['payments' => ['captures' => [['status' => 'PENDING', 'id' => 'CAP-NOREF']]]]],
-                'id'             => 'PAYPAL-ORDER-RESOURCE',
+                'id'             => 'PAYPAL-ORDERRESOURCE',
             ])],
         ]);
 
         /* Act */
-        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-NOREF');
+        $response = $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERNOREF');
 
         /* Assert */
         $this->assertDatabaseCount('ip_payments', 0);
@@ -139,7 +136,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
         $invoiceId = $this->seedPayableInvoice();
 
         /* Act */
-        foreach (['ORDER-R1', 'ORDER-R2', 'ORDER-R3'] as $orderId) {
+        foreach (['ORDERR1', 'ORDERR2', 'ORDERR3'] as $orderId) {
             $this->mockPaypal([
                 $this->authResponse(),
                 $this->orderDetailsResponse($invoiceId, '50.00'),
@@ -155,12 +152,11 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_books_exactly_one_payment_when_a_pending_capture_later_completes_after_repeated_pending_callbacks(): void
     {
         /* Arrange */
         $invoiceId = $this->seedPayableInvoice();
-        foreach (['ORDER-S1', 'ORDER-S2'] as $orderId) {
+        foreach (['ORDERS1', 'ORDERS2'] as $orderId) {
             $this->mockPaypal([
                 $this->authResponse(),
                 $this->orderDetailsResponse($invoiceId, '50.00'),
@@ -177,7 +173,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
         ]);
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-S3');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERS3');
 
         /* Assert */
         $this->assertDatabaseCount('ip_payments', 1);
@@ -215,7 +211,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
                     'amount'     => ['value' => '50.00', 'currency_code' => 'EUR'],
                 ]]],
             ]],
-            'id' => 'PAYPAL-ORDER-RESOURCE',
+            'id' => 'PAYPAL-ORDERRESOURCE',
         ])];
     }
 
@@ -226,7 +222,7 @@ final class PaypalCaptureStatusGapTest extends AbstractTestCase
                 'invoice_id' => $invoiceId,
                 'amount'     => ['value' => $amount, 'currency_code' => 'EUR'],
             ]],
-            'id' => 'PAYPAL-ORDER-RESOURCE',
+            'id' => 'PAYPAL-ORDERRESOURCE',
         ])];
     }
 }

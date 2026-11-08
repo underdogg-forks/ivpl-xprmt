@@ -13,10 +13,10 @@ use Tests\AbstractTestCase;
  */
 #[Group('security')]
 #[Group('payments')]
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
 {
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_records_the_capture_id_of_a_pending_capture_in_the_merchant_response_reference(): void
     {
         /* Arrange */
@@ -24,17 +24,16 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
         $this->mockPaypal($invoiceId, 'CAP-PENDING-7731', 'PENDING');
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-REF');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERREF');
 
         /* Assert: no money booked, but the row identifies both the order resource and the capture */
         $this->assertDatabaseCount('ip_payments', 0);
         $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
         self::assertSame('PENDING - awaiting settlement', $row['merchant_response']);
-        self::assertSame('Resource ID:PAYPAL-ORDER-RESOURCE, Capture ID:CAP-PENDING-7731', $row['merchant_response_reference']);
+        self::assertSame('Resource ID:PAYPAL-ORDERRESOURCE, Capture ID:CAP-PENDING-7731', $row['merchant_response_reference']);
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_keeps_the_order_resource_reference_when_the_pending_capture_has_no_id(): void
     {
         /* Arrange */
@@ -42,11 +41,11 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
         $this->mockPaypal($invoiceId, null, 'PENDING');
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-NOID');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERNOID');
 
         /* Assert: no dangling ", Capture ID:" suffix */
         $row = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
-        self::assertSame('Resource ID:PAYPAL-ORDER-RESOURCE', $row['merchant_response_reference']);
+        self::assertSame('Resource ID:PAYPAL-ORDERRESOURCE', $row['merchant_response_reference']);
     }
 
     private function seedPayableInvoice(): int
@@ -68,11 +67,11 @@ final class PaypalPendingCaptureReferenceTest extends AbstractTestCase
             ['status' => 200, 'body' => json_encode(['access_token' => 'fake-bearer-token'])],
             ['status' => 200, 'body' => json_encode([
                 'purchase_units' => [['invoice_id' => $invoiceId, 'amount' => ['value' => '50.00', 'currency_code' => 'EUR']]],
-                'id'             => 'PAYPAL-ORDER-RESOURCE',
+                'id'             => 'PAYPAL-ORDERRESOURCE',
             ])],
             ['status' => 200, 'body' => json_encode([
                 'purchase_units' => [['payments' => ['captures' => [$capture]]]],
-                'id'             => 'PAYPAL-ORDER-RESOURCE',
+                'id'             => 'PAYPAL-ORDERRESOURCE',
             ])],
         ])]);
     }

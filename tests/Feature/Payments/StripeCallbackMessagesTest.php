@@ -14,6 +14,7 @@ use Tests\AbstractTestCase;
  */
 #[Group('feature')]
 #[Group('payments')]
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class StripeCallbackMessagesTest extends AbstractTestCase
 {
     private const ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef';
@@ -29,7 +30,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_tells_the_guest_the_payment_was_already_processed_for_a_duplicate_payment_intent(): void
     {
         /* Arrange: the same payment intent is already booked on another payment row */
@@ -49,7 +49,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_tells_the_guest_the_invoice_was_already_paid_when_nothing_is_left_to_pay(): void
     {
         /* Arrange */
@@ -67,7 +66,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_tells_the_guest_the_payment_failed_when_the_capture_currency_differs_from_the_gateway_currency(): void
     {
         /* Arrange */
@@ -84,7 +82,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_tells_the_guest_the_payment_failed_when_the_capture_is_below_the_invoice_balance(): void
     {
         /* Arrange */
@@ -101,7 +98,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_confirms_a_successful_payment_with_the_invoice_number_and_books_it(): void
     {
         /* Arrange */
@@ -120,7 +116,6 @@ final class StripeCallbackMessagesTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
     public function it_falls_back_to_the_generic_message_when_a_session_was_not_paid_and_nothing_more_specific_applies(): void
     {
         /* Arrange: a checkout session that is still unpaid */

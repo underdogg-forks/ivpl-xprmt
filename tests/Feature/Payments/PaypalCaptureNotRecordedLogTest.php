@@ -13,6 +13,7 @@ use Tests\AbstractTestCase;
  */
 #[Group('feature')]
 #[Group('payments')]
+#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
 {
     private const MARKER = 'succeeded but was not recorded against invoice';
@@ -26,7 +27,6 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_logs_one_error_naming_the_capture_when_a_completed_capture_is_rejected_after_the_money_moved(): void
     {
         /* Arrange: the order verifies in EUR, but the capture PayPal returns is in USD, so it is refused */
@@ -40,7 +40,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
         $offset  = is_file($logFile) ? filesize($logFile) : 0;
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LOG-1');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERLOG1');
 
         /* Assert: nothing booked, and exactly one reconciliation line that names the capture */
         $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'CAP-NOT-BOOKED']);
@@ -50,7 +50,6 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
     }
 
     #[Test]
-    #[\PHPUnit\Framework\Attributes\Group('unmerged-fix')]
     public function it_does_not_log_a_reconciliation_error_for_a_capture_that_was_booked(): void
     {
         /* Arrange: positive control, a matching capture is recorded */
@@ -64,7 +63,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
         $offset  = is_file($logFile) ? filesize($logFile) : 0;
 
         /* Act */
-        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDER-LOG-2');
+        $this->post('/guest/gateways/paypal/paypal_capture_payment/ORDERLOG2');
 
         /* Assert */
         $this->assertDatabaseHas('ip_payments', ['payment_external_id' => 'CAP-BOOKED']);
@@ -97,7 +96,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
     {
         return ['status' => 200, 'body' => json_encode([
             'purchase_units' => [['invoice_id' => $invoiceId, 'amount' => ['value' => $amount, 'currency_code' => 'EUR']]],
-            'id'             => 'PAYPAL-ORDER-RESOURCE',
+            'id'             => 'PAYPAL-ORDERRESOURCE',
         ])];
     }
 
@@ -110,7 +109,7 @@ final class PaypalCaptureNotRecordedLogTest extends AbstractTestCase
                 'id'         => $captureId,
                 'amount'     => ['value' => $amount, 'currency_code' => $currency],
             ]]]]],
-            'id' => 'PAYPAL-ORDER-RESOURCE',
+            'id' => 'PAYPAL-ORDERRESOURCE',
         ])];
     }
 }
