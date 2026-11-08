@@ -215,6 +215,38 @@ final class DeleteItemKeepsGlobalDiscountTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '50.00']);
     }
 
+    #[Test]
+    public function it_deducts_the_payment_from_the_redistributed_total(): void
+    {
+        /* Arrange: two 100.00 items, 50.00 off, 20.00 already paid */
+        [$invoiceId, $first, $second] = $this->invoice(['invoice_discount_amount' => '50.00'], ['100.00', '100.00'], '25.00');
+        $this->databaseInsert('ip_payments', [
+            'invoice_id' => $invoiceId, 'payment_date' => date('Y-m-d'), 'payment_amount' => '20.00', 'payment_method_id' => 1,
+        ]);
+
+        /* Act */
+        $this->deleteItem($invoiceId, $second);
+
+        /* Assert: the remaining 100.00 item carries the whole 50.00 discount, so 50.00 - 20.00 is left to pay */
+        $this->assertDatabaseHas('ip_invoice_amounts', [
+            'invoice_id' => $invoiceId, 'invoice_total' => '50.00', 'invoice_paid' => '20.00', 'invoice_balance' => '30.00',
+        ]);
+    }
+
+    #[Test]
+    public function it_stores_the_discount_that_was_actually_applied_when_the_shares_round_to_a_different_cent(): void
+    {
+        /* Arrange: four 100.00 items, 10.00 off; three items left share it as 3.33 + 3.33 + 3.33 = 9.99 */
+        [$invoiceId, $first, $second, $third, $fourth] = $this->invoice(['invoice_discount_amount' => '10.00'], ['100.00', '100.00', '100.00', '100.00'], '2.50');
+
+        /* Act */
+        $this->deleteItem($invoiceId, $fourth);
+
+        /* Assert: the stored amount follows the calculation, as Invoices::Ajax::save() does, so the two agree */
+        $this->assertDatabaseHas('ip_invoices', ['invoice_id' => $invoiceId, 'invoice_discount_amount' => '9.99']);
+        $this->assertDatabaseHas('ip_invoice_amounts', ['invoice_id' => $invoiceId, 'invoice_total' => '290.01']);
+    }
+
     /**
      * @param array<string, string> $invoice invoice columns (discounts)
      * @param list<string>          $prices  one 100.00-style subtotal per item
