@@ -6,6 +6,7 @@ use Tests\AbstractTestCase;
 
 class PaymentGatewaySecurityTest extends AbstractTestCase
 {
+    #[\PHPUnit\Framework\Attributes\Group('hollow')]
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_validates_input_before_api_calls(): void
     {
@@ -15,6 +16,7 @@ class PaymentGatewaySecurityTest extends AbstractTestCase
         $this->assertTrue(true, 'Input validation tested via integration tests');
     }
 
+    #[\PHPUnit\Framework\Attributes\Group('hollow')]
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_initializes_variables_before_exception_handling(): void
     {
@@ -24,6 +26,7 @@ class PaymentGatewaySecurityTest extends AbstractTestCase
         $this->assertTrue(true, 'Exception handling tested via integration tests');
     }
 
+    #[\PHPUnit\Framework\Attributes\Group('hollow')]
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_delays_oauth_calls_until_needed(): void
     {

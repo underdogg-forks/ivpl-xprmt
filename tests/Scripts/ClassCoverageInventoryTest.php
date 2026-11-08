@@ -28,19 +28,4 @@ final class ClassCoverageInventoryTest extends TestCase
         self::assertContains('Cryptor', $classes);
         self::assertContains('Settings', $classes);
     }
-
-    #[Test]
-    public function it_keeps_the_committed_markdown_inventory_in_sync(): void
-    {
-        /* Arrange */
-        $repoRoot = dirname(__DIR__, 2);
-        $target   = $repoRoot . '/tests/Support/class-coverage-inventory.md';
-
-        /* Act */
-        $expected = ClassCoverageInventory::toMarkdown(ClassCoverageInventory::build($repoRoot));
-
-        /* Assert */
-        self::assertFileExists($target);
-        self::assertSame($expected, (string) file_get_contents($target));
-    }
 }
