@@ -23,7 +23,10 @@
     "Payments/StripeCallbackMessagesTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request.",
     "Payments/StripeCallbackFailureTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request.",
     "Payments/AdminPaymentAmountRaceTest.php": "Asserts invariants of two interleaved requests under a held row lock: needs controlled concurrency in-process.",
-    "Payments/GatewayPaymentRaceTest.php": "Asserts invariants of two interleaved callbacks under a held row lock: needs controlled concurrency in-process."
+    "Payments/GatewayPaymentRaceTest.php": "Asserts invariants of two interleaved callbacks under a held row lock: needs controlled concurrency in-process.",
+    "Core/NameQueryMatchingTest.php": "Switches the database server's global sql_mode (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with the default mode.",
+    "Clients/ClientsAjaxOnlyFullGroupByTest.php": "Switches the database server's global sql_mode (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with the default mode.",
+    "Core/UsersAjaxOnlyFullGroupByTest.php": "Switches the database server's global sql_mode (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with the default mode."
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
