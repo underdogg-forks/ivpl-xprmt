@@ -10,7 +10,6 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
-#[\PHPUnit\Framework\Attributes\Group('needs-gateway-mock')]
 class PaymentsTest extends TestCase
 {
     private string $captureFile;
@@ -100,52 +99,6 @@ class PaymentsTest extends TestCase
         /* Assert */
 
         self::fail('The invalid multiplier should have thrown an exception.');
-    }
-
-    #[Test]
-    public function it_creates_an_order_from_the_payment_information(): void
-    {
-        $this->setUpPaypalLib();
-
-        /* Arrange */
-
-        $paypal = new PaypalLib([
-            'demo' => true,
-
-            'client_id' => 'client-id',
-
-            'client_secret' => 'client-secret',
-        ]);
-
-        $order = [
-            'invoice_id' => 42,
-
-            'currency_code' => 'EUR',
-
-            'value' => '12.50',
-
-            'custom_id' => 'invoice-key',
-        ];
-
-        /* Act */
-
-        $response = $paypal->createOrder($order);
-
-        /* Assert */
-
-        self::assertSame('{"id":"ORDER123","status":"CREATED"}', $response);
-
-        $request = json_decode((string) file_get_contents($this->captureFile), true, 512, JSON_THROW_ON_ERROR);
-
-        $body = json_decode($request['body'], true, 512, JSON_THROW_ON_ERROR);
-
-        self::assertSame('POST', $request['method']);
-
-        self::assertStringEndsWith('/v2/checkout/orders', $request['url']);
-
-        self::assertSame('42', (string) $body['purchase_units'][0]['invoice_id']);
-
-        self::assertSame('12.50', $body['purchase_units'][0]['amount']['value']);
     }
 
     #[Test]

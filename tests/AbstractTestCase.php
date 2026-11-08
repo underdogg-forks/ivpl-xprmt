@@ -19,6 +19,16 @@ abstract class AbstractTestCase extends PhpUnitTestCase
 
     protected array $filesData = [];
 
+    /**
+     * The PDFs in uploads/archive when the test started, or null when setUp() did not run to the snapshot.
+     * tearDown() deletes only the PDFs that appeared since: a request that archives an invoice (generate_pdf,
+     * mailing, the archive listing) writes there, and a few hundred leaked files make /invoices/archive too
+     * big for the harness to read back.
+     *
+     * @var null|string[]
+     */
+    private ?array $archivedPdfsBefore = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -31,6 +41,18 @@ abstract class AbstractTestCase extends PhpUnitTestCase
         // one does (assertDatabaseMissing/assertDatabaseCount), leaked state
         // makes it fail nondeterministically depending on execution order.
         $this->setUpDatabase();
+        $this->archivedPdfsBefore = $this->archivedPdfs();
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->archivedPdfsBefore !== null) {
+            foreach (array_diff($this->archivedPdfs(), $this->archivedPdfsBefore) as $leaked) {
+                @unlink($leaked);
+            }
+        }
+
+        parent::tearDown();
     }
 
     protected function actingAsAdmin(int $userId = 1): void
@@ -355,6 +377,14 @@ abstract class AbstractTestCase extends PhpUnitTestCase
         }
 
         self::assertSame((string) file_get_contents($path), $response->body());
+    }
+
+    /**
+     * @return string[] absolute paths of the PDFs in uploads/archive
+     */
+    private function archivedPdfs(): array
+    {
+        return glob(dirname(__DIR__) . '/uploads/archive/*.pdf') ?: [];
     }
 
     private function bindSessionToStoredCredentials(int $userId): void
