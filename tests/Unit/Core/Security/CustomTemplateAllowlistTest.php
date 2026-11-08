@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Settings;
+namespace Tests\Unit\Core\Security;
 
 use Mdl_Templates;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Core;
+namespace Tests\Unit\Core\Integrations;
 
 use LetsPeppolClient;
 use PHPUnit\Framework\Attributes\Test;

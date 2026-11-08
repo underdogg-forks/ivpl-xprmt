@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Core;
+namespace Tests\Unit\Core\Integrations;
 
 use LetsPeppolApiClient;
 use PHPUnit\Framework\Attributes\Group;

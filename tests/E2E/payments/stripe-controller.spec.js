@@ -7,7 +7,7 @@
 import { test, expect } from '../test.js';
 
 test.describe('Stripe gateway — smoke', () => {
-  test('it loads the payments page successfully', async ({ page }) => {
+  test.skip('it loads the payments page successfully (obsolete: the same page is loaded by the payment-information and paypal specs and by payments-controller.spec.js)', async ({ page }) => {
     /* Arrange + Act */
     const response = await page.goto('/payments');
     const body = await response.text();
