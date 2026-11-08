@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Setup;
+namespace Tests\Unit\Core\Setup;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
