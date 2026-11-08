@@ -7,6 +7,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Throwable;
 
 /**
  * Settings -> Custom Values (GET /custom_values) and its filter box (POST /filter/ajax/filter_custom_values)
@@ -29,8 +30,19 @@ class CustomValuesGroupedQueryTest extends AbstractTestCase
         parent::setUp();
         $this->actingAsAdmin();
 
+        /* The request runs in its own PHP process with its own database connection, so a session mode set on this
+           test's connection would never reach it: the server's global mode is the only switch available, and it
+           applies to connections opened after it. Restored in tearDown() and, should the process die first, at shutdown. */
         $this->originalSqlMode = (string) $this->databaseSelect('SELECT @@GLOBAL.sql_mode AS mode')[0]['mode'];
+        $original              = $this->originalSqlMode;
         $this->databaseRunScript("SET GLOBAL sql_mode = '" . self::MYSQL8_DEFAULT_SQL_MODE . "'");
+        register_shutdown_function(function () use ($original): void {
+            try {
+                $this->databaseRunScript("SET GLOBAL sql_mode = '" . addslashes($original) . "'");
+            } catch (Throwable) {
+                // the connection is gone; nothing left to restore through
+            }
+        });
     }
 
     protected function tearDown(): void
@@ -145,6 +157,9 @@ class CustomValuesGroupedQueryTest extends AbstractTestCase
         $this->assertResponseBodyContains($response, 'Second field');
     }
 
+    /**
+     * Inserts a choice-type custom field and returns its id.
+     */
     private function seedField(string $label, string $table): int
     {
         return $this->databaseInsert('ip_custom_fields', [
@@ -156,6 +171,9 @@ class CustomValuesGroupedQueryTest extends AbstractTestCase
         ]);
     }
 
+    /**
+     * Inserts one value for the field and returns its id.
+     */
     private function seedValue(int $fieldId, string $value): int
     {
         return $this->databaseInsert('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => $value]);
