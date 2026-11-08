@@ -141,6 +141,7 @@ class Mdl_Items extends Response_Model
         // The item, its amounts, the redistributed discount shares and the invoice totals are
         // stored together or not at all, so a refused total cannot leave the invoice half updated.
         $this->db->trans_begin();
+        $this->mdl_invoice_amounts->lock_invoice($invoice_id);
 
         // Delete the item itself
         parent::delete($item_id);
@@ -161,7 +162,11 @@ class Mdl_Items extends Response_Model
             return false;
         }
 
-        $this->db->trans_commit();
+        if ( ! $this->db->trans_commit()) {
+            $this->db->trans_rollback();
+
+            return false;
+        }
 
         return true;
     }
@@ -207,6 +212,12 @@ class Mdl_Items extends Response_Model
         $item_ids = $this->db->select('item_id')->where('invoice_id', $invoice_id)->get($this->table)->result();
         foreach ($item_ids as $row) {
             $this->mdl_item_amounts->calculate($row->item_id, $global_discount);
+        }
+
+        // Rounded shares can differ from the stored amount by a cent. Invoices::Ajax::save() stores the sum of the
+        // shares in that case (the e-invoice XML must match the calculation), so a delete does the same.
+        if ($amount && round($global_discount['item'], 2) !== round($amount, 2)) {
+            $this->db->where('invoice_id', $invoice_id)->update('ip_invoices', ['invoice_discount_amount' => round($global_discount['item'], 2)]);
         }
 
         return $global_discount;
