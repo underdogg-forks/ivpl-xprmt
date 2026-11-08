@@ -20,7 +20,8 @@ if ( ! defined('BASEPATH')) {
  * Invoice-level taxes are only applicable in legacy calculation mode and are not
  * supported in e-invoices (UBL/CII), causing a total divergence between PDF and XML.
  * Queries the ip_invoice_tax_rates table directly to avoid missing rows if the
- * model has been soft-deleted or the relationship is not fully loaded.
+ * model has been soft-deleted or the relationship is not fully loaded. Only rows with a nonzero amount
+ * count (they are the ones that move the PDF total); a negative amount is a real tax correction and counts.
  *
  * @param int $invoice_id
  *
@@ -33,6 +34,7 @@ function invoice_has_invoice_level_taxes(int $invoice_id): bool
     $result = $CI->db->select('COUNT(*) as tax_count')
         ->from('ip_invoice_tax_rates')
         ->where('invoice_id', $invoice_id)
+        ->where('invoice_tax_rate_amount !=', 0)
         ->get()
         ->row();
 
