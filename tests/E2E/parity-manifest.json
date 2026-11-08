@@ -121,30 +121,6 @@
       "it_redirects_to_the_homepage_for_a_non_alphanumeric_token_reaching_the_controller",
       "it_redirects_to_login_on_logout"
     ],
-    "Core/Auth/SessionsSecurityTest.php": [
-      "it_allows_a_referer_from_the_same_base_url",
-      "it_rejects_a_referer_from_an_external_domain",
-      "it_returns_the_safe_default_when_referer_is_empty",
-      "it_rejects_a_referer_that_starts_with_a_double_slash",
-      "it_accepts_an_alphanumeric_password_reset_token",
-      "it_accepts_a_hex_token_of_typical_length",
-      "it_rejects_a_token_containing_a_path_traversal_sequence",
-      "it_rejects_a_token_containing_a_slash",
-      "it_rejects_a_token_containing_special_characters",
-      "it_considers_an_expired_token_as_expired",
-      "it_considers_a_future_token_as_not_expired",
-      "it_enforces_the_max_expiry_minutes_cap_of_1440",
-      "it_allows_a_valid_expiry_minutes_value_within_range",
-      "it_rejects_a_zero_expiry_minutes_and_falls_back_to_default",
-      "it_detects_curl_as_a_bot_user_agent",
-      "it_detects_python_requests_as_a_bot_user_agent",
-      "it_detects_an_empty_user_agent_as_a_bot",
-      "it_does_not_flag_a_normal_browser_user_agent_as_a_bot",
-      "it_removes_attempts_outside_the_rate_limit_time_window",
-      "it_considers_the_ip_rate_limited_when_attempt_count_meets_the_threshold",
-      "it_does_not_rate_limit_when_attempt_count_is_below_the_threshold",
-      "it_accepts_only_canonical_password_reset_expiry_strings"
-    ],
     "Core/CoreAjaxControllerTest.php": [
       "it_displays_active_clients_list",
       "it_filters_active_clients_correctly",
@@ -456,11 +432,6 @@
       "it_adds_an_invoice_level_tax_on_the_item_subtotal_only",
       "it_taxes_item_tax_too_when_the_invoice_tax_includes_it",
       "it_keeps_each_invoices_totals_separate"
-    ],
-    "Payments/PaymentGatewaySecurityTest.php": [
-      "it_validates_input_before_api_calls",
-      "it_initializes_variables_before_exception_handling",
-      "it_delays_oauth_calls_until_needed"
     ],
     "Payments/PaypalControllerTest.php": [
       "it_displays_payment_list_with_data",
