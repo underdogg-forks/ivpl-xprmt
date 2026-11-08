@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Settings;
+namespace Tests\Unit\Core\Setup;
 
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
