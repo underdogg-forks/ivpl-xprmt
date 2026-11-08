@@ -1,9 +1,12 @@
 name: JS Tests
 
-# The front-end has one small piece of behaviour worth pinning: the
-# "Test connection" button on the e-invoice provider settings form
-# (resources/assets/core/js/integration-settings.js). It runs on the built-in Node
-# test runner with no dependencies — see tests/js/.
+# Dependency-free tests on the built-in Node test runner (tests/js/):
+#   - resources/assets/core/js/scripts.js: the CSRF token helpers, the jQuery ajaxPrefilter and the
+#     ajaxComplete token rotation, evaluated in a vm sandbox with a stub document and jQuery
+#   - resources/assets/core/js/integration-settings.js: the "Test connection" button
+#   - the settings update/news flow and the Gruntfile output paths
+#   - the layout of the Playwright suite itself (tests/js/e2e-layout.test.js): one tests/E2E directory,
+#     no spec the runner would not pick up, no skipped or empty specs, no bypass of the test wrapper
 
 on:
   push:
