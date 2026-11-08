@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Core;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
@@ -20,6 +21,9 @@ final class NameQueryMatchingTest extends AbstractTestCase
 {
     use SwitchesSqlMode;
 
+    /**
+     * Logs in as the admin and switches the server to ONLY_FULL_GROUP_BY for the requests below.
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,10 +31,25 @@ final class NameQueryMatchingTest extends AbstractTestCase
         $this->switchSqlMode('ONLY_FULL_GROUP_BY');
     }
 
+    /**
+     * Puts the server's sql_mode back.
+     */
     protected function tearDown(): void
     {
         $this->restoreSqlMode();
         parent::tearDown();
+    }
+
+    /**
+     * @return array<string, array{string, string}> the column the match is in, and the term that reaches it
+     */
+    public static function searchableUserColumns(): array
+    {
+        return [
+            'name'              => ['user_name', 'Zork'],
+            'company'           => ['user_company', 'Zeta'],
+            'invoicing contact' => ['user_invoicing_contact', 'Billing'],
+        ];
     }
 
     #[Test]
@@ -133,21 +152,23 @@ final class NameQueryMatchingTest extends AbstractTestCase
     }
 
     #[Test]
-    public function it_returns_only_active_users_of_the_requested_type_whichever_column_matches(): void
+    #[DataProvider('searchableUserColumns')]
+    public function it_returns_only_active_users_of_the_requested_type_whichever_column_matches(string $column, string $term): void
     {
-        /* Arrange: the match is in user_company, the column the OR group reaches last */
-        $match = $this->seedUser(['user_type' => 1, 'user_name' => 'Ann', 'user_company' => 'Zeta Works', 'user_active' => 1]);
-        $this->seedUser(['user_type' => 1, 'user_name' => 'Inactive', 'user_company' => 'Zeta Inactive', 'user_active' => 0]);
-        $this->seedUser(['user_type' => 2, 'user_name' => 'Guest', 'user_company' => 'Zeta Guest', 'user_active' => 1]);
+        /* Arrange: three users match through the same column: an active admin, an inactive admin and an active
+           guest. Only the column that is searched carries the term, so the other branches cannot be the reason. */
+        $plain = fn (string $label): array => ['user_name' => 'Plain ' . $label, 'user_company' => 'Co ' . $label, 'user_invoicing_contact' => 'Contact ' . $label];
+        $admin = $this->seedUser(array_merge($plain('admin'), [$column => $term . ' admin', 'user_type' => 1, 'user_active' => 1]));
+        $this->seedUser(array_merge($plain('inactive'), [$column => $term . ' inactive', 'user_type' => 1, 'user_active' => 0]));
+        $guest = $this->seedUser(array_merge($plain('guest'), [$column => $term . ' guest', 'user_type' => 2, 'user_active' => 1]));
 
         /* Act */
-        $admins = $this->userIds('Zeta', 1);
-        $guests = $this->userIds('Zeta', 2);
+        $admins = $this->userIds($term, 1);
+        $guests = $this->userIds($term, 2);
 
-        /* Assert: the OR group is ANDed with active and type */
-        self::assertSame([$match], $admins);
-        self::assertCount(1, $guests);
-        self::assertNotContains($match, $guests);
+        /* Assert: the OR group is ANDed with active and type, on every column it reaches */
+        self::assertSame([$admin], $admins);
+        self::assertSame([$guest], $guests);
     }
 
     /**

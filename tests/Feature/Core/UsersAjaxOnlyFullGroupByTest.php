@@ -15,12 +15,18 @@ final class UsersAjaxOnlyFullGroupByTest extends UsersAjaxControllerTest
 {
     use SwitchesSqlMode;
 
+    /**
+     * Runs the parent's setUp(), then switches the server to ONLY_FULL_GROUP_BY.
+     */
     protected function setUp(): void
     {
         parent::setUp();
         $this->switchSqlMode('ONLY_FULL_GROUP_BY');
     }
 
+    /**
+     * Puts the server's sql_mode back, then runs the parent's tearDown().
+     */
     protected function tearDown(): void
     {
         $this->restoreSqlMode();
