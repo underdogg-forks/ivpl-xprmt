@@ -150,7 +150,6 @@ When implementing features that need to land on both `prep/v180` (with tests) an
    - Checkout both branches locally
    - Write implementation code (to both branches)
    - Write comprehensive tests (prep/v180 only)
-   - On prep/v180: regenerate `tests/Support/class-coverage-inventory.md`
    
 3. **Verify before any push**:
    - `php -l application/**/*.php tests/**/*.php` — catch syntax errors

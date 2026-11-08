@@ -100,6 +100,22 @@ It needs a schema-built MariaDB reachable on that host — the same one the PHPU
 suite uses. If you only have the ivpldock stack, the DB is already there on
 `127.0.0.1:3306`.
 
+### Fast pass, then a diagnostic re-run of the failures
+
+`npm run e2e` records nothing (no video, no trace) so the suite stays fast. `npm run e2e:ci`
+(`tests/E2E/run-with-diagnostic-rerun.mjs`) runs it in two passes:
+
+1. **Pass 1** runs every test with nothing recorded and `retries: 0`. If it is green the run ends here.
+2. **Pass 2** re-runs only the tests that failed in pass 1 (read from `test-results/.last-run.json`)
+   with `E2E_DIAGNOSTICS=1`, which turns on trace and video (plus the failure screenshot).
+
+Output of pass 2: `test-results-rerun/` (video, trace, screenshot, `error-context.md` per test),
+`playwright-report-rerun/` (HTML report), `tests/E2E/error-report-rerun.md` and
+`tests/E2E/rerun-summary.md`. The summary labels each test `FAILED AGAIN` or
+`FLAKY (passed on the re-run)`. The exit status is that of pass 1, so a flaky test still fails the build.
+
+Set `E2E_DIAGNOSTICS=1` yourself to record trace and video in a normal `npm run e2e`.
+
 ### Point at an already-running instance
 
 ```bash
@@ -194,6 +210,6 @@ pipeline will also report.
 ## CI
 
 `.github/workflows/e2e-tests.yml` — MariaDB service, schema + seed, `php -S`,
-`npx playwright install --with-deps chromium`, ESLint linting, `npm run e2e`.
-Runs on `prep/v180` pushes and PRs; the HTML report + `error-report.md` are
-uploaded as an artifact.
+`npx playwright install --with-deps chromium`, ESLint linting, `npm run e2e:ci` (fast pass, then a diagnostic re-run of the failures).
+Runs on `prep/v180` pushes and PRs; the HTML reports, `error-report.md`, the re-run
+folder (`test-results-rerun/`) and `rerun-summary.md` are uploaded as artifacts.

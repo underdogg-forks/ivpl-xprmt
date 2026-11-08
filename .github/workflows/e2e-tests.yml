@@ -131,7 +131,9 @@ jobs:
         run: npx playwright test --list
 
       - name: Run E2E tests
-        run: npm run e2e
+        # Pass 1 runs every test without recording anything; the tests that failed are then re-run once with a trace,
+        # a video and a screenshot each (see tests/E2E/run-with-diagnostic-rerun.mjs). The job fails if pass 1 failed.
+        run: npm run e2e:ci
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v6
@@ -140,7 +142,11 @@ jobs:
           name: playwright-report
           path: |
             playwright-report/
+            playwright-report-rerun/
+            test-results-rerun/
             tests/E2E/error-report.md
+            tests/E2E/error-report-rerun.md
+            tests/E2E/rerun-summary.md
             server.log
             server-csrf.log
           retention-days: 14
