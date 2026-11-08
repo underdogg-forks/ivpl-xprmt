@@ -63,7 +63,7 @@ jobs:
       - name: Build MariaDB schema and seed baseline
         run: |
           export MYSQL_PWD="$DB_PASSWORD"
-          mysql -h "$DB_HOSTNAME" -P "$DB_PORT" -u "$DB_USERNAME" -e "SET GLOBAL sql_mode='';"
+          # sql_mode stays at the server's default, as a user's MariaDB has it
           for f in $(ls application/modules/setup/sql/*.sql | sort); do
             mysql -h "$DB_HOSTNAME" -P "$DB_PORT" -u "$DB_USERNAME" --force "$DB_DATABASE" < "$f"
           done

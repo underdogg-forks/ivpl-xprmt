@@ -147,7 +147,10 @@ env -i CI_TEST_REQUEST="$PAYLOAD" php tests/Integration/bin/request.php
 
 ### Environment setup
 
-Two supported setups. Both use MariaDB, the only supported test database.
+Two supported setups. Both use MariaDB, the only supported test database, with the server's own default `sql_mode`
+(`STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION`), as a user's server has it.
+Never set `sql_mode=''` to make a test pass: it hides every query and insert the default mode rejects. A test that needs
+another mode (for example `ONLY_FULL_GROUP_BY`) uses `Tests\Concerns\SwitchesSqlMode`.
 
 **Docker (ivpldock).** Run phpunit inside the containers, never on the host: the `mariadb`
 hostname only resolves inside the Docker network. The Makefile defaults
