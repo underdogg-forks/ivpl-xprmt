@@ -30,7 +30,9 @@
     "Core/Integrations/QontoInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/SuperPdpInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/QontoEInvoiceGenerationTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server."
+    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server.",
+    "Core/CustomValuesGroupedQueryTest.php": "Switches the database server's global sql_mode to MySQL 8's default (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server and runs with sql_mode ''.",
+    "Core/ModelFailedQueryRequestTest.php": "Renames a table under the production environment (db_debug off) so the database rejects the query; the Playwright suite shares the database and runs in the testing environment."
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",

@@ -16,7 +16,7 @@ record *why* and *how*.
 
 ### Thank you
 
-Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
+Thanks to [@1icarus2](https://github.com/1icarus2), [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@santhoshdodo2721](https://github.com/santhoshdodo2721), [@nirtem](https://github.com/nirtem),
 [@d3do-23](https://github.com/d3do-23), [@capivara-research](https://github.com/capivara-research),
 [@Suraj-Siddharudh](https://github.com/Suraj-Siddharudh), [@Ishbarna](https://github.com/Ishbarna),
@@ -34,7 +34,7 @@ Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@alham-rizvi](https://github.com/alham-rizvi), [@PLpaPLpa](https://github.com/PLpaPLpa),
 [@0raN9ewww](https://github.com/0raN9ewww), [@mattmumford-git](https://github.com/mattmumford-git),
 and [@ali-iltizar](https://github.com/ali-iltizar) for responsibly disclosing the issues resolved or
-in progress in this release.
+in progress in this release. A special thanks to [@1icarus2](https://github.com/1icarus2) for the Custom Values report (#1865): the failing query from the log, the steps to reproduce on a clean install, the cause in `grouped()` and `MY_Model`, and the CI gap that hid it.
 
 ### Security Vulnerability Summary
 
@@ -208,6 +208,8 @@ in progress in this release.
 - **Stored XSS via unescaped `system_theme` setting (CWE-79, leading to CWE-116 / CWE-20 / CWE-693):** `system_theme` was persisted by `Settings::index()` with no server-side allowlist — unlike `first_day_of_week`, which already has a guard in the same loop — and echoed unescaped by `_theme_asset()` into a double-quoted `href="..."` attribute on 18 views, including the unauthenticated login page, so a value planted by any administrator (not just the primary one) executed in the browser of every visitor, logged in or not. An attribute-breakout payload (`x" onerror="..." x="`) contains no `<` and matches none of `xss_clean()`'s tag- or keyword-gated filters, so the global input filter did not stop it either. **Fix:** `Settings::index()` now validates `system_theme` against the same theme list its own `<select>` is built from, and `_theme_asset()` escapes the value on output as defense-in-depth. Fixing this safely on this fork also required fixing a separate, fork-specific bug first: `bootstrap/kernel.php` defined `THEME_FOLDER` pointing at `resources/assets/`, which does not exist in this tree (themes ship under `assets/`, matching upstream's `FCPATH . 'assets'`), so `Mdl_Settings::get_themes()` silently returned no themes and an allowlist built from it would have rejected every value, breaking the settings form entirely — now pointed at `assets/`. Thanks to [@cray4367](https://github.com/cray4367) for responsible disclosure. [#1805](https://github.com/InvoicePlane/InvoicePlane/pull/1805)
 
 ### Bug fixes
+
+- **Settings → Custom Values returned a blank HTTP 500 on MySQL 8 (and on MariaDB with `ONLY_FULL_GROUP_BY`), even with no custom fields ([#1865](https://github.com/InvoicePlane/InvoicePlane/issues/1865)):** `Mdl_custom_values::grouped()` grouped by `ip_custom_fields.custom_field_id` but selected `ip_custom_values.*` and ordered by `ip_custom_values.custom_values_value`, so MySQL 8's default `sql_mode` rejected it with error 1055. The list and its filter box (`filter/ajax/filter_custom_values`) share that query. It now selects only the field columns and `COUNT(ip_custom_values.custom_values_id)`, groups by every selected field column (MariaDB does not detect functional dependency) and orders by table and label. A rejected query also no longer ends in a fatal: with `db_debug` off CodeIgniter returns `false` and `MY_Model::result()`, `row()`, `result_array()`, `row_array()` and `num_rows()` called a method on it, so any failing query became a blank 500. They now stop the request with a proper 500 error page (and log it) instead; an empty result would have read as "no such record", so a value whose usage could not be checked would have been deleted. `grouped()` also forgets its state after the query, so a later plain query on the same model instance is not affected. Reported by [@1icarus2](https://github.com/1icarus2), including the log, the reproduction and the proposed fix ([#1866](https://github.com/InvoicePlane/InvoicePlane/pull/1867)).
 
 - **Empty `SESS_SAVE_PATH` no longer breaks session startup — fixed in code, not just
   packaging.** 1.7.3 shipped `ipconfig.php.example` with the line commented out, but any
