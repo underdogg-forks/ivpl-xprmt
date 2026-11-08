@@ -311,6 +311,7 @@ class TasksControllerTest extends AbstractTestCase
             'task_finish_date' => '2026-06-30',
             'task_status'      => 1,
             'project_id'       => 0,
+            'tax_rate_id'      => 0,
         ], $overrides));
     }
 }

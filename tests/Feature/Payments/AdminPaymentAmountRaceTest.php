@@ -87,7 +87,7 @@ class AdminPaymentAmountRaceTest extends AbstractTestCase
         );
 
         $lockHolder->exec(sprintf(
-            'INSERT INTO ip_payments (invoice_id, payment_date, payment_amount, payment_method_id) VALUES (%d, CURDATE(), 400.00, 1)',
+            'INSERT INTO ip_payments (invoice_id, payment_date, payment_amount, payment_method_id, payment_note) VALUES (%d, CURDATE(), 400.00, 1, \'\')',
             $invoiceId
         ));
         $lockHolder->exec(sprintf(
@@ -145,7 +145,7 @@ class AdminPaymentAmountRaceTest extends AbstractTestCase
         );
 
         $lockHolder->exec(sprintf(
-            'INSERT INTO ip_payments (invoice_id, payment_date, payment_amount, payment_method_id) VALUES (%d, CURDATE(), 400.00, 1)',
+            'INSERT INTO ip_payments (invoice_id, payment_date, payment_amount, payment_method_id, payment_note) VALUES (%d, CURDATE(), 400.00, 1, \'\')',
             $invoiceId
         ));
         $lockHolder->exec(sprintf(

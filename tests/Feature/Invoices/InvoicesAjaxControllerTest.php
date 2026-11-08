@@ -430,7 +430,7 @@ class InvoicesAjaxControllerTest extends AbstractTestCase
         $sourceId       = $this->seedInvoice($sourceClientId, ['invoice_number' => 'COPY-SRC-001']);
         $this->databaseInsert('ip_invoice_items', [
             'invoice_id' => $sourceId, 'item_name' => 'Copied item', 'item_description' => '', 'item_quantity' => '3',
-            'item_price' => '20.00', 'item_order' => 1,
+            'item_price' => '20.00', 'item_order' => 1, 'item_date_added' => date('Y-m-d'), 'item_tax_rate_id' => 0,
         ]);
 
         /* Act */

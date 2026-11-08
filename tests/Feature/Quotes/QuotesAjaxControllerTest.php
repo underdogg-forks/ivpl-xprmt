@@ -547,7 +547,7 @@ class QuotesAjaxControllerTest extends AbstractTestCase
     {
         return $this->databaseInsert('ip_quote_items', [
             'quote_id'   => $quoteId, 'item_name' => $name, 'item_description' => '', 'item_quantity' => $quantity,
-            'item_price' => $price, 'item_order' => 1, 'item_date_added' => date('Y-m-d'),
+            'item_price' => $price, 'item_order' => 1, 'item_date_added' => date('Y-m-d'), 'item_tax_rate_id' => 0,
         ]);
     }
 

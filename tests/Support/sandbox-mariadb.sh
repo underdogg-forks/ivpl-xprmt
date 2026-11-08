@@ -102,8 +102,9 @@ FLUSH PRIVILEGES;
 SQL2
 fi
 
-# 4. (Re)build the schema + seed, mirroring the CI "Build MariaDB schema" step.
-mysql_exec -e "SET GLOBAL sql_mode=''; DROP DATABASE IF EXISTS \`$DB_DATABASE\`; CREATE DATABASE \`$DB_DATABASE\` CHARACTER SET utf8;"
+# 4. (Re)build the schema + seed, mirroring the CI "Build MariaDB schema" step. The server keeps its own default
+#    sql_mode (STRICT_TRANS_TABLES,...), as a user's server does; DEFAULT also undoes a mode an earlier run left set.
+mysql_exec -e "SET GLOBAL sql_mode=DEFAULT; DROP DATABASE IF EXISTS \`$DB_DATABASE\`; CREATE DATABASE \`$DB_DATABASE\` CHARACTER SET utf8;"
 for f in $(ls "$REPO"/application/modules/setup/sql/*.sql | sort); do
     mysql_exec --force "$DB_DATABASE" < "$f"
 done
