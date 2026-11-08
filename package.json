@@ -20,7 +20,9 @@
         "e2e:headed": "playwright test --headed",
         "e2e:docker": "sh tests/E2E/docker-e2e.sh",
         "e2e:install": "playwright install --with-deps chromium",
-        "lint:e2e": "eslint tests/E2E/**/*.spec.js"
+        "lint:e2e": "eslint tests/E2E/**/*.spec.js",
+        "e2e:parity": "node tests/js/support/parity-cli.js",
+        "e2e:ci": "node tests/E2E/run-with-diagnostic-rerun.mjs"
     },
     "devDependencies": {
         "@lodder/grunt-postcss": "^3.1.1",
