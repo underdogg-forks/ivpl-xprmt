@@ -12,7 +12,7 @@ import path from 'path';
  * (Ported unchanged from the InvoicePlane v2 E2E suite except for the
  * report path, which is kept out of the repo root.)
  */
-const REPORT_PATH = path.resolve('tests/E2E/error-report.md');
+const REPORT_PATH = path.resolve(process.env.E2E_ERROR_REPORT || 'tests/E2E/error-report.md');
 
 export default class ErrorSummaryReporter {
   constructor() {

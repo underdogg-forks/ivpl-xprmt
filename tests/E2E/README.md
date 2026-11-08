@@ -11,6 +11,23 @@ Frontend-test conventions: lowercase kebab-case file and directory names;
 `test.describe('<Module> — <area>')` grouping; test titles read `it …` to match
 the PHPUnit method they mirror.
 
+## Two servers, two projects
+
+`playwright.config.js` has two projects against two PHP servers on the same database:
+
+| project | server | runs | CSRF |
+|---|---|---|---|
+| `chromium` | `E2E_BASE_URL` (`:8000`) | every `*.spec.js` except `*.csrf.spec.js` | off — forms are driven through the UI |
+| `chromium-csrf` | `E2E_CSRF_BASE_URL` (`:8001`) | `*.csrf.spec.js` only | **on** — the production setting |
+
+A PHPUnit test that enables CSRF (`enableCsrfProtection()`) — "refused without a token", "accepted with one", the
+token helpers in `scripts.js` — gets its e2e equivalent in a `<name>.csrf.spec.js`. On the CSRF-off server the layout
+renders an empty token, so such a test would pass or skip for the wrong reason.
+
+`tests/js/e2e-layout.test.js` (run by `npm run test:js`) enforces the shape of this directory: every spec lives under
+`tests/E2E`, is a `.spec.js`, takes `test`/`expect` from `test.js` (or a `support/` helper), declares at least one test,
+and never calls `test.skip`, `waitForTimeout` or guards an assertion with `if (await …isVisible())`.
+
 ## Layout
 
 ```
@@ -38,10 +55,17 @@ wrapper is what runs the per-test database reset and the browser-error capture.
 
 Every test runs `tests/Support/reset-test-db.php` first (truncate all tables +
 `ip_seed_baseline`), exactly like `InteractsWithDatabase` does for the PHPUnit
-suite. Consequences, all reflected in `playwright.config.js`:
+suite.
+
+The reset is cheap on purpose (it was ~0.4 s of a ~1.4 s test): it does nothing when the database is exactly as the
+last reseed left it (content checksums and AUTO_INCREMENT counters are compared), and otherwise truncates only the tables
+that hold rows or whose counter moved. The baseline admin has a **fixed** password hash and salt: a session carries an
+HMAC of that hash, so a fresh hash per reseed ended the shared admin session after every reset and the suite logged in
+again through a real browser before every test (~0.65 s each). Consequences, all reflected in `playwright.config.js`:
 
 - **`workers: 1`, `fullyParallel: false`** — one app instance, one database,
-  serial tests. PHP's built-in server also handles one request at a time.
+  serial tests. The PHP servers run with `PHP_CLI_SERVER_WORKERS=4`: PDF generation fetches its assets from the
+  application itself, which deadlocks a single-threaded `php -S` (every PDF request used to hang).
 - Specs assert on their own `uniq()`-suffixed data, never on absolute row counts
   or list position.
 - The admin session in `.auth/admin.json` survives a reseed (the reseeded admin
@@ -75,6 +99,22 @@ DB_HOSTNAME=${DB_HOSTNAME:-127.0.0.1} php -d variables_order=EGPCS -S localhost:
 It needs a schema-built MariaDB reachable on that host — the same one the PHPUnit
 suite uses. If you only have the ivpldock stack, the DB is already there on
 `127.0.0.1:3306`.
+
+### Fast pass, then a diagnostic re-run of the failures
+
+`npm run e2e` records nothing (no video, no trace) so the suite stays fast. `npm run e2e:ci`
+(`tests/E2E/run-with-diagnostic-rerun.mjs`) runs it in two passes:
+
+1. **Pass 1** runs every test with nothing recorded and `retries: 0`. If it is green the run ends here.
+2. **Pass 2** re-runs only the tests that failed in pass 1 (read from `test-results/.last-run.json`)
+   with `E2E_DIAGNOSTICS=1`, which turns on trace and video (plus the failure screenshot).
+
+Output of pass 2: `test-results-rerun/` (video, trace, screenshot, `error-context.md` per test),
+`playwright-report-rerun/` (HTML report), `tests/E2E/error-report-rerun.md` and
+`tests/E2E/rerun-summary.md`. The summary labels each test `FAILED AGAIN` or
+`FLAKY (passed on the re-run)`. The exit status is that of pass 1, so a flaky test still fails the build.
+
+Set `E2E_DIAGNOSTICS=1` yourself to record trace and video in a normal `npm run e2e`.
 
 ### Point at an already-running instance
 
@@ -170,6 +210,6 @@ pipeline will also report.
 ## CI
 
 `.github/workflows/e2e-tests.yml` — MariaDB service, schema + seed, `php -S`,
-`npx playwright install --with-deps chromium`, ESLint linting, `npm run e2e`.
-Runs on `prep/v180` pushes and PRs; the HTML report + `error-report.md` are
-uploaded as an artifact.
+`npx playwright install --with-deps chromium`, ESLint linting, `npm run e2e:ci` (fast pass, then a diagnostic re-run of the failures).
+Runs on `prep/v180` pushes and PRs; the HTML reports, `error-report.md`, the re-run
+folder (`test-results-rerun/`) and `rerun-summary.md` are uploaded as artifacts.

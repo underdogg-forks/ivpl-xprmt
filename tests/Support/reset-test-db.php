@@ -29,12 +29,42 @@ $pdo = new PDO(
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
 );
 
+// A test that changed nothing leaves the database exactly as the last reseed produced it, so the next reset has
+// nothing to do. "Exactly" is checked, not assumed: the content checksum and AUTO_INCREMENT counter of every table are
+// compared with those taken right after the last reseed.
+$signatureFile = sys_get_temp_dir() . '/ip_e2e_baseline_' . md5($host . $port . $name) . '.sig';
+$signature     = static function (PDO $pdo): string {
+    $names = $pdo
+        ->query('SELECT table_name, auto_increment FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name')
+        ->fetchAll(PDO::FETCH_NUM);
+    $list  = implode(',', array_map(static fn (array $row): string => '`' . str_replace('`', '``', (string) $row[0]) . '`', $names));
+    $parts = [];
+    foreach ($pdo->query('CHECKSUM TABLE ' . $list)->fetchAll(PDO::FETCH_NUM) as $row) {
+        $parts[] = $row[0] . '=' . $row[1];
+    }
+    foreach ($names as $row) {
+        $parts[] = $row[0] . '#' . ($row[1] ?? '');
+    }
+
+    return md5(implode('|', $parts));
+};
+if (is_file($signatureFile) && hash_equals((string) file_get_contents($signatureFile), $signature($pdo))) {
+    exit(0);
+}
+
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+// Only a table that holds rows or whose AUTO_INCREMENT counter has moved can differ from a clean one; truncating the
+// other tables is a DDL statement that does nothing, and it was about half of the reset.
 $tables = $pdo
-    ->query('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()')
-    ->fetchAll(PDO::FETCH_COLUMN);
-foreach ($tables as $table) {
-    $pdo->exec('TRUNCATE TABLE `' . str_replace('`', '``', (string) $table) . '`');
+    ->query('SELECT table_name, auto_increment FROM information_schema.tables WHERE table_schema = DATABASE()')
+    ->fetchAll(PDO::FETCH_NUM);
+foreach ($tables as [$table, $autoIncrement]) {
+    $quoted = '`' . str_replace('`', '``', (string) $table) . '`';
+    $dirty  = ($autoIncrement !== null && (int) $autoIncrement > 1)
+        || (bool) $pdo->query("SELECT EXISTS(SELECT 1 FROM {$quoted})")->fetchColumn();
+    if ($dirty) {
+        $pdo->exec('TRUNCATE TABLE ' . $quoted);
+    }
 }
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
@@ -65,3 +95,5 @@ $upsert = $pdo->prepare(
 foreach ($e2eSettings as $key => $value) {
     $upsert->execute([':k' => $key, ':v' => $value]);
 }
+
+file_put_contents($signatureFile, $signature($pdo));

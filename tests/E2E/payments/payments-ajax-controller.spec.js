@@ -8,7 +8,9 @@
 
 import { test, expect } from '../test.js';
 import { createInvoiceWithBalance } from '../support/fixtures.js';
-import { dbQuery } from '../support/db.js';
+import { dbExec, dbQuery } from '../support/db.js';
+import { seedInvoiceRow } from '../support/invoices.js';
+import { seedClientRow } from '../support/quotes.js';
 
 const XHR = { 'X-Requested-With': 'XMLHttpRequest' };
 
@@ -89,5 +91,22 @@ test.describe('Payments AJAX — add', () => {
 
     /* Assert */
     expect((await response.text()).trim()).toBe('');
+  });
+});
+
+test.describe('Payments AJAX — boundary', () => {
+  test('it accepts a payment exactly equal to the invoice balance', async ({ page }) => {
+    /* Arrange: the guard rejects strictly amount > balance, so amount == balance must pass (a careless >= would reject it) */
+    const invoiceId = seedInvoiceRow(seedClientRow());
+    dbExec(`UPDATE ip_invoice_amounts SET invoice_balance = 10.00 WHERE invoice_id = ${invoiceId}`);
+    const before = Number(dbQuery('SELECT COUNT(*) AS n FROM ip_payments')[0].n);
+
+    /* Act */
+    const json = await add(page, { ...payload(invoiceId), payment_amount: '10.00' });
+
+    /* Assert */
+    expect(json.success, JSON.stringify(json)).toBe(1);
+    expect(Number(dbQuery('SELECT COUNT(*) AS n FROM ip_payments')[0].n)).toBe(before + 1);
+    expect(dbQuery(`SELECT COUNT(*) AS n FROM ip_payments WHERE invoice_id = ${invoiceId} AND payment_amount = 10`)[0].n).toBe(1);
   });
 });

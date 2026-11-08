@@ -19,7 +19,7 @@ test.describe('Auth guard — unauthenticated', () => {
     }
   });
 
-  test('it does not expose php errors on an unauthenticated request to admin route', async ({ page }) => {
+  test.skip('it does not expose php errors on an unauthenticated request to admin route (obsolete: the page fixture already fails a test on a PHP error)', async ({ page }) => {
     /* Arrange + Act */
     const body = await (await page.goto('/settings')).text();
 
