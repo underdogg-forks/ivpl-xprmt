@@ -11,12 +11,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { analyse, readManifest, FEATURE } = require("./support/parity.js");
+const { analyse, readManifest, exemptMethodsOf, FEATURE } = require("./support/parity.js");
 
 const analysis = analyse();
 const manifest = readManifest();
 const exempt = { ...manifest.notARoute, ...manifest.needsServerState };
-const exemptMethods = manifest.exemptMethods ?? {};
+const exemptMethods = exemptMethodsOf(manifest);
 
 test("every exempt file exists and says why", () => {
     const problems = Object.entries(exempt).filter(([file, reason]) => !fs.existsSync(path.join(FEATURE, file)) || String(reason).trim().length < 15);
