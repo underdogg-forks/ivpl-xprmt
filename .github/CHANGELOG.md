@@ -16,7 +16,7 @@ record *why* and *how*.
 
 ### Thank you
 
-Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
+Thanks to [@1icarus2](https://github.com/1icarus2), [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@santhoshdodo2721](https://github.com/santhoshdodo2721), [@nirtem](https://github.com/nirtem),
 [@d3do-23](https://github.com/d3do-23), [@capivara-research](https://github.com/capivara-research),
 [@Suraj-Siddharudh](https://github.com/Suraj-Siddharudh), [@Ishbarna](https://github.com/Ishbarna),
@@ -34,7 +34,7 @@ Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@alham-rizvi](https://github.com/alham-rizvi), [@PLpaPLpa](https://github.com/PLpaPLpa),
 [@0raN9ewww](https://github.com/0raN9ewww), [@mattmumford-git](https://github.com/mattmumford-git),
 and [@ali-iltizar](https://github.com/ali-iltizar) for responsibly disclosing the issues resolved or
-in progress in this release.
+in progress in this release. A special thanks to [@1icarus2](https://github.com/1icarus2) for the client dropdown report (#1866): the failing queries, the matching test failures and the `WHERE` form that fixes it.
 
 ### Security Vulnerability Summary
 
@@ -208,6 +208,8 @@ in progress in this release.
 - **Stored XSS via unescaped `system_theme` setting (CWE-79, leading to CWE-116 / CWE-20 / CWE-693):** `system_theme` was persisted by `Settings::index()` with no server-side allowlist — unlike `first_day_of_week`, which already has a guard in the same loop — and echoed unescaped by `_theme_asset()` into a double-quoted `href="..."` attribute on 18 views, including the unauthenticated login page, so a value planted by any administrator (not just the primary one) executed in the browser of every visitor, logged in or not. An attribute-breakout payload (`x" onerror="..." x="`) contains no `<` and matches none of `xss_clean()`'s tag- or keyword-gated filters, so the global input filter did not stop it either. **Fix:** `Settings::index()` now validates `system_theme` against the same theme list its own `<select>` is built from, and `_theme_asset()` escapes the value on output as defense-in-depth. Fixing this safely on this fork also required fixing a separate, fork-specific bug first: `bootstrap/kernel.php` defined `THEME_FOLDER` pointing at `resources/assets/`, which does not exist in this tree (themes ship under `assets/`, matching upstream's `FCPATH . 'assets'`), so `Mdl_Settings::get_themes()` silently returned no themes and an allowlist built from it would have rejected every value, breaking the settings form entirely — now pointed at `assets/`. Thanks to [@cray4367](https://github.com/cray4367) for responsible disclosure. [#1805](https://github.com/InvoicePlane/InvoicePlane/pull/1805)
 
 ### Bug fixes
+
+- **The client dropdown search (and `users/ajax/name_query`) failed on MariaDB with `ONLY_FULL_GROUP_BY` ([#1866](https://github.com/InvoicePlane/InvoicePlane/issues/1866)):** `clients/ajax/name_query` and `users/ajax/name_query` filtered with `HAVING` on plain columns although the query has no `GROUP BY`, which MariaDB rejects with error 1463 when `ONLY_FULL_GROUP_BY` is on, so the select2 client dropdown (create/copy invoice or quote, projects) returned no results. MySQL tolerates it, and MariaDB's default `sql_mode` does not enable the mode, so only installs that do were affected. Both now filter in `WHERE`, inside a group so the name conditions are still ANDed with the active and type conditions; the client full name is the select list's `CONCAT()` written out, because `WHERE` cannot see an alias, and its pattern is escaped with `$this->db->escape()`. Reported by [@1icarus2](https://github.com/1icarus2), with the failing queries, the matching test failures and the proposed `WHERE` form ([#1868](https://github.com/InvoicePlane/InvoicePlane/pull/1868)).
 
 - **Empty `SESS_SAVE_PATH` no longer breaks session startup — fixed in code, not just
   packaging.** 1.7.3 shipped `ipconfig.php.example` with the line commented out, but any
