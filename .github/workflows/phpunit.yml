@@ -128,8 +128,8 @@ jobs:
       - name: Build MariaDB schema and seed baseline
         run: |
           export MYSQL_PWD="$DB_PASSWORD"
-          # Relax sql_mode to match the application's expected insert behavior.
-          mysql -h "$DB_HOSTNAME" -P "$DB_PORT" -u "$DB_USERNAME" -e "SET GLOBAL sql_mode='';"
+          # Leave sql_mode at the server's default (STRICT_TRANS_TABLES,...), as a user's MariaDB has it:
+          # emptying it hid every query and insert the default mode rejects.
           # Import the schema from the ordered setup migrations (they are MySQL DDL).
           for f in $(ls application/modules/setup/sql/*.sql | sort); do
             mysql -h "$DB_HOSTNAME" -P "$DB_PORT" -u "$DB_USERNAME" --force "$DB_DATABASE" < "$f"
