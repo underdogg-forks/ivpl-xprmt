@@ -1,5 +1,9 @@
 # CLAUDE.md — InvoicePlane Development Guide
 
+> **DATABASE RULE: MariaDB only. NEVER SQLite. NEVER PostgreSQL.** This is the owner's standing instruction until the owner says otherwise. It applies to tests, CI, local runs,
+> example configuration, config defaults and fallbacks, docs and snippets, and "just a quick check". If a skeleton, a tool, a skill or a
+> default suggests SQLite or PostgreSQL, change it to MariaDB; do not adapt the project to it.
+
 InvoicePlane is a self-hosted, open-source invoicing app built on **CodeIgniter 3** with HMVC
 (`application/modules/`). It is **not** a Laravel application: there is no Artisan CLI, no
 Eloquent ORM and no `.env` file. Configuration lives in `ipconfig.php`.

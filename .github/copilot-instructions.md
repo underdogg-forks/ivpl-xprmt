@@ -1,5 +1,9 @@
 # Copilot Instructions for InvoicePlane
 
+> **DATABASE RULE: MariaDB only. NEVER SQLite. NEVER PostgreSQL.** This is the owner's standing instruction until the owner says otherwise. It applies to tests, CI, local runs,
+> example configuration, config defaults and fallbacks, docs and snippets, and "just a quick check". If a skeleton, a tool, a skill or a
+> default suggests SQLite or PostgreSQL, change it to MariaDB; do not adapt the project to it.
+
 InvoicePlane is a self-hosted, open-source invoicing application written in **PHP with CodeIgniter 3** (legacy v1 codebase). There is no Artisan CLI, no Laravel framework, and no Eloquent ORM. All instructions below are specific to this codebase.
 
 ## Project overview
