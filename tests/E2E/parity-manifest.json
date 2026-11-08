@@ -6,7 +6,8 @@
     "Core/Setup/PaymentExternalIdDedupMigrationTest.php": "A schema migration: not a request.",
     "Core/Security/NginxDenyRulesTest.php": "Static analysis of the nginx example configuration.",
     "Core/Security/ExampleWebServerConfigStaticTreesTest.php": "Static analysis of the example web server configurations.",
-    "Core/TestServerStaticFilesTest.php": "Tests the e2e test server (bootstrap/test-server.php) itself."
+    "Core/TestServerStaticFilesTest.php": "Tests the e2e test server (bootstrap/test-server.php) itself.",
+    "Core/ArchiveCleanupTest.php": "Test of the harness's own tearDown (files in uploads/archive); no HTTP route, nothing to mirror in the browser."
   },
   "needsServerState": {
     "Core/SetupWizardFlowTest.php": "Drives the unlocked setup wizard: needs an uninstalled instance (SETUP_COMPLETED=false), which the shared e2e database cannot be.",
