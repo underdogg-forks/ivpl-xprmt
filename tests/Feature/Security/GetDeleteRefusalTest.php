@@ -65,7 +65,13 @@ final class GetDeleteRefusalTest extends AbstractTestCase
         return match ($table) {
             'ip_imports'        => $this->databaseInsert($table, ['import_date' => date('Y-m-d H:i:s')]),
             'ip_invoice_groups' => $this->databaseInsert($table, ['invoice_group_name' => 'Group ' . bin2hex(random_bytes(3)), 'invoice_group_identifier_format' => '{{{id}}}', 'invoice_group_next_id' => 1, 'invoice_group_left_pad' => 0]),
-            'ip_custom_values'  => $this->databaseInsert($table, ['custom_values_field' => 'f' . bin2hex(random_bytes(3)), 'custom_values_value' => 'v']),
+            'ip_custom_values'  => $this->databaseInsert($table, [
+                'custom_values_field' => $this->databaseInsert('ip_custom_fields', [
+                    'custom_field_table' => 'ip_client_custom', 'custom_field_label' => 'Field ' . bin2hex(random_bytes(3)), 'custom_field_type' => 'SINGLE-CHOICE',
+                    'custom_field_order' => 1, 'custom_field_location' => 0,
+                ]),
+                'custom_values_value' => 'v',
+            ]),
         };
     }
 }
