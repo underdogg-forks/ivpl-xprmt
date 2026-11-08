@@ -30,7 +30,8 @@
     "Core/Integrations/QontoInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/SuperPdpInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/QontoEInvoiceGenerationTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server."
+    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server.",
+    "Payments/StripeCallbackBookedPaymentTest.php": "Needs the Stripe HTTP client replaced by a fake armed per request (STRIPE_MOCK_RESPONSES)."
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
