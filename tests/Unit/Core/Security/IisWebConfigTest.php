@@ -147,6 +147,8 @@ final class IisWebConfigTest extends TestCase
             'triple slash inside the path'  => ['uploads///customer_files/a.pdf'],
             'trailing dot on the folder'    => ['uploads/archive./2017-09-28_Invoice_1.pdf'],
             'trailing space on the folder'  => ['uploads/import /clients.csv'],
+            'trailing dot on uploads'       => ['uploads./archive/2017-09-28_Invoice_1.pdf'],
+            'trailing space on uploads'     => ['uploads /import/clients.csv'],
             'trailing dot on composer.json' => ['composer.json.'],
             'trailing dot on a vendor path' => ['vendor./autoload.php'],
             'trailing dot on a markdown'    => ['README.md.'],
