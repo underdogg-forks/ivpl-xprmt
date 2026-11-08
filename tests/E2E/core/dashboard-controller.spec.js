@@ -42,7 +42,7 @@ test.describe('Dashboard — authenticated admin', () => {
     await expect(page.locator('#panel-quick-actions a[href*="/clients"]').first()).toBeVisible();
   });
 
-  test('it renders without exposing php errors', async ({ page }) => {
+  test.skip('it renders without exposing php errors (obsolete: the page fixture already fails a test on a PHP error)', async ({ page }) => {
     /* Arrange + Act */
     const response = await page.goto('/dashboard');
     const body = await response.text();
@@ -83,7 +83,7 @@ test.describe('Dashboard — guest access', () => {
     await expect(page).toHaveURL(/\/sessions\/login/);
   });
 
-  test('it does not expose php errors on the login redirect', async ({ page }) => {
+  test.skip('it does not expose php errors on the login redirect (obsolete: the page fixture already fails a test on a PHP error)', async ({ page }) => {
     /* Arrange + Act */
     const body = await (await page.goto('/dashboard')).text();
 
