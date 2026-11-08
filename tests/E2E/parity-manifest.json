@@ -30,7 +30,8 @@
     "Core/Integrations/QontoInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/SuperPdpInvoiceTransmissionTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
     "Core/Integrations/QontoEInvoiceGenerationTest.php": "Needs the provider HTTP endpoint answered by a server-side fake.",
-    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server."
+    "Core/Integrations/LetsPeppolEInvoiceGenerationTest.php": "Needs the Schematron toolchain and a provider fake on the server.",
+    "Invoices/PdfTemplateStylesheetTest.php": "Needs the site's own URL to be unfetchable from PHP (the suite serves nothing on http://localhost/); the e2e servers answer on their own address, so the unfixed code produces the same PDF and a mirror could not fail (mutation-checked)."
   },
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
