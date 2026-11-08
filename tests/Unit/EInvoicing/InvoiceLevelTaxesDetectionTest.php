@@ -118,6 +118,34 @@ final class InvoiceLevelTaxesDetectionTest extends AbstractTestCase
         self::assertTrue($result);
     }
 
+    #[Test]
+    public function it_ignores_an_invoice_tax_row_whose_amount_is_zero(): void
+    {
+        /* Arrange: a zero-amount row does not move the PDF total, so it cannot make the XML diverge */
+        $invoiceId = $this->seedInvoice($this->seedClient());
+        $this->databaseInsert('ip_invoice_tax_rates', ['invoice_id' => $invoiceId, 'tax_rate_id' => $this->insertTaxRate('Zero', 0), 'invoice_tax_rate_amount' => 0, 'include_item_tax' => 0]);
+
+        /* Act */
+        $result = invoice_has_invoice_level_taxes($invoiceId);
+
+        /* Assert */
+        self::assertFalse($result);
+    }
+
+    #[Test]
+    public function it_still_blocks_on_a_negative_invoice_tax_amount(): void
+    {
+        /* Arrange: a negative amount lowers the PDF total just as a positive one raises it */
+        $invoiceId = $this->seedInvoice($this->seedClient());
+        $this->databaseInsert('ip_invoice_tax_rates', ['invoice_id' => $invoiceId, 'tax_rate_id' => $this->insertTaxRate('Credit', 5), 'invoice_tax_rate_amount' => -5, 'include_item_tax' => 0]);
+
+        /* Act */
+        $result = invoice_has_invoice_level_taxes($invoiceId);
+
+        /* Assert */
+        self::assertTrue($result);
+    }
+
     /**
      * Helper to insert a tax rate and return its ID.
      */
