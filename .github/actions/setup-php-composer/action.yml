@@ -39,8 +39,21 @@ runs:
         # software-properties-common provides add-apt-repository itself, so
         # it must be installed before the ondrej/php PPA is added.
         sudo apt-get update
-        sudo apt-get install -y software-properties-common ca-certificates curl unzip
-        sudo add-apt-repository -y ppa:ondrej/php
+        sudo apt-get install -y software-properties-common ca-certificates curl unzip lsb-release
+
+        # The ondrej/php PPA is being folded into packages.sury.org and publishes nothing for the newest
+        # Ubuntu releases (apt then fails with "does not have a Release file"). Use the PPA where it has
+        # this release, otherwise the sury repository, which is the canonical source for those releases.
+        codename="$(lsb_release -sc)"
+        if curl -fsI "https://ppa.launchpadcontent.net/ondrej/php/ubuntu/dists/${codename}/Release" > /dev/null; then
+          sudo add-apt-repository -y ppa:ondrej/php
+        else
+          echo "ondrej/php has no ${codename} release, using packages.sury.org"
+          sudo curl -fsSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb
+          sudo dpkg -i /tmp/debsuryorg-archive-keyring.deb
+          echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ ${codename} main" \
+            | sudo tee /etc/apt/sources.list.d/sury-php.list > /dev/null
+        fi
         sudo apt-get update
 
         # Map requested PHP extension names to their apt package names.
