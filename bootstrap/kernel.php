@@ -41,9 +41,13 @@ if ( ! function_exists('env_bool')) {
     {
         $value = $_ENV[$key] ?? null;
 
-        return $value === null
-            ? $default
-            : filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        // Missing, empty or not a recognisable boolean: keep the default. A security setting whose default is
+        // on (COOKIE_SECURE, SESS_MATCH_IP, SESS_REGENERATE_DESTROY) must not be switched off by a typo.
+        if ($value === null || trim((string) $value) === '') {
+            return $default;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
     }
 }
 
@@ -147,9 +151,13 @@ if ( ! function_exists('env_bool')) {
     {
         $value = $_ENV[$key] ?? null;
 
-        return $value === null
-            ? $default
-            : filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        // Missing, empty or not a recognisable boolean: keep the default. A security setting whose default is
+        // on (COOKIE_SECURE, SESS_MATCH_IP, SESS_REGENERATE_DESTROY) must not be switched off by a typo.
+        if ($value === null || trim((string) $value) === '') {
+            return $default;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
     }
 }
 
