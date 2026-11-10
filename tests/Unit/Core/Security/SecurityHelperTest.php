@@ -56,6 +56,31 @@ class SecurityHelperTest extends TestCase
     }
 
     #[Test]
+    public function it_replaces_a_same_origin_referer_that_carries_control_characters_or_angle_brackets(): void
+    {
+        /* Arrange: every one of these has the right host, scheme and port, so only the character check can refuse it */
+        unset($_SERVER['HTTP_REFERER']);
+        $unsafe = [
+            'carriage return and line feed' => "https://invoiceplane.example/a\r\nSet-Cookie: x=1",
+            'null byte'                     => "https://invoiceplane.example/a\0b",
+            'delete character'              => "https://invoiceplane.example/a\x7Fb",
+            'script tag'                    => 'https://invoiceplane.example/<script>alert(1)</script>',
+            'closing angle bracket only'    => 'https://invoiceplane.example/a>b',
+        ];
+
+        foreach ($unsafe as $label => $referer) {
+            /* Act */
+            $result = get_safe_referer($referer, 'sessions/login');
+
+            /* Assert */
+            self::assertSame('sessions/login', $result, $label);
+        }
+
+        /* Assert: positive control, the same origin without those characters is returned as it is */
+        self::assertSame('https://invoiceplane.example/a', get_safe_referer('https://invoiceplane.example/a', 'sessions/login'));
+    }
+
+    #[Test]
     public function it_rejects_a_referer_from_an_external_domain(): void
     {
         /* Arrange: a plain foreign host, a host that only starts with ours, and a userinfo trick that reads like ours */

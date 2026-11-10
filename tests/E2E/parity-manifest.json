@@ -484,6 +484,16 @@
       "it_still_reaches_the_stripe_helper_through_the_checked_form",
       "it_still_reaches_the_paypal_helper_through_the_checked_form",
       "it_writes_the_invoice_key_into_the_stripe_script_as_a_json_string"
+    ],
+    "Core/Users/UsersFormAuthorizationTest.php": [
+      "it_denies_a_peer_admin_rewriting_the_primary_admins_email_and_role",
+      "it_denies_a_peer_admin_editing_another_peer",
+      "it_lets_the_primary_admin_edit_a_peer",
+      "it_lets_a_peer_admin_edit_their_own_account",
+      "it_ignores_a_role_change_in_the_form_a_user_submits_for_their_own_account",
+      "it_ends_the_access_of_a_user_the_primary_admin_demotes",
+      "it_deletes_the_session_files_of_a_user_whose_role_changes_and_only_theirs",
+      "it_keeps_the_session_files_of_a_user_whose_role_does_not_change"
     ]
   }
 }
