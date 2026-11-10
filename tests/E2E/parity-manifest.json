@@ -463,6 +463,27 @@
       "it_removes_attempts_outside_the_rate_limit_time_window",
       "it_considers_the_ip_rate_limited_when_attempt_count_meets_the_threshold",
       "it_does_not_rate_limit_when_attempt_count_is_below_the_threshold"
+    ],
+    "Core/Security/JavaScriptStringEscapingTest.php": [
+      "it_escapes_the_stored_version_in_the_settings_updates_script",
+      "it_writes_the_default_tax_rate_as_a_json_string_in_the_product_lookup_modal",
+      "it_writes_the_default_tax_rate_as_a_json_string_in_the_task_lookup_modal"
+    ],
+    "Core/Users/UserClientsIdorTest.php": [
+      "it_denies_a_secondary_admin_reading_another_users_client_list",
+      "it_lets_the_primary_admin_and_the_owner_read_a_client_list",
+      "it_denies_a_secondary_admin_loading_another_users_client_table",
+      "it_refuses_a_non_integer_user_id_when_loading_the_client_table",
+      "it_denies_a_secondary_admin_opening_the_add_client_modal_for_another_user",
+      "it_still_opens_the_add_client_modal_for_a_user_that_is_being_created",
+      "it_writes_the_user_id_into_the_client_modal_script_as_a_json_string"
+    ],
+    "Payments/GatewayHelperRoutingTest.php": [
+      "it_does_not_route_a_direct_request_to_the_stripe_helper",
+      "it_does_not_route_a_direct_request_to_the_paypal_helper",
+      "it_still_reaches_the_stripe_helper_through_the_checked_form",
+      "it_still_reaches_the_paypal_helper_through_the_checked_form",
+      "it_writes_the_invoice_key_into_the_stripe_script_as_a_json_string"
     ]
   }
 }
