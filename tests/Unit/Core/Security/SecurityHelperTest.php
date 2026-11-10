@@ -374,6 +374,49 @@ class SecurityHelperTest extends TestCase
         self::assertSame('3', $encoded);
     }
 
+    #[Test]
+    public function it_accepts_any_request_when_csrf_protection_is_switched_off(): void
+    {
+        /* Arrange: no token at all, on a URI that would otherwise be rejected */
+        $this->setRequest([], [], []);
+        $this->setRequestUri('invoices/delete/42', ['invoices/delete/[^/]+']);
+        $GLOBALS['unitCiConfig']['csrf_protection'] = false;
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert: positive control for the rejections above, which all run with protection on */
+        self::assertTrue($valid);
+    }
+
+    #[Test]
+    public function it_rejects_a_submitted_token_when_the_csrf_cookie_is_missing(): void
+    {
+        /* Arrange: the double-submit pair needs both halves, and an attacker cannot set the victim's cookie */
+        $this->setRequest([], ['_ip_csrf' => 'attacker-chosen'], [], withSecurity: true);
+        $this->setRequestUri('invoices/delete/42', ['invoices/delete/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertFalse($valid);
+    }
+
+    #[Test]
+    public function it_rejects_an_empty_token_pair_instead_of_treating_equal_empty_strings_as_a_match(): void
+    {
+        /* Arrange */
+        $this->setRequest([], ['_ip_csrf' => ''], ['ip_csrf_cookie' => ''], withSecurity: true);
+        $this->setRequestUri('invoices/delete/42', ['invoices/delete/[^/]+']);
+
+        /* Act */
+        $valid = $this->verifyAsPost();
+
+        /* Assert */
+        self::assertFalse($valid);
+    }
+
     /**
      * Runs verify_csrf_token() as a POST, restoring REQUEST_METHOD afterwards.
      */
