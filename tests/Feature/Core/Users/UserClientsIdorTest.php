@@ -5,6 +5,7 @@ namespace Tests\Feature\Core\Users;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 use Tests\Concerns\PerformsCsrfProtectedRequests;
+use Tests\Integration\Support\HttpResponse;
 
 final class UserClientsIdorTest extends AbstractTestCase
 {
@@ -334,6 +335,137 @@ final class UserClientsIdorTest extends AbstractTestCase
         /* Assert */
         $this->assertResponseRedirectsToRoute($response, 'users/form/' . $ownerId);
         $this->assertDatabaseMissing('ip_user_clients', ['user_client_id' => $mappingId]);
+    }
+
+    #[Test]
+    public function it_denies_a_secondary_admin_reading_another_users_client_list(): void
+    {
+        /* Arrange */
+        $secondaryId = $this->seedAdmin();
+        $victimId    = $this->seedAdmin();
+        $this->databaseInsert('ip_user_clients', ['user_id' => $victimId, 'client_id' => $this->seedClient(['client_name' => 'Victims Private Client'])]);
+        $this->actingAsAdmin($secondaryId);
+
+        /* Act */
+        $response = $this->get('/user_clients/user/' . $victimId);
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 403);
+        $this->assertResponseBodyNotContains($response, 'Victims Private Client');
+    }
+
+    #[Test]
+    public function it_lets_the_primary_admin_and_the_owner_read_a_client_list(): void
+    {
+        /* Arrange: the positive controls for the denial above */
+        $ownerId = $this->seedAdmin();
+        $this->databaseInsert('ip_user_clients', ['user_id' => $ownerId, 'client_id' => $this->seedClient(['client_name' => 'Owners Own Client'])]);
+
+        /* Act */
+        $this->actingAsAdmin(1);
+        $asPrimary = $this->get('/user_clients/user/' . $ownerId);
+        $this->actingAsAdmin($ownerId);
+        $asOwner = $this->get('/user_clients/user/' . $ownerId);
+
+        /* Assert */
+        $this->assertResponseStatusCode($asPrimary, 200);
+        $this->assertResponseBodyContains($asPrimary, 'Owners Own Client');
+        $this->assertResponseStatusCode($asOwner, 200);
+        $this->assertResponseBodyContains($asOwner, 'Owners Own Client');
+    }
+
+    #[Test]
+    public function it_denies_a_secondary_admin_loading_another_users_client_table(): void
+    {
+        /* Arrange */
+        $secondaryId = $this->seedAdmin();
+        $victimId    = $this->seedAdmin();
+        $this->databaseInsert('ip_user_clients', ['user_id' => $victimId, 'client_id' => $this->seedClient(['client_name' => 'Victims Table Client'])]);
+
+        /* Act */
+        $this->actingAsAdmin($secondaryId);
+        $denied = $this->ajaxWithCsrf('/users/ajax/load_user_client_table', ['user_id' => (string) $victimId]);
+        $this->actingAsAdmin(1);
+        $allowed = $this->ajaxWithCsrf('/users/ajax/load_user_client_table', ['user_id' => (string) $victimId]);
+
+        /* Assert */
+        $this->assertResponseStatusCode($denied, 403);
+        $this->assertResponseBodyNotContains($denied, 'Victims Table Client');
+        $this->assertResponseStatusCode($allowed, 200);
+        $this->assertResponseBodyContains($allowed, 'Victims Table Client');
+    }
+
+    #[Test]
+    public function it_refuses_a_non_integer_user_id_when_loading_the_client_table(): void
+    {
+        /* Arrange: "2.9" would be read as user 2 by an (int) cast, so it is refused outright, even for the primary admin */
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->ajaxWithCsrf('/users/ajax/load_user_client_table', ['user_id' => '2.9']);
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 403);
+    }
+
+    #[Test]
+    public function it_denies_a_secondary_admin_opening_the_add_client_modal_for_another_user(): void
+    {
+        /* Arrange: the modal lists the clients the user does NOT have yet, so it discloses the assignment by omission */
+        $secondaryId = $this->seedAdmin();
+        $victimId    = $this->seedAdmin();
+        $assigned    = $this->seedClient(['client_name' => 'Already Assigned Elsewhere']);
+        $this->seedClient(['client_name' => 'Still Unassigned Client']);
+        $this->databaseInsert('ip_user_clients', ['user_id' => $victimId, 'client_id' => $assigned]);
+
+        /* Act */
+        $this->actingAsAdmin($secondaryId);
+        $denied = $this->ajax('GET', '/users/ajax/modal_add_user_client/' . $victimId);
+        $this->actingAsAdmin(1);
+        $allowed = $this->ajax('GET', '/users/ajax/modal_add_user_client/' . $victimId);
+
+        /* Assert */
+        $this->assertResponseStatusCode($denied, 403);
+        $this->assertResponseBodyNotContains($denied, 'Still Unassigned Client');
+        $this->assertResponseStatusCode($allowed, 200);
+        $this->assertResponseBodyContains($allowed, 'Still Unassigned Client');
+        $this->assertResponseBodyNotContains($allowed, 'Already Assigned Elsewhere');
+    }
+
+    #[Test]
+    public function it_still_opens_the_add_client_modal_for_a_user_that_is_being_created(): void
+    {
+        /* Arrange: the new-user form passes no id, which must not be mistaken for a foreign user */
+        $this->seedClient(['client_name' => 'Offered To New User']);
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->ajax('GET', '/users/ajax/modal_add_user_client');
+
+        /* Assert */
+        $this->assertResponseStatusCode($response, 200);
+        $this->assertResponseBodyContains($response, 'Offered To New User');
+    }
+
+    #[Test]
+    public function it_writes_the_user_id_into_the_client_modal_script_as_a_json_string(): void
+    {
+        /* Arrange */
+        $userId = $this->seedAdmin();
+        $this->actingAsAdmin(1);
+
+        /* Act */
+        $response = $this->ajax('GET', '/users/ajax/modal_add_user_client/' . $userId);
+
+        /* Assert: json_encode renders a double-quoted string, a raw echo inside single quotes does not */
+        $this->assertResponseStatusCode($response, 200);
+        $this->assertResponseBodyContains($response, 'user_id: "' . $userId . '"');
+        $this->assertResponseBodyNotContains($response, "user_id: '{$userId}'");
+    }
+
+    private function ajaxWithCsrf(string $uri, array $data): HttpResponse
+    {
+        return $this->request('POST', $uri, [], $data + ['_ip_csrf' => $this->csrfToken], true, ['ip_csrf_cookie' => $this->csrfToken]);
     }
 
     private function seedAdmin(): int
