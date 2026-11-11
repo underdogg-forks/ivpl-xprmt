@@ -151,6 +151,15 @@ final class DockerEntrypointDefaultsTest extends TestCase
         $writer = (string) preg_replace('/^CONFIG=.*$/m', 'CONFIG=' . escapeshellarg($target), $writer, 1, $replaced);
         self::assertSame(1, $replaced, 'The CONFIG path of the entrypoint was not found.');
 
+        // An empty value is exported inside the script: handed over through the process environment it would
+        // arrive as "not set", and the two cases are different ones for the shell.
+        foreach ($environment as $name => $value) {
+            if ($value === '') {
+                $writer = 'export ' . $name . "=''\n" . $writer;
+                unset($environment[$name]);
+            }
+        }
+
         $process = proc_open(['bash', '-c', $writer], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, array_merge(
             ['PATH'                                      => (string) getenv('PATH')],
             self::REQUIRED,
