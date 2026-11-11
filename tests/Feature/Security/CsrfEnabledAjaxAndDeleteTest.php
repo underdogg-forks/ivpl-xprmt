@@ -95,4 +95,76 @@ final class CsrfEnabledAjaxAndDeleteTest extends AbstractTestCase
         self::assertNotSame(403, $response->statusCode(), 'json_encode_ajax() must not re-run the CSRF check the bootstrap already passed.');
         self::assertStringContainsString('_ip_csrf', $response->body(), 'The JSON answer must echo the next token (status ' . $response->statusCode() . ').');
     }
+
+    #[Test]
+    public function it_keeps_a_product_list_a_json_list_without_the_token_when_the_token_regenerates(): void
+    {
+        /* Arrange */
+        $this->withEnvironment(['CSRF_REGENERATE' => 'true']);
+        $productId = $this->databaseInsert('ip_products', [
+            'family_id'           => 0,
+            'product_sku'         => 'SKU-CSRF-LIST',
+            'product_name'        => 'Csrf List Product',
+            'product_description' => '',
+            'product_price'       => 10,
+            'purchase_price'      => 0,
+            'tax_rate_id'         => 0,
+        ]);
+
+        /* Act */
+        $response = $this->ajaxPostWithValidCsrfToken('products/ajax/process_product_selections', ['product_ids' => [(string) $productId]]);
+        $json     = json_decode($response->body(), true);
+
+        /* Assert: one item, the product; the client script reads the next token from the X-_ip_csrf response header */
+        self::assertSame(200, $response->statusCode());
+        self::assertStringStartsWith('[', $response->body(), 'A product list must stay a JSON array, not become an object.');
+        self::assertIsArray($json);
+        self::assertCount(1, $json, 'The token must not be added to the list as an item.');
+        self::assertSame((string) $productId, (string) $json[0]['product_id']);
+        self::assertStringNotContainsString('_ip_csrf', $response->body());
+    }
+
+    #[Test]
+    public function it_keeps_a_task_list_a_json_list_without_the_token_when_the_token_regenerates(): void
+    {
+        /* Arrange */
+        $this->withEnvironment(['CSRF_REGENERATE' => 'true']);
+        $clientId  = $this->seedClient();
+        $projectId = $this->databaseInsert('ip_projects', ['client_id' => $clientId, 'project_name' => 'Csrf List Project']);
+        $taskId    = $this->databaseInsert('ip_tasks', [
+            'project_id'       => $projectId,
+            'task_name'        => 'Csrf List Task',
+            'task_description' => '',
+            'task_price'       => '15.00',
+            'task_finish_date' => date('Y-m-d'),
+            'task_status'      => 1,
+            'tax_rate_id'      => 0,
+        ]);
+
+        /* Act */
+        $response = $this->ajaxPostWithValidCsrfToken('tasks/ajax/process_task_selections', ['task_ids' => [(string) $taskId]]);
+        $json     = json_decode($response->body(), true);
+
+        /* Assert */
+        self::assertSame(200, $response->statusCode());
+        self::assertStringStartsWith('[', $response->body(), 'A task list must stay a JSON array, not become an object.');
+        self::assertIsArray($json);
+        self::assertCount(1, $json, 'The token must not be added to the list as an item.');
+        self::assertSame((string) $taskId, (string) $json[0]['task_id']);
+        self::assertStringNotContainsString('_ip_csrf', $response->body());
+    }
+
+    #[Test]
+    public function it_answers_an_empty_selection_with_an_empty_json_list_when_the_token_regenerates(): void
+    {
+        /* Arrange */
+        $this->withEnvironment(['CSRF_REGENERATE' => 'true']);
+
+        /* Act */
+        $response = $this->ajaxPostWithValidCsrfToken('products/ajax/process_product_selections', []);
+
+        /* Assert */
+        self::assertSame(200, $response->statusCode());
+        self::assertSame('[]', trim($response->body()));
+    }
 }
