@@ -5,6 +5,7 @@ namespace Tests\Concerns;
 use InvalidArgumentException;
 use PDO;
 use PDOException;
+use Throwable;
 
 trait InteractsWithDatabase
 {
@@ -388,17 +389,98 @@ trait InteractsWithDatabase
             $converted = true;
         }
 
+        // The old reset truncated all ~45 tables and reseeded the baseline before every test: about 0.6 s each, most
+        // of the suite's run time. A test touches a handful of tables, so only those are rebuilt. After the first
+        // full reset the clean state of every table is recorded (checksum, AUTO_INCREMENT and, for the tables the
+        // baseline fills, their rows); later resets truncate the tables that differ and put those rows back.
+        static $clean = null, $baselineRows = [];
+
+        $state = $this->tableState($db);
+
+        if ($clean !== null && array_keys($clean) === array_keys($state)) {
+            $db->exec('SET FOREIGN_KEY_CHECKS = 0');
+
+            foreach ($state as $table => $now) {
+                if ($now === $clean[$table]) {
+                    continue;
+                }
+
+                $db->exec('TRUNCATE TABLE ' . $this->qi($table));
+
+                if (($baselineRows[$table] ?? []) !== []) {
+                    $columns = array_keys($baselineRows[$table][0]);
+                    $values  = [];
+
+                    foreach ($baselineRows[$table] as $row) {
+                        $values[] = '(' . implode(', ', array_map(static fn ($value): string => $value === null ? 'NULL' : $db->quote((string) $value), $row)) . ')';
+                    }
+
+                    $db->exec('INSERT INTO ' . $this->qi($table) . ' (' . implode(', ', array_map($this->qi(...), $columns)) . ') VALUES ' . implode(', ', $values));
+                }
+            }
+
+            $db->exec('SET FOREIGN_KEY_CHECKS = 1');
+
+            // Putting the same rows back must give the same state; if it does not (a schema change mid-run, a
+            // value that does not survive the round trip) fall through to the full reset below.
+            if ($this->tableState($db) === $clean) {
+                return;
+            }
+        }
+
         $db->exec('SET FOREIGN_KEY_CHECKS = 0');
-        $tables = $db->query(
-            'SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()'
-        )->fetchAll(PDO::FETCH_COLUMN);
-        foreach ($tables as $table) {
-            $db->exec('TRUNCATE TABLE ' . $this->qi((string) $table));
+        foreach (array_keys($this->tableState($db)) as $table) {
+            $db->exec('TRUNCATE TABLE ' . $this->qi($table));
         }
         $db->exec('SET FOREIGN_KEY_CHECKS = 1');
 
+        // One transaction: otherwise every baseline row is its own commit, and its own write to disk.
         require_once dirname(__DIR__) . '/Support/seed_baseline.php';
-        ip_seed_baseline($db);
+        $db->beginTransaction();
+
+        try {
+            ip_seed_baseline($db);
+            $db->commit();
+        } catch (Throwable $throwable) {
+            $db->rollBack();
+
+            throw $throwable;
+        }
+
+        $clean        = $this->tableState($db);
+        $baselineRows = [];
+
+        foreach ($clean as $table => [$checksum]) {
+            if ($checksum !== 0) {
+                $baselineRows[$table] = $db->query('SELECT * FROM ' . $this->qi($table))->fetchAll(PDO::FETCH_ASSOC);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, array{int, int}> checksum and AUTO_INCREMENT per table, in a fixed order
+     */
+    private function tableState(PDO $db): array
+    {
+        $autoIncrement = $db->query(
+            "SELECT table_name, COALESCE(auto_increment, 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name"
+        )->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        if ($autoIncrement === []) {
+            return [];
+        }
+
+        $state = [];
+        $rows  = $db->query('CHECKSUM TABLE ' . implode(', ', array_map($this->qi(...), array_keys($autoIncrement))))->fetchAll(PDO::FETCH_NUM);
+
+        foreach ($rows as [$qualified, $checksum]) {
+            $table         = mb_substr((string) $qualified, mb_strpos((string) $qualified, '.') + 1);
+            $state[$table] = [(int) $checksum, (int) ($autoIncrement[$table] ?? 0)];
+        }
+
+        ksort($state);
+
+        return $state;
     }
 
     /**
