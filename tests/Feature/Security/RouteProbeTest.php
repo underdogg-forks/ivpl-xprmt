@@ -51,7 +51,7 @@ final class RouteProbeTest extends AbstractTestCase
             foreach (['GET', 'POST'] as $method) {
                 [$status, $body] = $this->send($method, $route, '1');
 
-                if ($status >= 500 || ($status < 300 && mb_trim($body) !== '')) {
+                if ($status >= 500 || ($status < 300 && trim($body) !== '')) {
                     $failures[] = 'no-session ' . $method . ' ' . $route['uri'] . ' -> ' . $status;
                 }
             }
