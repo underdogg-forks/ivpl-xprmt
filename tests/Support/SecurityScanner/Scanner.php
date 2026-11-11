@@ -47,6 +47,15 @@ final class Scanner
     ];
 
     /** Functions that only wrap their arguments: the result is as safe as what goes in. */
+    private const AFTER_PHP_82 = [
+        'json_validate', 'str_increment', 'str_decrement', 'mb_str_pad', 'stream_context_set_options',
+        'mb_trim', 'mb_ltrim', 'mb_rtrim', 'mb_ucfirst', 'mb_lcfirst',
+        'array_find', 'array_find_key', 'array_any', 'array_all',
+        'bcceil', 'bcfloor', 'bcround', 'bcdivmod', 'fpow', 'grapheme_str_split', 'request_parse_body',
+        'http_get_last_response_headers', 'http_clear_last_response_headers',
+        'array_first', 'array_last', 'get_error_handler', 'get_exception_handler',
+    ];
+
     private const PASS_THROUGH_FUNCTIONS = ['nl2br', 'sprintf', 'ucfirst', 'implode', 'str_repeat', 'trim', 'mb_strtolower', 'strtolower', 'mb_strtoupper', 'strtoupper'];
 
     private Parser $parser;
@@ -461,6 +470,11 @@ final class Scanner
             // --- env_bool() with a default that is not a string ------------------------------------------------
             if ($name === 'env_bool' && isset($args[1]) && ! $args[1]->value instanceof Scalar\String_) {
                 $this->add('env-bool-default-not-a-string', $node, $where, 'env_bool() gets a default that is not a string: ' . $this->code($node));
+            }
+
+            // --- Functions that do not exist on the oldest supported PHP (8.2): a fatal error on that code path ---
+            if (in_array($name, self::AFTER_PHP_82, true)) {
+                $this->add('newer-than-php-baseline', $node, $where, $name . '() does not exist on PHP 8.2: ' . $this->code($node));
             }
 
             // --- Randomness that can be predicted ---------------------------------------------------------------

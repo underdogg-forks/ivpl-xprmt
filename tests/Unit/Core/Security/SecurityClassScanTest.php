@@ -134,6 +134,11 @@ final class SecurityClassScanTest extends TestCase
                 "<?php\nfunction load_thing(\$name) { include APPPATH . 'views/things/' . \$name . '.php'; }\n",
                 "<?php\nfunction load_thing(\$name) { include APPPATH . 'views/things/default.php'; }\n",
             ],
+            'a function that PHP 8.2 does not have' => [
+                'newer-than-php-baseline', 'application/helpers/thing_helper.php',
+                "<?php\nfunction thing(\$value) {\n    return mb_trim(\$value);\n}\n",
+                "<?php\nfunction thing(\$value) {\n    return trim(\$value);\n}\n",
+            ],
             'a function called by a name from a variable' => [
                 'dangerous-call', 'application/helpers/thing_helper.php',
                 "<?php\nfunction run_thing(\$rule, \$value) { return \$rule(\$value); }\n",
