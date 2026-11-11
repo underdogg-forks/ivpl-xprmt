@@ -5,6 +5,7 @@ namespace Tests\Unit\Core;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
+use RuntimeException;
 use Tests\AbstractTestCase;
 use Tests\Concerns\UsesCodeIgniterModels;
 
@@ -78,6 +79,44 @@ final class OnlyKnownColumnsFilterTest extends AbstractTestCase
 
         /* Assert */
         self::assertNull($filtered);
+    }
+
+    #[Test]
+    public function it_returns_an_empty_array_unchanged(): void
+    {
+        /* Arrange: an explicitly empty $db_array must still take MY_Model::save()'s own "falsy -> build from
+         * db_array()" fallback, same as before this filter existed. */
+        $model = $this->itemsModel();
+
+        /* Act */
+        $filtered = $this->invoke($model, []);
+
+        /* Assert */
+        self::assertSame([], $filtered);
+    }
+
+    #[Test]
+    public function it_rejects_a_non_empty_array_whose_keys_are_all_unknown_instead_of_returning_it_empty(): void
+    {
+        /* Arrange: every key here is bogus. Silently returning [] would make save() treat this exactly like the
+         * "nothing was passed" case above and build the row from db_array() (the request's raw POST fields)
+         * instead -- a different, unintended write path, not merely "nothing saved" (CWE-915 follow-up). */
+        $model = $this->itemsModel();
+
+        /* Act + Assert */
+        $this->expectException(RuntimeException::class);
+        $this->invoke($model, ['not_a_column) VALUES (1)-- -' => 'x', 'also_not_a_column' => 'y']);
+    }
+
+    #[Test]
+    public function it_rejects_a_non_empty_object_whose_keys_are_all_unknown_instead_of_returning_it_empty(): void
+    {
+        /* Arrange: same as above, for the object shape the controller actually passes */
+        $model = $this->itemsModel();
+
+        /* Act + Assert */
+        $this->expectException(RuntimeException::class);
+        $this->invoke($model, (object) ['not_a_column) VALUES (1)-- -' => 'x']);
     }
 
     private function itemsModel(): object
