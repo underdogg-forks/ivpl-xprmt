@@ -27,6 +27,9 @@ function ip_seed_baseline(PDO $pdo): void
         'quotenumber_prefix'        => '',
         'disable_setup'             => '1',
         'sumex'                     => '0',
+        // The payment form and both gateways answer 404 while this is off; the payment tests assume a shop that
+        // takes online payments and switch it off themselves where that is the case under test.
+        'enable_online_payments'    => '1',
     ];
 
     $stmt = $pdo->prepare('INSERT INTO `ip_settings` (`setting_key`, `setting_value`) VALUES (?, ?)');
