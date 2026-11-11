@@ -135,8 +135,8 @@ class GuestPaymentsControllerTest extends AbstractTestCase
         $ownClientId   = $this->seedClient(['client_name' => 'Own Client']);
         $otherClientId = $this->seedClient(['client_name' => 'Other Client']);
 
-        $ownInvoiceId   = $this->seedInvoice($ownClientId);
-        $otherInvoiceId = $this->seedInvoice($otherClientId);
+        $ownInvoiceId   = $this->seedInvoice($ownClientId, ['invoice_status_id' => 2]);
+        $otherInvoiceId = $this->seedInvoice($otherClientId, ['invoice_status_id' => 2]);
 
         $this->seedPayment($ownInvoiceId, ['payment_note' => 'own-payment-marker']);
         $this->seedPayment($otherInvoiceId, ['payment_note' => 'other-payment-marker']);
