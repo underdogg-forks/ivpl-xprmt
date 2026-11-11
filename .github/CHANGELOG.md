@@ -80,7 +80,7 @@ in progress in this release.
 | Pager printed an unescaped base URL into `href` attributes | — | — | — | [#1774](https://github.com/InvoicePlane/InvoicePlane/pull/1774) |
 | `log_message('warning')` entries were silently dropped by the CodeIgniter logger, including security events | — | — | — | [#1782](https://github.com/InvoicePlane/InvoicePlane/pull/1782) |
 | Stored XSS via unescaped `system_theme` setting, reaching the unauthenticated login page (CWE-79 / CWE-116 / CWE-20 / CWE-693) | High | [GHSA-hmqm-59ff-gmcw](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hmqm-59ff-gmcw) | [@cray4367](https://github.com/cray4367) | [#1805](https://github.com/InvoicePlane/InvoicePlane/pull/1805) |
-| Mass-assignment / column-name injection via item properties in `invoices/ajax/save` and `quotes/ajax/save`, allowing arbitrary database reads through an INSERT (CWE-915 / CWE-89) | — | — | [@rickwengdev](https://github.com/rickwengdev) | [#TODO](https://github.com/underdogg-forks/ivpl-xprmt/pull/TODO) |
+| Mass-assignment / column-name injection via item properties in `invoices/ajax/save` and `quotes/ajax/save`, allowing arbitrary database reads through an INSERT (CWE-915 / CWE-89) | — | — | [@rickwengdev](https://github.com/rickwengdev) | [#129](https://github.com/underdogg-forks/ivpl-xprmt/pull/129) |
 
 ### Security fixes
 
