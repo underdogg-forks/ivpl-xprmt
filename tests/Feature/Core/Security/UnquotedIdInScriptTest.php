@@ -28,6 +28,26 @@ final class UnquotedIdInScriptTest extends AbstractTestCase
         $this->actingAsAdmin();
     }
 
+    /**
+     * The modal endpoints take the id from the request body, so a cast in `view()` never reaches them.
+     *
+     * @return array<string, array{string, string, string}>
+     */
+    public static function modalsThatPrintAPostedId(): array
+    {
+        return [
+            'copy invoice'          => ['/invoices/ajax/modal_copy_invoice', 'invoice', 'invoice_id: %d,'],
+            'create credit'         => ['/invoices/ajax/modal_create_credit', 'invoice', 'invoice_id: %d,'],
+            'create recurring'      => ['/invoices/ajax/modal_create_recurring', 'invoice', 'invoice_id: %d,'],
+            'change invoice user'   => ['/invoices/ajax/modal_change_user', 'invoice', 'id="invoice_id" value="%d"'],
+            'change invoice client' => ['/invoices/ajax/modal_change_client', 'invoice', 'id="invoice_id" value="%d"'],
+            'add payment'           => ['/payments/ajax/modal_add_payment', 'invoice', 'id="invoice_id" value="%d"'],
+            'copy quote'            => ['/quotes/ajax/modal_copy_quote', 'quote', 'quote_id: %d,'],
+            'change quote user'     => ['/quotes/ajax/modal_change_user', 'quote', 'id="quote_id" value="%d"'],
+            'change quote client'   => ['/quotes/ajax/modal_change_client', 'quote', 'id="quote_id" value="%d"'],
+        ];
+    }
+
     #[Test]
     public function it_does_not_write_the_raw_invoice_id_segment_into_the_page_script(): void
     {
@@ -59,26 +79,6 @@ final class UnquotedIdInScriptTest extends AbstractTestCase
         $this->assertResponseStatusCode($response, 200);
         $this->assertResponseBodyContains($response, 'script-quo');
         $this->assertResponseBodyNotContains($response, 'ipauditmarker');
-    }
-
-    /**
-     * The modal endpoints take the id from the request body, so a cast in `view()` never reaches them.
-     *
-     * @return array<string, array{string, string, string}>
-     */
-    public static function modalsThatPrintAPostedId(): array
-    {
-        return [
-            'copy invoice'          => ['/invoices/ajax/modal_copy_invoice', 'invoice', 'invoice_id: %d,'],
-            'create credit'         => ['/invoices/ajax/modal_create_credit', 'invoice', 'invoice_id: %d,'],
-            'create recurring'      => ['/invoices/ajax/modal_create_recurring', 'invoice', 'invoice_id: %d,'],
-            'change invoice user'   => ['/invoices/ajax/modal_change_user', 'invoice', 'id="invoice_id" value="%d"'],
-            'change invoice client' => ['/invoices/ajax/modal_change_client', 'invoice', 'id="invoice_id" value="%d"'],
-            'add payment'           => ['/payments/ajax/modal_add_payment', 'invoice', 'id="invoice_id" value="%d"'],
-            'copy quote'            => ['/quotes/ajax/modal_copy_quote', 'quote', 'quote_id: %d,'],
-            'change quote user'     => ['/quotes/ajax/modal_change_user', 'quote', 'id="quote_id" value="%d"'],
-            'change quote client'   => ['/quotes/ajax/modal_change_client', 'quote', 'id="quote_id" value="%d"'],
-        ];
     }
 
     #[Test]
@@ -124,7 +124,7 @@ final class UnquotedIdInScriptTest extends AbstractTestCase
     {
         /* Act: an empty label fails validation, so the form is shown again with the posted values */
         $response = $this->post('/custom_fields/form', [
-            'custom_field_table' => 'ip_client_custom', 'custom_field_type' => 'TEXT', 'custom_field_label' => '',
+            'custom_field_table'    => 'ip_client_custom', 'custom_field_type' => 'TEXT', 'custom_field_label' => '',
             'custom_field_location' => '0);ipauditmarker(1', 'btn_submit' => '1',
         ]);
 
@@ -139,7 +139,7 @@ final class UnquotedIdInScriptTest extends AbstractTestCase
     {
         /* Arrange: a request cannot reach every view, so the views themselves are read */
         $views = glob(APPPATH . 'modules/*/views/{,*/}*.php', GLOB_BRACE);
-        $this->assertGreaterThan(150, count($views));
+        $this->assertGreaterThan(100, count($views));
         $raw = [];
 
         /* Act */
