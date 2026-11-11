@@ -10,8 +10,9 @@ WORKDIR /app
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 COPY Gruntfile.js ./
-COPY assets ./assets
-RUN yarn build
+# Grunt reads the sources in resources/assets and writes what the browser loads into public/assets.
+COPY resources/assets ./resources/assets
+RUN mkdir -p public/assets && yarn build
 
 FROM php:8.2-apache
 
@@ -40,16 +41,25 @@ COPY --from=composer-build /usr/bin/composer /usr/local/bin/composer
 COPY --from=composer-build /app/composer.json /app/composer.lock /tmp/composer-check/
 RUN composer check-platform-reqs --no-dev --working-dir=/tmp/composer-check \
 	&& rm -rf /tmp/composer-check /usr/local/bin/composer
-COPY --from=asset-build   /app/assets /var/www/html/assets
+COPY --from=asset-build   /app/public/assets /var/www/html/public/assets
 
 COPY application /var/www/html/application
+COPY bootstrap /var/www/html/bootstrap
 COPY storage /var/www/html/storage
 COPY uploads /var/www/html/uploads
-COPY favicon.ico index.php robots.txt /var/www/html/
-COPY htaccess /var/www/html/.htaccess
+COPY public/favicon.ico public/index.php public/robots.txt /var/www/html/public/
+COPY htaccess /var/www/html/public/.htaccess
 
+# The entrypoint runs "php index.php setup/cli/..." from /var/www/html. The front controller is public/index.php,
+# so this file hands over to it. It is above the web root and cannot be requested.
+RUN printf '%s\n' '<?php' '' "require __DIR__ . '/public/index.php';" > /var/www/html/index.php
+
+# Only public/ is the web root. uploads/ stays above it and is mapped in for the logos; its private subfolders
+# (archive, customer_files, import, temp) are refused by their own .htaccess files.
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' \
-	/etc/apache2/apache2.conf
+	/etc/apache2/apache2.conf \
+	&& sed -i 's#DocumentRoot /var/www/html#DocumentRoot /var/www/html/public\n\tAlias /uploads /var/www/html/uploads#' \
+	/etc/apache2/sites-available/000-default.conf
 
 RUN chown -R www-data:www-data /var/www/html \
 	&& find /var/www/html -type d -exec chmod 755 {} \; \
