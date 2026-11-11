@@ -33,7 +33,7 @@ Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@polybjorn](https://github.com/polybjorn), [@FelipeSilvany](https://github.com/FelipeSilvany),
 [@alham-rizvi](https://github.com/alham-rizvi), [@PLpaPLpa](https://github.com/PLpaPLpa),
 [@0raN9ewww](https://github.com/0raN9ewww), [@mattmumford-git](https://github.com/mattmumford-git),
-and [@ali-iltizar](https://github.com/ali-iltizar) for responsibly disclosing the issues resolved or
+[@ali-iltizar](https://github.com/ali-iltizar), and [@rickwengdev](https://github.com/rickwengdev) for responsibly disclosing the issues resolved or
 in progress in this release.
 
 ### Security Vulnerability Summary
@@ -80,8 +80,11 @@ in progress in this release.
 | Pager printed an unescaped base URL into `href` attributes | — | — | — | [#1774](https://github.com/InvoicePlane/InvoicePlane/pull/1774) |
 | `log_message('warning')` entries were silently dropped by the CodeIgniter logger, including security events | — | — | — | [#1782](https://github.com/InvoicePlane/InvoicePlane/pull/1782) |
 | Stored XSS via unescaped `system_theme` setting, reaching the unauthenticated login page (CWE-79 / CWE-116 / CWE-20 / CWE-693) | High | [GHSA-hmqm-59ff-gmcw](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hmqm-59ff-gmcw) | [@cray4367](https://github.com/cray4367) | [#1805](https://github.com/InvoicePlane/InvoicePlane/pull/1805) |
+| Unquoted `invoice_id` / `quote_id` URL segment echoed into inline JavaScript on the invoice/quote view pages — reflected XSS (CWE-79) | — | — | [@rickwengdev](https://github.com/rickwengdev) | [#TODO](https://github.com/underdogg-forks/ivpl-xprmt/pull/TODO) |
 
 ### Security fixes
+
+- **Unquoted `invoice_id` / `quote_id` URL segment echoed into inline JavaScript — reflected XSS (CWE-79):** `invoices/view/<id>` and `quotes/view/<id>` printed the raw URL segment, unquoted, into inline script in 17 places (`invoice_id: <?php echo $invoice_id; ?>` and similar). `permitted_uri_chars` allows parentheses, `-`, `.` and `:`, and MySQL's loose comparison of a string against an integer column matches on its leading numeric prefix, so a segment such as `1-foo(1)` still loaded the real invoice or quote while the remainder reached the page as a JavaScript expression, in a logged-in administrator's session. **Fix:** `Invoices::view()` and `Quotes::view()` now cast the segment to `(int)` as their first statement; every view that was passed the id unquoted reads from that same, now-integer, controller variable, so no view needed editing individually. Thanks to Rick Weng ([@rickwengdev](https://github.com/rickwengdev)) for responsible disclosure.
 
 - **Unauthenticated access to the internal `Layout` controller discloses server paths via PHP error backtraces (CWE-200 / CWE-862):** `Layout` extends `MX_Controller` rather than `Admin_Controller`/`Guest_Controller`, so it inherited no authentication gate, and its public methods (`render`, `load_view`, `buffer`, `set`) — meant to be called only internally as `$this->layout->render()` by already-authenticated controllers — were directly HTTP-routable to anonymous clients. Reached unauthenticated, the internal view loader ran with helpers/libraries never autoloaded in that context, raising PHP errors that (with `display_errors` on) disclosed the server's absolute install path and internal file layout to an anonymous attacker, e.g. `GET /layout/load_view/dashboard`. Path-traversal/LFI toward other files was tested and ruled out (Apache's `AllowEncodedSlashes Off` blocks it), so the demonstrated impact is scoped to information disclosure. **Fix:** this branch already guards against it with a `_remap()` on `Layout` that `show_404()`s any direct HTTP route to the controller; this release adds a regression test locking that guard in. Thanks to [@krishnan-tech](https://github.com/krishnan-tech) for responsible disclosure. [#1809](https://github.com/InvoicePlane/InvoicePlane/pull/1809)
 
