@@ -18,17 +18,82 @@ use RecursiveIteratorIterator;
  * use them. The scan is done on the syntax tree so comments and strings do not count.
  *
  * Introduced after PHP 8.2:
- *   8.3  json_validate, str_increment, str_decrement
- *   8.4  mb_trim, mb_ltrim, mb_rtrim, mb_str_pad, mb_ucfirst, mb_lcfirst, array_find, array_find_key, array_any, array_all
+ *   8.3  json_validate, str_increment, str_decrement, mb_str_pad, stream_context_set_options; typed class constants
+ *   8.4  mb_trim, mb_ltrim, mb_rtrim, mb_ucfirst, mb_lcfirst, array_find, array_find_key, array_any, array_all,
+ *        bcceil, bcfloor, bcround, bcdivmod, fpow, grapheme_str_split, request_parse_body,
+ *        http_get_last_response_headers, http_clear_last_response_headers; property hooks
+ *   8.5  array_first, array_last, get_error_handler, get_exception_handler
+ *
+ * composer.json states the same baseline, so Composer refuses an install on an older PHP and a dependency update
+ * cannot silently pick a package that needs a newer one.
  */
 #[Group('compatibility')]
 final class Php82CompatibilityTest extends TestCase
 {
     private const AFTER_PHP_82 = [
-        'json_validate', 'str_increment', 'str_decrement', 'mb_str_pad',
+        'json_validate', 'str_increment', 'str_decrement', 'mb_str_pad', 'stream_context_set_options',
         'mb_trim', 'mb_ltrim', 'mb_rtrim', 'mb_ucfirst', 'mb_lcfirst',
         'array_find', 'array_find_key', 'array_any', 'array_all',
+        'bcceil', 'bcfloor', 'bcround', 'bcdivmod', 'fpow', 'grapheme_str_split', 'request_parse_body',
+        'http_get_last_response_headers', 'http_clear_last_response_headers',
+        'array_first', 'array_last', 'get_error_handler', 'get_exception_handler',
     ];
+
+    #[Test]
+    public function it_uses_no_class_syntax_that_only_parses_after_php_82(): void
+    {
+        /* Arrange */
+        $parser = (new ParserFactory())->createForHostVersion();
+        $finder = new NodeFinder();
+        $root   = dirname(__DIR__, 3);
+        $found  = [];
+
+        /* Act: a typed class constant (8.3) or a property hook (8.4) is a parse error on 8.2 for the whole file */
+        foreach ($this->phpFiles($root) as $path) {
+            $ast = $parser->parse((string) file_get_contents($path)) ?? [];
+            foreach ($finder->find($ast, static fn (Node $n): bool => ($n instanceof Node\Stmt\ClassConst && $n->type !== null) || ($n instanceof Node\Stmt\Property && $n->hooks !== [])) as $node) {
+                $found[] = substr($path, strlen($root) + 1) . ':' . $node->getStartLine();
+            }
+        }
+
+        /* Assert */
+        self::assertGreaterThan(300, count($this->phpFiles($root)));
+        self::assertSame([], $found);
+    }
+
+    #[Test]
+    public function it_states_the_php_baseline_in_composer_json_and_the_lock_file(): void
+    {
+        /* Arrange */
+        $root = dirname(__DIR__, 3);
+        $json = json_decode((string) file_get_contents($root . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        $lock = json_decode((string) file_get_contents($root . '/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+
+        /* Assert: the lock file carries the same constraint, otherwise Composer reports it as out of date */
+        self::assertSame('>=8.2', $json['require']['php'] ?? null);
+        self::assertSame('>=8.2', $lock['platform']['php'] ?? null);
+    }
+
+    #[Test]
+    public function it_locks_no_package_that_refuses_php_82(): void
+    {
+        /* Arrange */
+        $lock    = json_decode((string) file_get_contents(dirname(__DIR__, 3) . '/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+        $refuses = [];
+
+        /* Act: runtime packages only; the development tools run on the workspace PHP */
+        foreach ($lock['packages'] as $package) {
+            $constraint = $package['require']['php'] ?? '*';
+
+            if ( ! $this->allowsPhp82($constraint)) {
+                $refuses[] = $package['name'] . ' ' . $package['version'] . ' needs php ' . $constraint;
+            }
+        }
+
+        /* Assert */
+        self::assertGreaterThan(20, count($lock['packages']));
+        self::assertSame([], $refuses);
+    }
 
     #[Test]
     public function it_calls_no_function_that_only_exists_after_php_82(): void
@@ -53,6 +118,50 @@ final class Php82CompatibilityTest extends TestCase
         /* Assert */
         sort($found);
         self::assertSame([], $found, "These calls need PHP 8.3/8.4 but the supported baseline is PHP 8.2:\n" . implode("\n", $found));
+    }
+
+    /**
+     * Enough of Composer's constraint syntax for the `php` requirement of a package: alternatives separated by `|`,
+     * each a list of `>=`, `>`, `<`, `<=`, `^` and `~` parts. Anything else counts as a refusal, so it gets noticed.
+     */
+    private function allowsPhp82(string $constraint): bool
+    {
+        foreach (preg_split('/\s*\|\|?\s*/', trim($constraint)) ?: [] as $alternative) {
+            $allowed = true;
+
+            foreach (preg_split('/[\s,]+/', trim($alternative)) ?: [] as $part) {
+                if ($part === '*' || $part === '') {
+                    continue;
+                }
+
+                if ( ! preg_match('/^(>=|<=|>|<|\^|~)?\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[.-]?\w*)$/', $part, $m)) {
+                    $allowed = false;
+
+                    break;
+                }
+
+                $version = $m[2] . '.' . ($m[3] ?? '0') . '.' . ($m[4] ?? '0');
+                $allowed = match ($m[1]) {
+                    '>='    => version_compare('8.2.0', $version, '>='),
+                    '>'     => version_compare('8.2.0', $version, '>'),
+                    '<='    => version_compare('8.2.0', $version, '<='),
+                    '<'     => version_compare('8.2.0', $version, '<'),
+                    '^'     => $m[2] === '8' && version_compare('8.2.0', $version, '>='),
+                    '~'     => $m[2] === '8' && version_compare('8.2.0', $version, '>=') && ( ! isset($m[4]) || $m[3] === '2'),
+                    default => version_compare('8.2.0', $version, '>=') && str_starts_with('8.2.0', mb_substr($version, 0, mb_strlen($m[2] . (isset($m[3]) ? '.' . $m[3] : '')))),
+                };
+
+                if ( ! $allowed) {
+                    break;
+                }
+            }
+
+            if ($allowed) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
