@@ -33,7 +33,7 @@ Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@polybjorn](https://github.com/polybjorn), [@FelipeSilvany](https://github.com/FelipeSilvany),
 [@alham-rizvi](https://github.com/alham-rizvi), [@PLpaPLpa](https://github.com/PLpaPLpa),
 [@0raN9ewww](https://github.com/0raN9ewww), [@mattmumford-git](https://github.com/mattmumford-git),
-and [@ali-iltizar](https://github.com/ali-iltizar) for responsibly disclosing the issues resolved or
+[@ali-iltizar](https://github.com/ali-iltizar), and [@rickwengdev](https://github.com/rickwengdev) for responsibly disclosing the issues resolved or
 in progress in this release.
 
 ### Security Vulnerability Summary
@@ -80,8 +80,11 @@ in progress in this release.
 | Pager printed an unescaped base URL into `href` attributes | — | — | — | [#1774](https://github.com/InvoicePlane/InvoicePlane/pull/1774) |
 | `log_message('warning')` entries were silently dropped by the CodeIgniter logger, including security events | — | — | — | [#1782](https://github.com/InvoicePlane/InvoicePlane/pull/1782) |
 | Stored XSS via unescaped `system_theme` setting, reaching the unauthenticated login page (CWE-79 / CWE-116 / CWE-20 / CWE-693) | High | [GHSA-hmqm-59ff-gmcw](https://github.com/InvoicePlane/InvoicePlane/security/advisories/GHSA-hmqm-59ff-gmcw) | [@cray4367](https://github.com/cray4367) | [#1805](https://github.com/InvoicePlane/InvoicePlane/pull/1805) |
+| Mass-assignment / column-name injection via item properties in `invoices/ajax/save` and `quotes/ajax/save`, allowing arbitrary database reads through an INSERT (CWE-915 / CWE-89) | — | — | [@rickwengdev](https://github.com/rickwengdev) | [#TODO](https://github.com/underdogg-forks/ivpl-xprmt/pull/TODO) |
 
 ### Security fixes
+
+- **Mass-assignment / column-name injection via item properties — arbitrary database reads through an INSERT (CWE-915 / CWE-89):** `invoices/ajax/save` and `quotes/ajax/save` decode the posted `items` JSON and pass each item object straight to the query builder's `insert()`. Every property name became a column name in the generated `INSERT` statement, with no allow-list, and CodeIgniter does not escape an identifier that contains a parenthesis or quote. A crafted property name could therefore close the column list and supply its own `VALUES` clause, including a subquery, letting any logged-in administrator read arbitrary database content (such as other users' password hashes) and see it on their own invoice or quote page. **Fix:** `MY_Model::only_known_columns()` filters a `$db_array` down to the real columns of the model's table (via `$this->db->list_fields()`) before it reaches `insert()`/`update()`; `Mdl_Items::save()` and `Mdl_Quote_Items::save()` now apply it to the posted item before saving. Thanks to Rick Weng ([@rickwengdev](https://github.com/rickwengdev)) for responsible disclosure.
 
 - **Unauthenticated access to the internal `Layout` controller discloses server paths via PHP error backtraces (CWE-200 / CWE-862):** `Layout` extends `MX_Controller` rather than `Admin_Controller`/`Guest_Controller`, so it inherited no authentication gate, and its public methods (`render`, `load_view`, `buffer`, `set`) — meant to be called only internally as `$this->layout->render()` by already-authenticated controllers — were directly HTTP-routable to anonymous clients. Reached unauthenticated, the internal view loader ran with helpers/libraries never autoloaded in that context, raising PHP errors that (with `display_errors` on) disclosed the server's absolute install path and internal file layout to an anonymous attacker, e.g. `GET /layout/load_view/dashboard`. Path-traversal/LFI toward other files was tested and ruled out (Apache's `AllowEncodedSlashes Off` blocks it), so the demonstrated impact is scoped to information disclosure. **Fix:** this branch already guards against it with a `_remap()` on `Layout` that `show_404()`s any direct HTTP route to the controller; this release adds a regression test locking that guard in. Thanks to [@krishnan-tech](https://github.com/krishnan-tech) for responsible disclosure. [#1809](https://github.com/InvoicePlane/InvoicePlane/pull/1809)
 
