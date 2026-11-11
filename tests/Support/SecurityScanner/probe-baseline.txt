@@ -1,0 +1,9 @@
+malformed-id invoices/cron/recur/{cron_key} -> crash
+malformed-id invoices/view/{invoice_id} -> printed in script
+malformed-id invoices/generate_pdf/{invoice_id}/{stream}/{invoice_template} -> crash
+malformed-id invoices/generate_sumex_pdf/{invoice_id} -> crash
+malformed-id invoices/generate_sumex_copy/{invoice_id} -> crash
+malformed-id quotes/ajax/modal_quote_to_invoice/{quote_id} -> printed in script
+malformed-id quotes/view/{quote_id} -> printed in script
+malformed-id quotes/generate_pdf/{quote_id}/{stream}/{quote_template} -> crash
+malformed-id upload/upload_file/{customerId}/{url_key} -> crash
