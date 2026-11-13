@@ -28,7 +28,7 @@ function inlineScript() {
         .join("\n")
         .replace(/<\?php echo json_encode\(trans\('date'\)\); \?>/g, '"Date"')
         .replace(/<\?php echo trans\('date'\)\s*\?>/g, "Date")
-        .replace(/<\?php echo get_setting\('current_version'\); \?>/g, "1.0.0")
+        .replace(/<\?php echo json_encode\(\(string\) get_setting\('current_version'\)[^;]*; \?>/g, '"1.0.0"')
         .replace(/<\?php echo IP_DEBUG \? 'console\.log\(data\);' : ''; \?>/g, "")
         .replace(/<\?php[\s\S]*?\?>/g, "");
 }
