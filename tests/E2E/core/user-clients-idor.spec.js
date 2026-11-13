@@ -119,16 +119,24 @@ test.describe('User clients — a secondary admin is refused', () => {
 
 test.describe('User clients — the primary admin may', () => {
   test('it still collects clients in the session while a new user has no id yet', async ({ page }) => {
-    /* Arrange: the new-user form has no user_id, so the integer guard must not apply to it */
+    /* Arrange: the new-user form has no user_id, so the integer guard must not apply to it. The
+     * "add client" modal's own dropdown excludes whatever is already collected in the session
+     * (Ajax::modal_add_user_client()), so its content proves what the session actually holds —
+     * there is no longer a users/ajax/load_user_client_table endpoint to read it back from
+     * directly (removed as dead code once the user-client table moved to its own module). */
     const clientId = seedClientRow({ client_name: 'Collected Client' });
+    const otherClientId = seedClientRow({ client_name: 'Other Client' });
 
     /* Act */
     const response = await page.request.post('/users/ajax/save_user_client', { headers: XHR, form: { user_id: '', client_id: String(clientId) }, maxRedirects: 0 });
-    const table = await page.request.get('/users/ajax/load_user_client_table/0', { headers: XHR });
+    const modal = await page.request.get('/users/ajax/modal_add_user_client', { headers: XHR });
 
-    /* Assert: an empty user id is the new-user flow, not an invalid id */
+    /* Assert: an empty user id is the new-user flow, not an invalid id, and the collected client
+     * no longer appears as a selectable option while an unrelated client still does */
     expect(response.status()).not.toBe(403);
-    expect(await table.text()).toContain('Collected Client');
+    const modalBody = await modal.text();
+    expect(modalBody).not.toContain('Collected Client');
+    expect(modalBody).toContain('Other Client');
   });
 
   test('it allows the primary admin to create a client mapping for another user', async ({ page }) => {
