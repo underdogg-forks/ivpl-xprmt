@@ -38,7 +38,7 @@ class Paypal extends Base_Controller
     public function paypal_create_order($invoice_url_key = null)
     {
         // Require POST request to prevent CSRF attacks
-        if ($this->input->method() !== 'post') {
+        if ($this->input->method() !== 'post' || $invoice_url_key === null) {
             show_404();
         }
 
@@ -81,7 +81,7 @@ class Paypal extends Base_Controller
 
         // Validate required fields from PayPal response
         if (empty($paypal_response['id'])) {
-            log_message('error', 'PayPal createOrder missing order ID for invoice ' . sanitize_for_logging($invoice_url_key));
+            log_message('error', 'PayPal createOrder missing order ID for invoice ' . sanitize_for_logging((string) $invoice_url_key));
             $this->output
                 ->set_status_header(500)
                 ->set_content_type('application/json')
@@ -119,7 +119,7 @@ class Paypal extends Base_Controller
     public function paypal_capture_payment(?string $order_id = null)
     {
         // Require POST request to prevent CSRF attacks
-        if ($this->input->method() !== 'post') {
+        if ($this->input->method() !== 'post' || $order_id === null) {
             show_404();
         }
 

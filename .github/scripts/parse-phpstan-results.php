@@ -160,7 +160,7 @@ function renderPhpstanReport(array $data): string
  */
 function categorizeError(string $message): string
 {
-    $normalizedMessage = mb_strtolower($message);
+    $normalizedMessage = strtolower($message);
 
     $hasShouldReturn = str_contains($normalizedMessage, 'should return');
     $hasMethod = str_contains($normalizedMessage, 'method');
@@ -222,7 +222,7 @@ function getShortPath(string $path): string
         $normalizedRoot = rtrim(str_replace('\\', '/', $projectRoot), '/') . '/';
 
         if (str_starts_with($normalizedPath, $normalizedRoot)) {
-            $normalizedPath = mb_substr($normalizedPath, mb_strlen($normalizedRoot));
+            $normalizedPath = substr($normalizedPath, strlen($normalizedRoot));
         }
     }
 
@@ -232,7 +232,7 @@ function getShortPath(string $path): string
         $normalizedCwd = rtrim(str_replace('\\', '/', $cwd), '/') . '/';
 
         if (str_starts_with($normalizedPath, $normalizedCwd)) {
-            $normalizedPath = mb_substr($normalizedPath, mb_strlen($normalizedCwd));
+            $normalizedPath = substr($normalizedPath, strlen($normalizedCwd));
         }
     }
 
@@ -249,8 +249,10 @@ function trimMessage(string $message, int $maxLength = 150): string
     $message = trim($message);
 
     // Truncate if too long (multibyte-safe)
-    if (mb_strlen($message, 'UTF-8') > $maxLength) {
-        $message = mb_substr($message, 0, $maxLength - 3, 'UTF-8') . '...';
+    // Character (not byte) based truncation without mb_* functions: the baseline is PHP 8.2.
+    if (preg_match_all('/./su', $message) > $maxLength) {
+        preg_match('/^.{0,' . ($maxLength - 3) . '}/su', $message, $head);
+        $message = $head[0] . '...';
     }
 
     return $message;
