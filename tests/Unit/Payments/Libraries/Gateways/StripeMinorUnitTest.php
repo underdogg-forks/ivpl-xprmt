@@ -205,6 +205,33 @@ class StripeMinorUnitTest extends TestCase
         self::assertSame(1230, stripe_amount_to_minor_units('1.230', 'KWD'));
     }
 
+    // -------------------------------------------------------------------------
+    // stripe_minor_unit_rounding_tolerance — how far a capture may miss the invoice balance
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    #[DataProvider('zeroDecimalCurrencyProvider')]
+    #[DataProvider('decimalCurrencyProvider')]
+    public function it_uses_the_plain_float_tolerance_outside_the_special_cases(string $currency): void
+    {
+        self::assertSame(0.0001, stripe_minor_unit_rounding_tolerance($currency));
+    }
+
+    #[Test]
+    public function it_tolerates_half_the_rounding_step_for_the_special_case_currencies(): void
+    {
+        // Step 100, multiplier 100 -> half a major unit either side of the invoice balance.
+        self::assertSame(0.5, stripe_minor_unit_rounding_tolerance('UGX'));
+        self::assertSame(0.5, stripe_minor_unit_rounding_tolerance('ISK'));
+    }
+
+    #[Test]
+    public function it_tolerates_half_the_rounding_step_for_three_decimal_currencies(): void
+    {
+        // Step 10, multiplier 1000 -> half a thousandth (0.005) either side of the invoice balance.
+        self::assertSame(0.005, stripe_minor_unit_rounding_tolerance('KWD'));
+    }
+
     #[Test]
     public function it_matches_amount_to_minor_units_when_there_is_no_rounding_step(): void
     {

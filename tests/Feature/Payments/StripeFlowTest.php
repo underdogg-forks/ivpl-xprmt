@@ -317,6 +317,91 @@ class StripeFlowTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_records_a_downward_rounded_isk_capture_within_the_currencys_rounding_tolerance(): void
+    {
+        /* Arrange: ISK is one of Stripe's documented special-case currencies — 1000.01 ISK sent to Stripe
+         * as stripe_amount_to_minor_units() rounds to the nearest 100 minor units, so Stripe actually
+         * captures 1000.00, 0.01 below the invoice balance. The rounding tolerance must accept that. */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_currency', 'setting_value' => 'ISK']);
+        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.01', 'invoice_total' => '1000.01']);
+        $urlKey    = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
+
+        $this->mockStripe([$this->sessionResponse([
+            'payment_status'      => 'paid',
+            'client_reference_id' => $urlKey,
+            'payment_intent'      => 'pi_isk_down',
+            'currency'            => 'isk',
+            'amount_total'        => 100000,
+        ])]);
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert: recorded as a successful payment, not rejected as a mismatch */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_isk_down', 'payment_amount' => '1000.00']);
+        $merchant = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
+        self::assertSame(1, (int) $merchant['merchant_response_successful']);
+    }
+
+    #[Test]
+    public function it_records_an_upward_rounded_isk_capture_within_the_currencys_rounding_tolerance(): void
+    {
+        /* Arrange: 1000.99 ISK rounds up to 1001.00 — the overpayment-refusal guard in
+         * Mdl_Payments::record_external_payment() must accept it too, not just the controller's own check. */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_currency', 'setting_value' => 'ISK']);
+        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.99', 'invoice_total' => '1000.99']);
+        $urlKey    = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
+
+        $this->mockStripe([$this->sessionResponse([
+            'payment_status'      => 'paid',
+            'client_reference_id' => $urlKey,
+            'payment_intent'      => 'pi_isk_up',
+            'currency'            => 'isk',
+            'amount_total'        => 100100,
+        ])]);
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert: the overpayment is recorded (not silently dropped as "already processed"), and the
+         * invoice is marked paid now that invoice_paid covers invoice_total. */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_isk_up', 'payment_amount' => '1001.00']);
+        $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
+        self::assertSame(4, (int) $invoice['invoice_status_id'], 'invoice_status_id 4 is Paid.');
+    }
+
+    #[Test]
+    public function it_still_rejects_an_isk_capture_that_is_short_by_more_than_the_rounding_tolerance(): void
+    {
+        /* Arrange: a genuine underpayment (not merely Stripe's rounding) must still be refused for a
+         * special-case currency, same as for any other currency. */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_currency', 'setting_value' => 'ISK']);
+        $invoiceId          = $this->seedPayableInvoice([], ['invoice_balance' => '1000.01', 'invoice_total' => '1000.01']);
+        $urlKey             = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
+        $paymentCountBefore = $this->databaseCount('ip_payments');
+
+        $this->mockStripe([$this->sessionResponse([
+            'payment_status'      => 'paid',
+            'client_reference_id' => $urlKey,
+            'payment_intent'      => 'pi_isk_short',
+            'currency'            => 'isk',
+            'amount_total'        => 50000,
+        ])]);
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseMissing('ip_payments', ['payment_external_id' => 'pi_isk_short']);
+        self::assertSame($paymentCountBefore, $this->databaseCount('ip_payments'));
+        $amounts = $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId]);
+        self::assertSame('1000.01', $amounts['invoice_balance']);
+    }
+
+    #[Test]
     public function it_does_not_duplicate_a_payment_for_an_already_processed_payment_intent(): void
     {
         /* Arrange */
