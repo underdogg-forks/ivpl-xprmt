@@ -401,8 +401,10 @@ class StripeFlowTest extends AbstractTestCase
         /* Arrange: 1000.99 ISK rounds up to 1001.00 — the overpayment-refusal guard in
          * Mdl_Payments::record_external_payment() must accept it too, not just the controller's own check. */
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_currency', 'setting_value' => 'ISK']);
-        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.99', 'invoice_total' => '1000.99']);
-        $urlKey    = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'tax_rate_decimal_places', 'setting_value' => '2']);
+        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.99', 'invoice_total' => '1000.99', 'invoice_item_subtotal' => '1000.99']);
+        $this->seedInvoiceItem($invoiceId, '1000.99');
+        $urlKey = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
 
         $this->mockStripe([$this->sessionResponse([
             'payment_status'      => 'paid',
@@ -421,6 +423,11 @@ class StripeFlowTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_isk_up', 'payment_amount' => '1001.00']);
         $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
         self::assertSame(4, (int) $invoice['invoice_status_id'], 'invoice_status_id 4 is Paid.');
+
+        /* Settlement is checked against the real, item-derived total, not a total that
+         * collapsed to 0 for lack of a line item behind it. */
+        $amounts = $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId]);
+        self::assertSame('1000.99', $amounts['invoice_total']);
     }
 
     #[Test]
