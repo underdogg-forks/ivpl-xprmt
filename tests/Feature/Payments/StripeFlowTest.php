@@ -323,8 +323,10 @@ class StripeFlowTest extends AbstractTestCase
          * as stripe_amount_to_minor_units() rounds to the nearest 100 minor units, so Stripe actually
          * captures 1000.00, 0.01 below the invoice balance. The rounding tolerance must accept that. */
         $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_currency', 'setting_value' => 'ISK']);
-        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.01', 'invoice_total' => '1000.01']);
-        $urlKey    = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'tax_rate_decimal_places', 'setting_value' => '2']);
+        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.01', 'invoice_total' => '1000.01', 'invoice_item_subtotal' => '1000.01']);
+        $this->seedInvoiceItem($invoiceId, '1000.01');
+        $urlKey = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
 
         $this->mockStripe([$this->sessionResponse([
             'payment_status'      => 'paid',
@@ -342,6 +344,55 @@ class StripeFlowTest extends AbstractTestCase
         $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_isk_down', 'payment_amount' => '1000.00']);
         $merchant = $this->databaseFetchOne('ip_merchant_responses', ['invoice_id' => $invoiceId]);
         self::assertSame(1, (int) $merchant['merchant_response_successful']);
+
+        /* Assert: the 0.01 ISK the gateway's own rounding can never actually collect is written
+         * off through its own row, so the invoice still closes fully rather than sitting open with
+         * a residual balance Stripe can never settle. */
+        $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
+        self::assertSame(4, (int) $invoice['invoice_status_id'], 'invoice_status_id 4 is Paid.');
+        $amounts = $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId]);
+        self::assertSame('0.00', $amounts['invoice_balance']);
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => null, 'payment_amount' => '0.01']);
+        self::assertSame(2, $this->databaseCount('ip_payments', ['invoice_id' => $invoiceId]));
+    }
+
+    #[Test]
+    public function it_writes_off_a_larger_rounding_shortfall_still_within_tolerance(): void
+    {
+        /* Arrange: 1000.49 ISK rounds down to 1000.00, a 0.49 shortfall — just inside the 0.5
+         * tolerance half the ISK rounding step allows, and large enough that a test passing merely
+         * because of float-precision slack (the pre-existing 0.0001 tolerance) is ruled out. */
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'gateway_stripe_currency', 'setting_value' => 'ISK']);
+        $this->databaseInsertOrIgnore('ip_settings', ['setting_key' => 'tax_rate_decimal_places', 'setting_value' => '2']);
+        $invoiceId = $this->seedPayableInvoice([], ['invoice_balance' => '1000.49', 'invoice_total' => '1000.49', 'invoice_item_subtotal' => '1000.49']);
+        $this->seedInvoiceItem($invoiceId, '1000.49');
+        $urlKey = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId])['invoice_url_key'];
+
+        $this->mockStripe([$this->sessionResponse([
+            'payment_status'      => 'paid',
+            'client_reference_id' => $urlKey,
+            'payment_intent'      => 'pi_isk_large_shortfall',
+            'currency'            => 'isk',
+            'amount_total'        => 100000,
+        ])]);
+
+        /* Act */
+        $response = $this->get('/guest/gateways/stripe/callback/cs_test_callback');
+
+        /* Assert: the real capture keeps its own, unaltered amount ... */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => 'pi_isk_large_shortfall', 'payment_amount' => '1000.00']);
+
+        /* ... a second row carries the written-off remainder ... */
+        $this->assertDatabaseHas('ip_payments', ['invoice_id' => $invoiceId, 'payment_external_id' => null, 'payment_amount' => '0.49']);
+        self::assertSame(2, $this->databaseCount('ip_payments', ['invoice_id' => $invoiceId]));
+
+        /* ... and the invoice is fully, not partially, closed */
+        $invoice = $this->databaseFetchOne('ip_invoices', ['invoice_id' => $invoiceId]);
+        self::assertSame(4, (int) $invoice['invoice_status_id'], 'invoice_status_id 4 is Paid.');
+        $amounts = $this->databaseFetchOne('ip_invoice_amounts', ['invoice_id' => $invoiceId]);
+        self::assertSame('0.00', $amounts['invoice_balance']);
+        self::assertSame('1000.49', $amounts['invoice_paid']);
     }
 
     #[Test]
@@ -724,6 +775,34 @@ class StripeFlowTest extends AbstractTestCase
         $clientId = $this->seedClient();
 
         return $this->seedInvoice($clientId, array_merge(['invoice_status_id' => 2], $overrides), array_merge(['invoice_balance' => '50.00'], $amountOverrides));
+    }
+
+    /**
+     * Mdl_invoice_amounts::calculate() (run by record_external_payment()) recomputes
+     * invoice_total/invoice_balance purely from real ip_invoice_items / ip_invoice_item_amounts
+     * rows — it ignores whatever value seedPayableInvoice()'s amountOverrides set directly on
+     * ip_invoice_amounts. A test that checks invoice_balance/invoice_status_id after a capture
+     * needs a real line item behind it, or the total collapses to 0 the moment calculate() runs.
+     */
+    private function seedInvoiceItem(int $invoiceId, string $amount): void
+    {
+        $itemId = $this->databaseInsert('ip_invoice_items', [
+            'invoice_id'       => $invoiceId,
+            'item_tax_rate_id' => 0,
+            'item_date_added'  => date('Y-m-d'),
+            'item_name'        => 'Test item',
+            'item_quantity'    => '1.00',
+            'item_price'       => $amount,
+            'item_order'       => 1,
+        ]);
+
+        $this->databaseInsert('ip_invoice_item_amounts', [
+            'item_id'        => $itemId,
+            'item_subtotal'  => $amount,
+            'item_tax_total' => '0.00',
+            'item_discount'  => '0.00',
+            'item_total'     => $amount,
+        ]);
     }
 
     private function mockStripe(array $responses): void
