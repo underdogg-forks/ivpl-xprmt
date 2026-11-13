@@ -141,3 +141,63 @@ test("a valid GitHub release list is rendered", () => {
     assert.equal(error, null);
     assert.ok(shown.some((entry) => entry.startsWith("append:")), "nothing was appended for a valid release list");
 });
+
+/*
+ * application/modules/settings/views/partial_settings_updates.php previously built the legacy IDS news
+ * markup by concatenating untrusted news fields (type, title, text, newsdate.date) straight into an HTML
+ * string and handing that string to $('#ipnews-container').append(...) -- jQuery's .append(String) parses
+ * and injects it as markup, so a compromised or spoofed ids.invoiceplane.{com,org} answer could run script
+ * in the admin's session (CWE-79). The fix restores renderLegacyNews(), which only ever reaches the DOM
+ * through .text()/createTextNode() for untrusted fields, mirroring the GitHub-release branch of the same
+ * script a few lines below.
+ */
+const XSS_PAYLOAD = '<img src=x onerror="alert(1)">';
+
+function appendedHtmlStrings(shown) {
+    return shown.filter((entry) => entry.startsWith("append:") && entry.includes("<")).map((entry) => entry.slice("append:".length));
+}
+
+test("a malicious legacy IDS news item from the first host is never appended as an HTML string", () => {
+    const { shown, error } = run((options) => {
+        if (options.url.includes("api.github.com")) options.error({});
+        else if (options.url.includes("ids.invoiceplane.com/get_news")) {
+            options.success([{ type: XSS_PAYLOAD, title: XSS_PAYLOAD, text: XSS_PAYLOAD, newsdate: { date: XSS_PAYLOAD } }]);
+        }
+    });
+
+    assert.equal(error, null);
+    assert.deepEqual(appendedHtmlStrings(shown), [], "the payload reached .append() as a raw HTML string");
+    assert.ok(shown.some((entry) => entry === "text:" + XSS_PAYLOAD), "the untrusted field was never routed through .text()");
+});
+
+test("a malicious legacy IDS news item from the second host is never appended as an HTML string", () => {
+    const { shown, error } = run((options) => {
+        if (options.url.includes("api.github.com")) options.error({});
+        else if (options.url.includes("ids.invoiceplane.com/get_news")) options.error({});
+        else if (options.url.includes("ids.invoiceplane.org/get_news")) {
+            options.success([{ type: XSS_PAYLOAD, title: XSS_PAYLOAD, text: XSS_PAYLOAD, newsdate: { date: XSS_PAYLOAD } }]);
+        }
+    });
+
+    assert.equal(error, null);
+    assert.deepEqual(appendedHtmlStrings(shown), [], "the payload reached .append() as a raw HTML string");
+    assert.ok(shown.some((entry) => entry === "text:" + XSS_PAYLOAD), "the untrusted field was never routed through .text()");
+});
+
+test("a legacy IDS news item with no type or newsdate still renders without throwing", () => {
+    const { shown, error } = run((options) => {
+        if (options.url.includes("api.github.com")) options.error({});
+        else if (options.url.includes("ids.invoiceplane.com/get_news")) {
+            options.success([{ title: "Plain title", text: "line one\nline two" }]);
+        }
+    });
+
+    assert.equal(error, null);
+    assert.ok(shown.some((entry) => entry === "text:Plain title"), "the title was not rendered via .text()");
+});
+
+test("the news panel still has a failed-state element for the legacy hosts to reveal", () => {
+    const php = fs.readFileSync(VIEW, "utf8");
+
+    assert.match(php, /id="ipnews-failed"/, 'the markup dropped the "#ipnews-failed" element that legacyNews()/legacyNewsOrg() reveal on error');
+});
