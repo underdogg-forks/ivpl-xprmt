@@ -221,6 +221,8 @@ in progress in this release.
 
 ### Bug fixes
 
+- **Missing English strings for the services, payment-reminders and e-invoicing UI:** the views, controllers and models for these features (`application/modules/services/`, the invoice reminders panel, the Peppol/e-invoicing status UI) were present, but 53 of the `trans()` keys they reference — `services`, `service_name`, `payment_reminders`, `reminder_sent`, `electronic_invoicing`, `peppol_id_missing`, `user_einvoice_identifier`, and the rest — had no English string defined, so those views would have echoed the raw key or an empty string instead of real text. Found while porting `LanguageKeysDefinedTest` (and other regression tests) from the `ivpl/modules-180` branch, which already had these defined; added the same 53 keys to `ip_lang.php`.
+
 - **Gateway page links with a lower-case name returned 404 when two gateways were enabled:** `Payment_information::form()` listed the drivers in config case (`PayPal`) but compared the requested name case-sensitively, so `form/<key>/paypal`, the address the PayPal page itself links back to, was refused. The name is now matched case-insensitively and dispatched as the listed driver.
 
 - **Removed the dead `users/ajax/load_user_client_table` endpoint:** the only caller, the client modal, reloaded a `#div_user_client_table` element that no view contains, and the endpoint rendered `users/partial_user_client_table`, a view that was deleted when the user-client handling moved to its own module, so a direct request ended in a 500. The endpoint and the reload call are gone, which also removes a read endpoint for client assignments.
