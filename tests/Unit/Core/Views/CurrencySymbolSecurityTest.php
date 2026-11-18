@@ -219,9 +219,9 @@ class CurrencySymbolSecurityTest extends TestCase
         $root  = dirname(__DIR__, 4);
         $sinks = [
             'application/modules/invoices/views/partial_itemlist_responsive.php' => [81, 258],
-            'application/modules/invoices/views/partial_itemlist_table.php'      => [60, 208],
+            'application/modules/invoices/views/partial_itemlist_table.php'      => [60, 209],
             'application/modules/quotes/views/partial_itemlist_responsive.php'   => [56, 189],
-            'application/modules/quotes/views/partial_itemlist_table.php'        => [49, 157],
+            'application/modules/quotes/views/partial_itemlist_table.php'        => [49, 158],
             'application/modules/products/views/form.php'                        => [80, 143],
             'application/modules/tasks/views/form.php'                           => [71],
         ];

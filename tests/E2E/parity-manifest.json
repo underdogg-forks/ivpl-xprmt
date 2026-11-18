@@ -432,6 +432,14 @@
       "it_taxes_item_tax_too_when_the_invoice_tax_includes_it",
       "it_keeps_each_invoices_totals_separate"
     ],
+    "Invoices/InvoiceItemPriceIncludesTaxTest.php": [
+      "it_derives_the_exact_base_price_and_tax_from_a_tax_inclusive_price",
+      "it_still_adds_tax_on_top_when_the_flag_is_not_set",
+      "it_keeps_the_exact_final_price_with_an_integer_quantity_greater_than_one",
+      "it_keeps_the_exact_final_price_under_non_legacy_calculation_too",
+      "it_behaves_like_the_base_price_when_there_is_no_tax_rate",
+      "it_persists_the_flag_on_the_item_row"
+    ],
     "Payments/PaypalControllerTest.php": [
       "it_displays_payment_list_with_data",
       "it_displays_empty_payments_list",
@@ -537,6 +545,14 @@
     "Quotes/GuestQuotesControllerTest.php": [
       "it_redirects_the_index_to_the_open_quotes",
       "it_filters_the_listing_by_status_without_crossing_clients"
+    ],
+    "Quotes/QuoteItemPriceIncludesTaxTest.php": [
+      "it_derives_the_exact_base_price_and_tax_from_a_tax_inclusive_price",
+      "it_still_adds_tax_on_top_when_the_flag_is_not_set",
+      "it_keeps_the_exact_final_price_with_an_integer_quantity_greater_than_one",
+      "it_keeps_the_exact_final_price_under_non_legacy_calculation_too",
+      "it_behaves_like_the_base_price_when_there_is_no_tax_rate",
+      "it_persists_the_flag_on_the_item_row"
     ]
   }
 }
