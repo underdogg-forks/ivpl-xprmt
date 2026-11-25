@@ -217,8 +217,9 @@ The **Workflow** phase covers your day-to-day development activities.
 - **Nginx + MariaDB + PHP Setup** (LEMP Stack):
   - Install required packages:
     ```bash
-    # Ubuntu (24.04 ships PHP 8.3; PHP 8.4 comes from the ondrej/php PPA)
-    sudo add-apt-repository -y ppa:ondrej/php
+    # Ubuntu (24.04 ships PHP 8.3; PHP 8.4 comes from Sury's repository —
+    # the ondrej/php PPA is frozen and no longer receiving updates)
+    curl -sSL https://packages.sury.org/php/README.txt | sudo bash -x
     sudo apt-get update
     sudo apt-get install nginx mariadb-server php8.4-fpm php8.4-mysql php8.4-mbstring php8.4-xml php8.4-curl php8.4-gd php8.4-bcmath
     ```
