@@ -34,4 +34,4 @@ ALTER TABLE `ip_invoices`
 -- Pre-1.7 installations could end up with the client form's internal 'custom' sentinel value
 -- saved directly into ip_clients.client_title instead of the free-text title it stands for,
 -- which 1.7's templates then print literally as "Custom" on every invoice/quote/client view.
-UPDATE `ip_clients` SET `client_title` = NULL WHERE `client_title` = 'custom';
+UPDATE `ip_clients` SET `client_title` = NULL WHERE CAST(`client_title` AS BINARY) = 'custom';
