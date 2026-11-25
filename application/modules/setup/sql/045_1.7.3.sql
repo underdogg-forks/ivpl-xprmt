@@ -30,3 +30,8 @@ ALTER TABLE `ip_clients`
 
 ALTER TABLE `ip_invoices`
   ADD COLUMN `invoice_disable_reminders` TINYINT(1) NOT NULL DEFAULT '0' AFTER `invoice_status_id`;
+
+-- Pre-1.7 installations could end up with the client form's internal 'custom' sentinel value
+-- saved directly into ip_clients.client_title instead of the free-text title it stands for,
+-- which 1.7's templates then print literally as "Custom" on every invoice/quote/client view.
+UPDATE `ip_clients` SET `client_title` = NULL WHERE `client_title` = 'custom';
