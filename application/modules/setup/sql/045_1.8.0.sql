@@ -1,5 +1,6 @@
 -- =====================================================
--- 1.8.0 — Integrations, e-invoicing, Peppol and services schema
+-- 1.8.0 — the one migration file for this version (one file per version;
+-- while 1.8.0 is unreleased, new statements are appended here)
 --
 -- Consolidated migration. Supersedes the incremental 1.8.0 – 1.8.12 files:
 -- the integration-module schema plus the event_hash / idx_event_dedup repair
@@ -17,6 +18,19 @@
 --   * ip_clients.client_peppol_id    — new: Peppol electronic address
 --   * ip_users.user_einvoice_identifier — new: sender e-invoicing identifier
 --   * ip_invoices.service_id / ip_quotes.service_id — new: one service per doc
+--   * ip_invoice_reminders + client/invoice reminder opt-out columns — new
+--   * ip_users.user_auth_version     — new: invalidates sessions on password change
+--   * ip_suppliers / ip_supplier_invoice* — new: supplier invoices module
+--   * every remaining MyISAM table   — converted to InnoDB by Mdl_Setup::upgrade_tables()
+--
+-- InnoDB conversion: there are no statements for it here. Mdl_Setup::upgrade_tables()
+-- converts every remaining MyISAM table after the migration files have run. The
+-- set of tables can only be known at runtime: two tables (ip_sessions,
+-- ip_login_log) were created with no ENGINE clause and so inherit whatever the
+-- server default was at install time, and an install that has already been
+-- converted by hand must not be rebuilt needlessly. It reads information_schema
+-- and touches only tables that actually exist and are actually MyISAM, so it is
+-- safe to re-run, and a failed conversion is retried on the next upgrade.
 --
 -- Idempotent (IF [NOT] EXISTS guards) so it is safe to re-run on a database
 -- that already applied any of the superseded files.
@@ -280,3 +294,178 @@ ALTER TABLE `ip_invoices`
 
 ALTER TABLE `ip_quotes`
   ADD COLUMN IF NOT EXISTS `service_id` INT(11) DEFAULT 0 AFTER `notes`;
+
+-- ---------------------------------------------------------
+-- Payment reminders
+-- ---------------------------------------------------------
+-- Payment reminder log. The UNIQUE key is the dedup guarantee: the reminder engine
+-- claims an (invoice, type, offset) slot with INSERT IGNORE before sending, so two
+-- concurrent cron runs can never both email the same reminder: the loser of the race
+-- gets affected_rows() = 0 and skips the send.
+--
+-- reminder_type:   'before_due' | 'overdue'
+-- reminder_status: 'pending' (claimed) | 'sent' | 'failed' | 'skipped'
+-- IF NOT EXISTS so the migration survives a database that already carries the
+-- table but has an older ip_versions history -- e.g. a production dump restored
+-- over a newer development schema. Same guard as ip_sessions in 019_1.4.7.sql.
+CREATE TABLE IF NOT EXISTS `ip_invoice_reminders` (
+  `reminder_id`        INT(11)      NOT NULL AUTO_INCREMENT,
+  `invoice_id`         INT(11)      NOT NULL,
+  `reminder_type`      VARCHAR(20)  NOT NULL,
+  `reminder_offset`    INT(11)      NOT NULL,
+  `reminder_status`    VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  `reminder_date_sent` DATETIME     NOT NULL,
+  `reminder_email_to`  VARCHAR(255)          DEFAULT NULL,
+  PRIMARY KEY (`reminder_id`),
+  UNIQUE KEY `idx_reminder_slot` (`invoice_id`, `reminder_type`, `reminder_offset`),
+  KEY `invoice_id` (`invoice_id`)
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
+-- Per-client and per-invoice reminder opt-out. Both default to 0 (reminders allowed);
+-- the global `invoice_reminders_enabled` setting is the master switch above them.
+ALTER TABLE `ip_clients`
+  ADD COLUMN IF NOT EXISTS `client_disable_reminders` TINYINT(1) NOT NULL DEFAULT '0' AFTER `client_active`;
+
+ALTER TABLE `ip_invoices`
+  ADD COLUMN IF NOT EXISTS `invoice_disable_reminders` TINYINT(1) NOT NULL DEFAULT '0' AFTER `invoice_status_id`;
+
+-- ---------------------------------------------------------
+-- Per-user authentication version: bumped on a password change so every
+-- other session of that user is invalidated.
+-- ---------------------------------------------------------
+ALTER TABLE `ip_users` ADD COLUMN IF NOT EXISTS `user_auth_version` INT(10) UNSIGNED DEFAULT 1 NOT NULL;
+
+-- ---------------------------------------------------------
+-- Supplier invoices
+-- ---------------------------------------------------------
+-- Supplier accounting register for validated incoming e-invoices.
+
+CREATE TABLE IF NOT EXISTS `ip_suppliers` (
+  `supplier_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `supplier_name` VARCHAR(255) NOT NULL,
+  `supplier_company` VARCHAR(255) NULL,
+  `supplier_vat_id` VARCHAR(100) NULL,
+  `supplier_tax_code` VARCHAR(100) NULL,
+  `supplier_peppol_id` VARCHAR(100) NULL,
+  `supplier_email` VARCHAR(255) NULL,
+  `supplier_address_1` VARCHAR(255) NULL,
+  `supplier_address_2` VARCHAR(255) NULL,
+  `supplier_city` VARCHAR(100) NULL,
+  `supplier_state` VARCHAR(100) NULL,
+  `supplier_zip` VARCHAR(30) NULL,
+  `supplier_country` VARCHAR(2) NULL,
+  `supplier_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `supplier_date_created` DATE NOT NULL,
+  `supplier_date_modified` DATE NOT NULL,
+  PRIMARY KEY (`supplier_id`),
+  KEY `idx_supplier_peppol_id` (`supplier_peppol_id`),
+  KEY `idx_supplier_vat_id` (`supplier_vat_id`),
+  KEY `idx_supplier_name` (`supplier_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `ip_supplier_invoices` (
+  `supplier_invoice_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `supplier_id` INT(11) NULL,
+  `incoming_response_id` INT(11) NOT NULL,
+  `merchant_client_id` INT(11) NULL,
+  `external_reference` VARCHAR(255) NULL,
+  `supplier_invoice_number` VARCHAR(255) NULL,
+  `supplier_invoice_date` DATE NULL,
+  `supplier_due_date` DATE NULL,
+  `currency_code` CHAR(3) NOT NULL DEFAULT 'EUR',
+  `subtotal` DECIMAL(20, 6) NULL,
+  `tax_total` DECIMAL(20, 6) NULL,
+  `total` DECIMAL(20, 6) NULL,
+  `amount_paid` DECIMAL(20, 6) NOT NULL DEFAULT 0,
+  `status` VARCHAR(30) NOT NULL DEFAULT 'received',
+  `document_path` VARCHAR(500) NULL,
+  `document_name` VARCHAR(255) NULL,
+  `document_mime_type` VARCHAR(100) NULL,
+  `document_sha256` CHAR(64) NULL,
+  `raw_payload` LONGTEXT NULL,
+  `notes` TEXT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`supplier_invoice_id`),
+  UNIQUE KEY `uq_supplier_invoice_response` (`incoming_response_id`),
+  KEY `idx_supplier_invoice_supplier` (`supplier_id`),
+  KEY `idx_supplier_invoice_status` (`status`),
+  KEY `idx_supplier_invoice_reference` (`merchant_client_id`, `external_reference`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `ip_supplier_invoice_items` (
+  `supplier_invoice_item_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `supplier_invoice_id` INT(11) NOT NULL,
+  `item_name` VARCHAR(255) NOT NULL,
+  `item_description` TEXT NULL,
+  `quantity` DECIMAL(20, 6) NOT NULL DEFAULT 1,
+  `unit_price` DECIMAL(20, 6) NULL,
+  `tax_rate` DECIMAL(8, 4) NULL,
+  `subtotal` DECIMAL(20, 6) NULL,
+  `tax_total` DECIMAL(20, 6) NULL,
+  `total` DECIMAL(20, 6) NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`supplier_invoice_item_id`),
+  KEY `idx_supplier_invoice_items_invoice` (`supplier_invoice_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Payments and status history.
+ALTER TABLE `ip_supplier_invoices`
+  MODIFY `incoming_response_id` INT(11) NULL;
+
+CREATE TABLE IF NOT EXISTS `ip_supplier_invoice_payments` (
+  `supplier_invoice_payment_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `supplier_invoice_id` INT(11) NOT NULL,
+  `payment_date` DATE NOT NULL,
+  `amount` DECIMAL(20, 6) NOT NULL,
+  `currency_code` CHAR(3) NOT NULL DEFAULT 'EUR',
+  `payment_method` VARCHAR(100) NULL,
+  `reference` VARCHAR(255) NULL,
+  `notes` TEXT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`supplier_invoice_payment_id`),
+  KEY `idx_supplier_invoice_payment_invoice` (`supplier_invoice_id`),
+  KEY `idx_supplier_invoice_payment_date` (`payment_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `ip_supplier_invoice_status_history` (
+  `supplier_invoice_status_history_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `supplier_invoice_id` INT(11) NOT NULL,
+  `old_status` VARCHAR(30) NULL,
+  `new_status` VARCHAR(30) NOT NULL,
+  `comment` TEXT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`supplier_invoice_status_history_id`),
+  KEY `idx_supplier_invoice_status_history_invoice` (`supplier_invoice_id`),
+  KEY `idx_supplier_invoice_status_history_date` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Additional documents attached to supplier invoices.
+
+CREATE TABLE IF NOT EXISTS `ip_supplier_invoice_attachments` (
+  `supplier_invoice_attachment_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `supplier_invoice_id` INT(11) NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `storage_path` VARCHAR(500) NOT NULL,
+  `mime_type` VARCHAR(100) NOT NULL,
+  `file_size` BIGINT(20) NOT NULL,
+  `sha256` CHAR(64) NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`supplier_invoice_attachment_id`),
+  UNIQUE KEY `uq_supplier_invoice_attachment_hash` (`supplier_invoice_id`, `sha256`),
+  KEY `idx_supplier_invoice_attachment_invoice` (`supplier_invoice_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Prevent duplicate supplier invoice numbers for the same supplier.
+
+ALTER TABLE `ip_supplier_invoices`
+  ADD UNIQUE KEY IF NOT EXISTS `uq_supplier_invoice_supplier_number` (`supplier_id`, `supplier_invoice_number`);
+
+-- Reversible supplier invoice archiving.
+
+ALTER TABLE `ip_supplier_invoices`
+  ADD COLUMN IF NOT EXISTS `archived_at` DATETIME NULL AFTER `updated_at`,
+  ADD COLUMN IF NOT EXISTS `archived_by` INT(11) NULL AFTER `archived_at`,
+  ADD KEY IF NOT EXISTS `idx_supplier_invoice_archived_at` (`archived_at`);

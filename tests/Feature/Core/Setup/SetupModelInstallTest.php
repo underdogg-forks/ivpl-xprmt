@@ -123,6 +123,34 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
+    public function it_ships_exactly_one_consecutively_numbered_migration_file_per_version(): void
+    {
+        /* Arrange */
+        $files = array_values(array_filter(scandir(APPPATH . 'modules/setup/sql'), static fn ($f) => str_ends_with($f, '.sql')));
+        sort($files);
+
+        /* Act */
+        $versions = [];
+        $numbers  = [];
+        $misnamed = [];
+        foreach ($files as $file) {
+            if (preg_match('/^(\d{3})_(\d+\.\d+(?:\.\d+)?)\.sql$/', $file, $match) !== 1) {
+                $misnamed[] = $file;
+
+                continue;
+            }
+
+            $numbers[]  = (int) $match[1];
+            $versions[] = $match[2];
+        }
+
+        /* Assert */
+        self::assertSame([], $misnamed, 'A migration file is named <number>_<version>.sql; a change for an unreleased version is appended to that version\'s file.');
+        self::assertSame($versions, array_values(array_unique($versions)), 'Each version has exactly one migration file.');
+        self::assertSame(range(0, count($files) - 1), $numbers, 'Migration numbers are consecutive, starting at 000.');
+    }
+
+    #[Test]
     public function it_converts_every_table_to_innodb(): void
     {
         $model = new Mdl_Setup();
@@ -137,16 +165,24 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
-    public function it_converts_a_leftover_myisam_table_when_the_hook_runs_again(): void
+    public function it_converts_a_leftover_myisam_table_on_a_later_upgrade_without_replaying_recorded_migrations(): void
     {
+        /* Arrange: every migration is recorded, yet one table is still MyISAM, as on a
+           database whose conversion failed after 045_1.8.0.sql was written to ip_versions. */
         $model = new Mdl_Setup();
         $model->install_tables();
         $model->upgrade_tables();
         $this->db->query('CREATE TABLE ip_legacy_probe (id INT) ENGINE=MyISAM');
-        self::assertTrue($model->upgrade_046_innodb_conversion());
+        $recorded = $this->db->order_by('version_id')->get('ip_versions')->result_array();
 
+        /* Act */
+        $result = $model->upgrade_tables();
+
+        /* Assert */
+        self::assertTrue($result, implode('; ', $model->errors));
         $engine = $this->db->query("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ip_legacy_probe'")->row()->ENGINE;
         self::assertSame('InnoDB', $engine);
+        self::assertSame($recorded, $this->db->order_by('version_id')->get('ip_versions')->result_array(), 'No recorded migration is applied again.');
     }
 
     #[Test]

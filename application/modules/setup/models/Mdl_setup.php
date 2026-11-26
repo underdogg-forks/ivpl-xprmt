@@ -107,6 +107,11 @@ class Mdl_Setup extends CI_Model
             }
         }
 
+        // Not a per-file hook: a database that recorded 045_1.8.0.sql before its tables
+        // were converted would skip that file, and the conversion with it, for good.
+        // Only MyISAM tables are touched, so this is a no-op once everything is InnoDB.
+        $this->convert_tables_to_innodb();
+
         if ($this->errors) {
             return false;
         }
@@ -420,11 +425,6 @@ class Mdl_Setup extends CI_Model
         $this->session->set_userdata('setup_notice', $setup_notice);
     }
 
-    public function upgrade_046_innodb_conversion(): bool
-    {
-        return $this->convert_tables_to_innodb();
-    }
-
     /**
      * Convert every remaining MyISAM table in this schema to InnoDB.
      *
@@ -445,7 +445,7 @@ class Mdl_Setup extends CI_Model
      * max_execution_time to prevent timeout on large table conversions, and retries
      * conversion if a lock wait timeout is encountered.
      *
-     * @return bool false when a table failed to convert, so the migration is retried
+     * @return bool false when a table failed to convert; the failure is in $this->errors
      */
     private function convert_tables_to_innodb(): bool
     {
