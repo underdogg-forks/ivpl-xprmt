@@ -123,6 +123,34 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
+    public function it_ships_exactly_one_consecutively_numbered_migration_file_per_version(): void
+    {
+        /* Arrange */
+        $files = array_values(array_filter(scandir(APPPATH . 'modules/setup/sql'), static fn ($f) => str_ends_with($f, '.sql')));
+        sort($files);
+
+        /* Act */
+        $versions = [];
+        $numbers  = [];
+        $misnamed = [];
+        foreach ($files as $file) {
+            if (preg_match('/^(\d{3})_(\d+\.\d+(?:\.\d+)?)\.sql$/', $file, $match) !== 1) {
+                $misnamed[] = $file;
+
+                continue;
+            }
+
+            $numbers[]  = (int) $match[1];
+            $versions[] = $match[2];
+        }
+
+        /* Assert */
+        self::assertSame([], $misnamed, 'A migration file is named <number>_<version>.sql; a change for an unreleased version is appended to that version\'s file.');
+        self::assertSame($versions, array_values(array_unique($versions)), 'Each version has exactly one migration file.');
+        self::assertSame(range(0, count($files) - 1), $numbers, 'Migration numbers are consecutive, starting at 000.');
+    }
+
+    #[Test]
     public function it_converts_every_table_to_innodb(): void
     {
         $model = new Mdl_Setup();
