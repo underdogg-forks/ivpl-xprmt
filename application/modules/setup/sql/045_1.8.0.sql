@@ -21,16 +21,16 @@
 --   * ip_invoice_reminders + client/invoice reminder opt-out columns — new
 --   * ip_users.user_auth_version     — new: invalidates sessions on password change
 --   * ip_suppliers / ip_supplier_invoice* — new: supplier invoices module
---   * every remaining MyISAM table   — converted to InnoDB by upgrade_045_1_8_0()
+--   * every remaining MyISAM table   — converted to InnoDB by Mdl_Setup::upgrade_tables()
 --
--- InnoDB conversion: there are no statements for it here. The upgrade_045_1_8_0()
--- hook in Mdl_Setup converts every remaining MyISAM table after this file has
--- run. The set of tables can only be known at runtime: two tables (ip_sessions,
+-- InnoDB conversion: there are no statements for it here. Mdl_Setup::upgrade_tables()
+-- converts every remaining MyISAM table after the migration files have run. The
+-- set of tables can only be known at runtime: two tables (ip_sessions,
 -- ip_login_log) were created with no ENGINE clause and so inherit whatever the
 -- server default was at install time, and an install that has already been
--- converted by hand must not be rebuilt needlessly. The hook reads
--- information_schema and touches only tables that actually exist and are
--- actually MyISAM, so it is safe to re-run.
+-- converted by hand must not be rebuilt needlessly. It reads information_schema
+-- and touches only tables that actually exist and are actually MyISAM, so it is
+-- safe to re-run, and a failed conversion is retried on the next upgrade.
 --
 -- Idempotent (IF [NOT] EXISTS guards) so it is safe to re-run on a database
 -- that already applied any of the superseded files.
