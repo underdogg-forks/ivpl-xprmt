@@ -266,8 +266,8 @@ in progress in this release.
 
 ### Thank you
 
-Thanks to [@0xMoError-22](https://github.com/0xMoError-22) and [@Suraj-Siddharudh](https://github.com/Suraj-Siddharudh)
-for responsibly disclosing the issues resolved in this release.
+Thanks to [@0xMoError-22](https://github.com/0xMoError-22), [@Suraj-Siddharudh](https://github.com/Suraj-Siddharudh)
+and [@netlane](https://github.com/netlane) for responsibly disclosing the issues resolved in this release.
 
 ### Security Vulnerability Summary
 
