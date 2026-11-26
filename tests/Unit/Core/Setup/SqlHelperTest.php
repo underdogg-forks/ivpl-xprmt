@@ -92,15 +92,16 @@ class SqlHelperTest extends TestCase
         /* Act */
         $statements = split_sql_statements($sql);
 
-        /* Assert — the file ends on the ip_quotes.service_id ALTER; it must
+        /* Assert — the file ends on the supplier invoice archiving ALTER; it must
            survive the split intact (this file has em dashes in its comments). */
         $last = $statements[count($statements) - 1];
-        $this->assertStringContainsString('`ip_quotes`', $last);
-        $this->assertStringContainsString('`service_id`', $last);
-        $this->assertStringEndsWith('`notes`', rtrim($last, "; \n"));
+        $this->assertStringContainsString('`ip_supplier_invoices`', $last);
+        $this->assertStringContainsString('`archived_by`', $last);
+        $this->assertStringEndsWith('(`archived_at`)', rtrim($last, "; \n"));
 
         // Nothing after the last real ';' is silently dropped.
         $reassembled = implode(";\n", $statements) . ';';
+        $this->assertStringContainsString('ADD KEY IF NOT EXISTS `idx_supplier_invoice_archived_at` (`archived_at`)', $reassembled);
         $this->assertStringContainsString('ADD COLUMN IF NOT EXISTS `service_id` INT(11) DEFAULT 0 AFTER `notes`', $reassembled);
     }
 }

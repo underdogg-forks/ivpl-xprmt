@@ -143,7 +143,7 @@ final class SetupModelInstallTest extends TestCase
         $model->install_tables();
         $model->upgrade_tables();
         $this->db->query('CREATE TABLE ip_legacy_probe (id INT) ENGINE=MyISAM');
-        self::assertTrue($model->upgrade_046_innodb_conversion());
+        self::assertTrue($model->upgrade_045_1_8_0());
 
         $engine = $this->db->query("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ip_legacy_probe'")->row()->ENGINE;
         self::assertSame('InnoDB', $engine);

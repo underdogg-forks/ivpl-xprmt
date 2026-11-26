@@ -420,7 +420,7 @@ class Mdl_Setup extends CI_Model
         $this->session->set_userdata('setup_notice', $setup_notice);
     }
 
-    public function upgrade_046_innodb_conversion(): bool
+    public function upgrade_045_1_8_0(): bool
     {
         return $this->convert_tables_to_innodb();
     }
