@@ -165,16 +165,24 @@ final class SetupModelInstallTest extends TestCase
     }
 
     #[Test]
-    public function it_converts_a_leftover_myisam_table_when_the_hook_runs_again(): void
+    public function it_converts_a_leftover_myisam_table_on_a_later_upgrade_without_replaying_recorded_migrations(): void
     {
+        /* Arrange: every migration is recorded, yet one table is still MyISAM, as on a
+           database whose conversion failed after 045_1.8.0.sql was written to ip_versions. */
         $model = new Mdl_Setup();
         $model->install_tables();
         $model->upgrade_tables();
         $this->db->query('CREATE TABLE ip_legacy_probe (id INT) ENGINE=MyISAM');
-        self::assertTrue($model->upgrade_045_1_8_0());
+        $recorded = $this->db->order_by('version_id')->get('ip_versions')->result_array();
 
+        /* Act */
+        $result = $model->upgrade_tables();
+
+        /* Assert */
+        self::assertTrue($result, implode('; ', $model->errors));
         $engine = $this->db->query("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ip_legacy_probe'")->row()->ENGINE;
         self::assertSame('InnoDB', $engine);
+        self::assertSame($recorded, $this->db->order_by('version_id')->get('ip_versions')->result_array(), 'No recorded migration is applied again.');
     }
 
     #[Test]
