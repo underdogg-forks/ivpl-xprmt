@@ -99,8 +99,10 @@ Before writing a test, find its class in this order and stop at the first hit:
    | a library class (`Sumex.php`)    | `SumexTest`                                        |
    | a migration or `Mdl_setup`       | `SetupModelInstallTest`                            |
 
-2. **An existing class that already tests that unit under another name.** Add the method
-   there. Do not open a second class beside it.
+2. **An existing class that already tests that unit under another name** (`LegacyLoginAndActiveStatusTest`
+   for the Sessions controller, `PdfStreamingTest` for `mpdf_helper.php`). Do not add to it as it is:
+   rename it to the unit's name in the same change, fold in any sibling class for the same unit, and
+   then add the method. A fix never leaves a misnamed class it touched.
 3. **A new class, only when the unit has no test class at all.** Name it after the unit, as in
    the table. One production unit, one test class.
 
@@ -114,8 +116,8 @@ Further rules:
   headers) is tested in the class of the base controller that enforces it, with the routes as
   a data provider.
 - A long test class is not a reason to split it by bug. Split by production unit or not at all.
-- Count before you commit: a fix that adds a file under `tests/` whose name is not a production
-  unit's name is not ready.
+- Count before you commit: a fix that adds or extends a test class file under `tests/` whose name is
+  not a production unit's name is not ready. Fakes and fixtures are not test classes.
 
 ## Common pitfalls
 
