@@ -546,11 +546,12 @@ class Facturxv10Xml extends BaseXml
 
             // AllowanceTotalAmount (total discounts ‘at document level’) Represents the total amount of discounts granted on the invoice. (see set_invoice_discount_amount_total() helper)
             $node->appendChild($this->currencyElement('ram:AllowanceTotalAmount', $this->invoice->invoice_discount_amount_subtotal)); // optional
+        }
 
-            $invoiceTotal = $this->invoice->invoice_total; // ApplicableTradeTax>CategoryCode=O
-            if ( ! $this->notax) {
-                $invoiceTotal = $this->invoice->invoice_item_subtotal;
-            }
+        // Also needed for the MINIMUM profile: TaxBasisTotalAmount is written for every profile.
+        $invoiceTotal = $this->invoice->invoice_total; // ApplicableTradeTax>CategoryCode=O
+        if ( ! $this->notax) {
+            $invoiceTotal = $this->invoice->invoice_item_subtotal;
         }
 
         // TaxBasisTotalAmount (total amount excluding VAT)
