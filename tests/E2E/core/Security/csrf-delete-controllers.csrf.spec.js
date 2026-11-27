@@ -12,13 +12,14 @@ import { seedInvoiceRow } from '../../support/invoices.js';
 import { count, seedClientRow } from '../../support/quotes.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
+const now = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
 const CONTROLLERS = {
   'a client': { table: 'ip_clients', key: 'client_id', route: '/clients/delete', seed: () => seedClientRow() },
   'a project': { table: 'ip_projects', key: 'project_id', route: '/projects/delete', seed: () => dbInsert('ip_projects', { project_name: 'Csrf Project', client_id: seedClientRow() }) },
-  'a task': { table: 'ip_tasks', key: 'task_id', route: '/tasks/delete', seed: () => dbInsert('ip_tasks', { task_name: 'Csrf Task', task_price: '10.00', task_status: 1, project_id: 0 }) },
+  'a task': { table: 'ip_tasks', key: 'task_id', route: '/tasks/delete', seed: () => dbInsert('ip_tasks', { task_name: 'Csrf Task', task_description: '', task_price: '10.00', task_finish_date: today(), task_status: 1, project_id: 0, tax_rate_id: 0 }) },
   'a unit': { table: 'ip_units', key: 'unit_id', route: '/units/delete', seed: () => dbInsert('ip_units', { unit_name: 'Csrf Unit', unit_name_plrl: 'Csrf Units' }) },
-  'a product': { table: 'ip_products', key: 'product_id', route: '/products/delete', seed: () => dbInsert('ip_products', { product_name: 'Csrf Product', product_price: '10.00' }) },
+  'a product': { table: 'ip_products', key: 'product_id', route: '/products/delete', seed: () => dbInsert('ip_products', { product_name: 'Csrf Product', product_description: '', product_price: '10.00' }) },
   'a family': { table: 'ip_families', key: 'family_id', route: '/families/delete', seed: () => dbInsert('ip_families', { family_name: 'Csrf Family' }) },
   'a payment method': { table: 'ip_payment_methods', key: 'payment_method_id', route: '/payment_methods/delete', seed: () => dbInsert('ip_payment_methods', { payment_method_name: 'Csrf Method' }) },
   'an invoice group': { table: 'ip_invoice_groups', key: 'invoice_group_id', route: '/invoice_groups/delete', seed: () => dbInsert('ip_invoice_groups', { invoice_group_name: 'Csrf Group', invoice_group_identifier_format: '{{{id}}}', invoice_group_next_id: 1, invoice_group_left_pad: 0 }) },
@@ -61,7 +62,7 @@ for (const [what, { table, key, route, seed }] of Object.entries(CONTROLLERS)) {
 
 test.describe('CSRF — unassigning a client from a user', () => {
   const seedAssignment = () => {
-    const userId = dbInsert('ip_users', { user_type: 2, user_name: 'Csrf User', user_email: `csrf-${Date.now()}@test.local`, user_password: 'x', user_psalt: 'e2e', user_language: 'system', user_active: 1 });
+    const userId = dbInsert('ip_users', { user_type: 2, user_name: 'Csrf User', user_email: `csrf-${Date.now()}@test.local`, user_password: 'x', user_psalt: 'e2e', user_language: 'system', user_active: 1, user_date_created: now(), user_date_modified: now() });
 
     return dbInsert('ip_user_clients', { user_id: userId, client_id: seedClientRow() });
   };
