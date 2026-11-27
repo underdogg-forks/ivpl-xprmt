@@ -31,7 +31,16 @@
   "exemptMethods": {
     "Invoices/InvoicesControllerTest.php::it_deletes_a_sent_invoice_when_global_invoice_deletion_is_enabled": "ENABLE_INVOICE_DELETION is an environment switch read per request in PHPUnit; the e2e servers are fixed at start and other specs rely on sent invoices being undeletable.",
     "Invoices/CronRecurControllerTest.php::it_claims_the_recurring_invoice_before_it_draws_a_number_from_the_invoice_group": "Asserts the order of two queries inside one request (claim before number draw): it needs a hook inside the request, not a browser.",
-    "Core/Users/UsersDeleteAuthorizationTest.php::it_ends_the_open_session_of_an_admin_who_was_deleted": "Needs one user's browser session to stay alive while another user logs in. In the e2e harness a successful login in a second client ends the first client's session (plain curl cannot reproduce it; cause not isolated), so the 'live before, dead after the delete' contrast cannot be set up."
+    "Core/Users/UsersDeleteAuthorizationTest.php::it_ends_the_open_session_of_an_admin_who_was_deleted": "Needs one user's browser session to stay alive while another user logs in. In the e2e harness a successful login in a second client ends the first client's session (plain curl cannot reproduce it; cause not isolated), so the 'live before, dead after the delete' contrast cannot be set up.",
+    "Core/CustomValuesControllerTest.php::it_lists_each_field_once_with_the_number_of_its_values_under_only_full_group_by": "Switches the database server's global sql_mode to MySQL 8's default (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server.",
+    "Core/CustomValuesControllerTest.php::it_lists_the_fields_ordered_by_table_then_label_under_only_full_group_by": "Switches the database server's global sql_mode to MySQL 8's default (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server.",
+    "Core/CustomValuesControllerTest.php::it_answers_200_under_only_full_group_by_when_there_are_no_custom_fields_at_all": "Switches the database server's global sql_mode to MySQL 8's default (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server.",
+    "Core/CustomValuesControllerTest.php::it_answers_the_index_with_a_500_error_page_when_its_query_is_rejected": "Renames a table under the production environment (db_debug off) so the database rejects the query; the Playwright suite shares the database and runs in the testing environment.",
+    "Core/CustomValuesControllerTest.php::it_does_not_delete_a_value_whose_usage_could_not_be_checked": "Renames a table under the production environment (db_debug off) so the database rejects the query; the Playwright suite shares the database and runs in the testing environment.",
+    "Core/CustomValuesControllerTest.php::it_still_deletes_an_unused_value_in_the_production_environment_when_the_database_is_healthy": "Positive control of the rejected-query test: runs the delete in the production environment (db_debug off); the Playwright suite runs in the testing environment.",
+    "Core/FilterAjaxControllerTest.php::it_filters_custom_values_by_value_text_under_only_full_group_by": "Switches the database server's global sql_mode to MySQL 8's default (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server.",
+    "Core/FilterAjaxControllerTest.php::it_lists_every_custom_values_field_under_only_full_group_by_when_the_filter_box_is_empty": "Switches the database server's global sql_mode to MySQL 8's default (ONLY_FULL_GROUP_BY) for the request and restores it; the Playwright suite shares that server.",
+    "Core/ReportsControllerTest.php::it_does_not_embed_a_local_file_named_in_a_client_vat_id_in_the_sales_by_year_report": "Writes a probe image to the server's disk and looks for it in the raw PDF bytes; it needs the server's filesystem, not a browser."
   },
   "backlog": {
     "Clients/UserClientsControllerTest.php": [
@@ -279,12 +288,14 @@
       "it_returns_404_for_an_unauthenticated_request_to_a_layout_controller_method",
       "it_returns_404_for_the_same_request_even_with_an_admin_session"
     ],
-    "Core/Security/LegacyLoginAndActiveStatusTest.php": [
+    "Core/Auth/SessionsControllerTest.php": [
       "it_denies_a_deactivated_legacy_md5_account_even_with_the_correct_password",
       "it_denies_an_account_whose_active_flag_is_not_exactly_one",
       "it_logs_in_an_active_legacy_md5_account_and_upgrades_its_stored_hash",
       "it_rejects_a_wrong_password_on_a_legacy_md5_account_and_leaves_it_untouched",
-      "it_upgrades_only_the_signing_in_users_hash_not_every_legacy_account"
+      "it_upgrades_only_the_signing_in_users_hash_not_every_legacy_account",
+      "it_refuses_a_different_password_whose_md5_is_also_a_magic_hash",
+      "it_logs_in_the_owner_of_a_magic_hash_account_with_the_real_password"
     ],
     "Core/Security/LoginLockoutExpiryTest.php": [
       "it_unlocks_an_account_whose_lockout_is_older_than_twelve_hours",

@@ -163,15 +163,15 @@ make docker-test-filter FILTER=Session DOCKER_PROJECT_DIR=...
 make docker-phpstan     DOCKER_PROJECT_DIR=...
 ```
 
-`docker-db-prepare` rebuilds `invoiceplane_test` from `application/modules/setup/sql/*.sql`,
-retrying transient InnoDB deadlocks (`tests/Support/docker-import-sql.sh`) and failing loudly
-if the schema is incomplete. An unseeded or half-built schema shows up as `Expected row in
-[ip_*] not found` or `Table ... doesn't exist` across many tests; re-run the prepare step.
+`docker-db-prepare`, the sandbox script and both workflows build the schema through `Mdl_Setup::install_tables()` and
+`upgrade_tables()` (`tests/Support/build-test-db.php`): the SQL files and the PHP `upgrade_*()` steps run as on an
+installation, and a failing statement stops the build. A half-built schema shows up as `Expected row in [ip_*] not found`
+or `Table ... doesn't exist` across many tests; re-run the prepare step.
 
 **Sandbox (no Docker).**
 
 ```bash
-bash tests/Support/sandbox-mariadb.sh     # install/start MariaDB, build and seed invoiceplane_test, write ipconfig.php
+bash tests/Support/sandbox-mariadb.sh     # install/start MariaDB, build (through Mdl_Setup) and seed invoiceplane_test, write ipconfig.php
 bash tests/Support/sandbox-bootstrap.sh   # install phpunit and the phpstan phar under .sandbox-tools/
 env -u DB_HOSTNAME -u DB_PORT -u DB_DATABASE -u DB_USERNAME -u DB_PASSWORD \
   php .sandbox-tools/punit/vendor/bin/phpunit --bootstrap tests/bootstrap.php

@@ -18,6 +18,9 @@ use Throwable;
  */
 trait SwitchesSqlMode
 {
+    /** MySQL 8.0's default sql_mode: the one that adds ONLY_FULL_GROUP_BY, which MariaDB's default leaves off. */
+    protected const MYSQL8_DEFAULT_SQL_MODE = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
     private ?string $originalSqlMode = null;
 
     /**

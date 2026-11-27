@@ -130,6 +130,28 @@ class ReportsControllerTest extends AbstractTestCase
         $this->assertDatabaseCount('ip_invoices', 1);
     }
 
+    #[Test]
+    public function it_does_not_embed_a_local_file_named_in_a_client_vat_id_in_the_sales_by_year_report(): void
+    {
+        /* Arrange: GHSA-j89p-m59x-86r9. The VAT id once reached mPDF unescaped, and mPDF opened file:// sources */
+        $image = sys_get_temp_dir() . '/report-probe-' . bin2hex(random_bytes(6)) . '.png';
+        $gd    = imagecreatetruecolor(7, 13);
+        imagefill($gd, 0, 0, (int) imagecolorallocate($gd, 120, 120, 120));
+        imagepng($gd, $image);
+        $clientId = $this->seedClient(['client_vat_id' => '<img src="file://' . $image . '">']);
+        $this->seedInvoice($clientId, ['invoice_date_created' => '2026-01-15'], ['invoice_total' => '90.00', 'invoice_item_subtotal' => '90.00']);
+
+        /* Act */
+        $response = $this->post('/reports/sales_by_year', [
+            'from_date' => '2026-01-01', 'to_date' => '2026-12-31', 'btn_submit' => '1',
+        ]);
+        unlink($image);
+
+        /* Assert: a report is produced and the 7x13 local image is not inside it */
+        $this->assertIsPdfDocument($response);
+        self::assertDoesNotMatchRegularExpression('~/Subtype /Image.*?/Width 7\b.*?/Height 13\b~s', $response->body());
+    }
+
     // -------------------------------------------------------------------------
     // Guest access — always last
     // -------------------------------------------------------------------------

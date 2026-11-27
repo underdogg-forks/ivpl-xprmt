@@ -1,17 +1,16 @@
 <?php
 
-namespace Tests\Feature\Core\Security;
+namespace Tests\Feature\Core\Auth;
 
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
 /**
- * GHSA-jw57-6692-jh2q: a deactivated account could still sign in. Mdl_sessions::auth() now insists on user_active === 1
- * after the password check. LoginSecurityTest covers the plain inactive and active cases only; the legacy md5 route
- * (accounts that have never logged in since the salted-hash migration, user_psalt empty) and an unexpected user_active
- * value were not exercised.
+ * Sessions controller: application/modules/sessions/controllers/Sessions.php, with Mdl_sessions::auth() behind
+ * POST /sessions/login. Covers who may sign in: the active flag, the legacy md5 route (accounts that have not
+ * logged in since the salted-hash migration, user_psalt empty) and its hash comparison.
  */
-final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
+final class SessionsControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
     {
@@ -66,6 +65,44 @@ final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
         $row = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
         self::assertNotSame(md5('legacy-pass'), $row['user_password'], 'The legacy md5 hash must be upgraded on first login.');
         self::assertNotSame('', (string) $row['user_psalt']);
+    }
+
+    #[Test]
+    public function it_refuses_a_different_password_whose_md5_is_also_a_magic_hash(): void
+    {
+        /* Arrange: GHSA-x66r-7wf6-wgv7. md5('240610708') and md5('QNKCDZO') both read "0e" followed only by digits,
+           so a loose comparison takes them for the number zero and calls them equal */
+        $email  = 'legacy-magic@test.local';
+        $stored = md5('240610708');
+        self::assertMatchesRegularExpression('/^0e\d+$/', $stored);
+        self::assertMatchesRegularExpression('/^0e\d+$/', md5('QNKCDZO'));
+        $userId = $this->seedUser($email, ['user_psalt' => '', 'user_password' => $stored]);
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'QNKCDZO']);
+
+        /* Assert: refused, no session, and the stored legacy hash is not upgraded to the attacker's password */
+        self::assertTrue($response->isRedirect());
+        self::assertFalse(str_contains($response->redirectUrl(), 'dashboard'));
+        self::assertArrayNotHasKey('user_id', $response->session());
+        $row = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
+        self::assertSame($stored, $row['user_password']);
+        self::assertSame('', (string) $row['user_psalt']);
+    }
+
+    #[Test]
+    public function it_logs_in_the_owner_of_a_magic_hash_account_with_the_real_password(): void
+    {
+        /* Arrange: the positive control for the test above */
+        $email  = 'legacy-magic-owner@test.local';
+        $userId = $this->seedUser($email, ['user_psalt' => '', 'user_password' => md5('240610708')]);
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => '240610708']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'dashboard');
+        self::assertSame((string) $userId, (string) $response->sessionValue('user_id'));
     }
 
     #[Test]

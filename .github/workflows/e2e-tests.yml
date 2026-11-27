@@ -64,10 +64,9 @@ jobs:
         run: |
           export MYSQL_PWD="$DB_PASSWORD"
           # sql_mode stays at the server's default, as a user's MariaDB has it
-          for f in $(ls application/modules/setup/sql/*.sql | sort); do
-            mysql -h "$DB_HOSTNAME" -P "$DB_PORT" -u "$DB_USERNAME" --force "$DB_DATABASE" < "$f"
-          done
-          mysql -h "$DB_HOSTNAME" -P "$DB_PORT" -u "$DB_USERNAME" "$DB_DATABASE" < tests/Support/schema_fixups.sql
+          # Build the schema the way an installation gets it: Mdl_Setup runs the SQL files and the
+          # PHP upgrade steps, so a change to either is exercised by every test.
+          php tests/Support/build-test-db.php
           php tests/Support/seed-test-db.php
 
       - name: Prepare configuration
