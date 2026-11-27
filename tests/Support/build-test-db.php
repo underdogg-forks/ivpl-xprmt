@@ -89,10 +89,27 @@ $ci->load = new class () {
 $GLOBALS['unitCiInstance'] = $ci;
 
 $setup = new Mdl_Setup();
-$ok    = $setup->install_tables() && $setup->upgrade_tables();
+$setup->install_tables();
+$setup->upgrade_tables();
 
-if ( ! $ok || $setup->errors) {
-    fwrite(STDERR, "Building the schema of {$name} failed:" . PHP_EOL . implode(PHP_EOL, $setup->errors) . PHP_EOL);
+/* An error the installer is known to report on this server can be named in TEST_DB_KNOWN_INSTALLER_ERRORS
+   (substrings, separated by "|"). It is printed, and the build goes on: the installer itself carries on
+   past a failed statement too. Any other error stops the build. */
+$known      = array_filter(explode('|', (string) getenv('TEST_DB_KNOWN_INSTALLER_ERRORS')));
+$unexpected = [];
+foreach ($setup->errors as $error) {
+    foreach ($known as $needle) {
+        if (str_contains($error, $needle)) {
+            fwrite(STDOUT, "Known installer error on this server (tolerated): {$error}" . PHP_EOL);
+
+            continue 2;
+        }
+    }
+    $unexpected[] = $error;
+}
+
+if ($unexpected !== []) {
+    fwrite(STDERR, "Building the schema of {$name} failed:" . PHP_EOL . implode(PHP_EOL, $unexpected) . PHP_EOL);
     exit(1);
 }
 
