@@ -69,6 +69,44 @@ final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
     }
 
     #[Test]
+    public function it_refuses_a_different_password_whose_md5_is_also_a_magic_hash(): void
+    {
+        /* Arrange: GHSA-x66r-7wf6-wgv7. md5('240610708') and md5('QNKCDZO') both read "0e" followed only by digits,
+           so a loose comparison takes them for the number zero and calls them equal */
+        $email  = 'legacy-magic@test.local';
+        $stored = md5('240610708');
+        self::assertMatchesRegularExpression('/^0e\d+$/', $stored);
+        self::assertMatchesRegularExpression('/^0e\d+$/', md5('QNKCDZO'));
+        $userId = $this->seedUser($email, ['user_psalt' => '', 'user_password' => $stored]);
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => 'QNKCDZO']);
+
+        /* Assert: refused, no session, and the stored legacy hash is not upgraded to the attacker's password */
+        self::assertTrue($response->isRedirect());
+        self::assertFalse(str_contains($response->redirectUrl(), 'dashboard'));
+        self::assertArrayNotHasKey('user_id', $response->session());
+        $row = $this->databaseFetchOne('ip_users', ['user_id' => $userId]);
+        self::assertSame($stored, $row['user_password']);
+        self::assertSame('', (string) $row['user_psalt']);
+    }
+
+    #[Test]
+    public function it_logs_in_the_owner_of_a_magic_hash_account_with_the_real_password(): void
+    {
+        /* Arrange: the positive control for the test above */
+        $email  = 'legacy-magic-owner@test.local';
+        $userId = $this->seedUser($email, ['user_psalt' => '', 'user_password' => md5('240610708')]);
+
+        /* Act */
+        $response = $this->post('/sessions/login', ['btn_login' => '1', 'email' => $email, 'password' => '240610708']);
+
+        /* Assert */
+        $this->assertResponseRedirectsToRoute($response, 'dashboard');
+        self::assertSame((string) $userId, (string) $response->sessionValue('user_id'));
+    }
+
+    #[Test]
     public function it_rejects_a_wrong_password_on_a_legacy_md5_account_and_leaves_it_untouched(): void
     {
         /* Arrange */
