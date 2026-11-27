@@ -6,8 +6,8 @@
 # container (see .github/workflows/phpunit.yml) and imports the same schema. This
 # script exists only for the ephemeral web sandbox, which starts with no database
 # server at all. It is idempotent: installs MariaDB if missing, starts it, then
-# (re)builds the invoiceplane_test schema from the setup SQL migrations, applies
-# tests/Support/schema_fixups.sql, seeds the baseline rows, and writes ipconfig.php.
+# (re)builds the invoiceplane_test schema through Mdl_Setup (tests/Support/build-test-db.php),
+# seeds the baseline rows, and writes ipconfig.php.
 #
 # Usage (from the repo root):
 #   bash tests/Support/sandbox-mariadb.sh
@@ -102,12 +102,11 @@ FLUSH PRIVILEGES;
 SQL2
 fi
 
-# 4. (Re)build the schema + seed, mirroring the CI "Build MariaDB schema" step.
-mysql_exec -e "SET GLOBAL sql_mode=''; DROP DATABASE IF EXISTS \`$DB_DATABASE\`; CREATE DATABASE \`$DB_DATABASE\` CHARACTER SET utf8;"
-for f in $(ls "$REPO"/application/modules/setup/sql/*.sql | sort); do
-    mysql_exec --force "$DB_DATABASE" < "$f"
-done
-mysql_exec "$DB_DATABASE" < "$REPO/tests/Support/schema_fixups.sql"
+# 4. (Re)build the schema + seed, mirroring the CI "Build MariaDB schema" step. The server keeps its own default
+#    sql_mode (STRICT_TRANS_TABLES,...), as a user's server does; DEFAULT also undoes a mode an earlier run left set.
+mysql_exec -e "SET GLOBAL sql_mode=DEFAULT; DROP DATABASE IF EXISTS \`$DB_DATABASE\`; CREATE DATABASE \`$DB_DATABASE\` CHARACTER SET utf8;"
+DB_HOSTNAME="$DB_HOSTNAME" DB_PORT="$DB_PORT" DB_DATABASE="$DB_DATABASE" DB_USERNAME="$DB_USERNAME" DB_PASSWORD="$DB_PASSWORD" \
+    php "$REPO/tests/Support/build-test-db.php" >/dev/null
 php "$REPO/tests/Support/seed-test-db.php" >/dev/null
 
 # 5. Write ipconfig.php so the app boots against this database (same as CI).

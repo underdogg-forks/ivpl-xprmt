@@ -117,27 +117,7 @@ db-prepare:
 
 docker-db-prepare:
 	$(MARIADB_EXEC_TTY) mariadb -u$(DB_USERNAME) -p$(DB_PASSWORD) \
-		-e "SET GLOBAL sql_mode=''; DROP DATABASE IF EXISTS \`$(DB_DATABASE)\`; CREATE DATABASE \`$(DB_DATABASE)\` CHARACTER SET utf8;"
-	@MDB=$$(docker ps -aqf "name=$(MARIADB_CONTAINER)"); \
-	for file in application/modules/setup/sql/*.sql tests/Support/schema_fixups.sql; do \
-		echo "Importing $$file"; \
-		bash tests/Support/docker-import-sql.sh "$$MDB" "$(DB_USERNAME)" "$(DB_PASSWORD)" "$(DB_DATABASE)" "$$file"; \
-	done
-	@echo "Verifying schema completeness..."; \
-	MISSING=$$(docker exec -i $$(docker ps -aqf "name=$(MARIADB_CONTAINER)") mariadb -N -u$(DB_USERNAME) -p$(DB_PASSWORD) "$(DB_DATABASE)" -e "\
-		SELECT 'ip_users.user_bank'    WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='ip_users'    AND column_name='user_bank'); \
-		SELECT 'ip_users.user_bic'     WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='ip_users'    AND column_name='user_bic'); \
-		SELECT 'ip_invoices.invoice_discount_amount' WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='ip_invoices' AND column_name='invoice_discount_amount'); \
-		SELECT 'ip_clients.client_company' WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='ip_clients' AND column_name='client_company'); \
-		SELECT CONCAT('table:', t.tbl) FROM (SELECT 'ip_settings' tbl UNION ALL SELECT 'ip_users' UNION ALL SELECT 'ip_sessions' UNION ALL SELECT 'ip_invoices') t \
-			WHERE NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=t.tbl);" 2>&1); \
-	if [ -n "$$MISSING" ]; then \
-		echo "docker-db-prepare: schema build incomplete — missing:" >&2; \
-		printf '  %s\n' $$MISSING >&2; \
-		echo "(a migration import was skipped — re-run 'make docker-db-prepare')" >&2; \
-		exit 1; \
-	fi; \
-	echo "Schema OK."
+		-e "SET GLOBAL sql_mode=DEFAULT; DROP DATABASE IF EXISTS \`$(DB_DATABASE)\`; CREATE DATABASE \`$(DB_DATABASE)\` CHARACTER SET utf8;"
 	$(DOCKER_ROOT_EXEC) bash -lc 'cd "$(DOCKER_PROJECT_DIR)" && \
 		cp ipconfig.php.example ipconfig.php && \
 		sed -i \
@@ -151,9 +131,10 @@ docker-db-prepare:
 			ipconfig.php && \
 		printf "\nDB_DRIVER=mysqli\nCSRF_PROTECTION=false\n" >> ipconfig.php && \
 		chown "$(DOCKER_USER):$(DOCKER_USER)" ipconfig.php && \
-		DB_HOSTNAME="$(DB_HOSTNAME)" DB_PORT="$(DB_PORT)" DB_DATABASE="$(DB_DATABASE)" \
-			DB_USERNAME="$(DB_USERNAME)" DB_PASSWORD="$(DB_PASSWORD)" \
-			php tests/Support/seed-test-db.php'
+		export DB_HOSTNAME="$(DB_HOSTNAME)" DB_PORT="$(DB_PORT)" DB_DATABASE="$(DB_DATABASE)" \
+			DB_USERNAME="$(DB_USERNAME)" DB_PASSWORD="$(DB_PASSWORD)" && \
+		php tests/Support/build-test-db.php && \
+		php tests/Support/seed-test-db.php'
 
 docker-test: docker-db-prepare
 	$(DOCKER_EXEC) bash -lc 'cd "$(DOCKER_PROJECT_DIR)" && $(PHPUNIT_ENV_CLEAN) $(PHPUNIT) $(PHPUNIT_ARGS)'
