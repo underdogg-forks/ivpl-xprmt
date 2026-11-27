@@ -80,6 +80,45 @@ vendor/bin/phpstan analyse    # static analysis
 
 Tests live in `tests/`. Use plain `\PHPUnit\Framework\TestCase` — no Laravel `TestCase`.
 
+### Where a new test goes: the class is named after the code, never after the bug
+
+A bug, a review finding, a security advisory or a pull request does **not** get a test class
+of its own. A test class belongs to one production unit and carries that unit's name. What was
+wrong goes in the **method** name.
+
+Before writing a test, find its class in this order and stop at the first hit:
+
+1. **The class named after the unit you changed.**
+
+   | You changed                      | The test goes in                                   |
+   |----------------------------------|----------------------------------------------------|
+   | a controller (`Clients.php`)     | `tests/Feature/<Area>/ClientsControllerTest`       |
+   | an Ajax controller               | `tests/Feature/<Area>/ClientsAjaxControllerTest`   |
+   | a model (`Mdl_clients.php`)      | `MdlClientsTest`                                   |
+   | a helper (`client_helper.php`)   | `ClientHelperTest`                                 |
+   | a library class (`Sumex.php`)    | `SumexTest`                                        |
+   | a migration or `Mdl_setup`       | `SetupModelInstallTest`                            |
+
+2. **An existing class that already tests that unit under another name** (`LegacyLoginAndActiveStatusTest`
+   for the Sessions controller, `PdfStreamingTest` for `mpdf_helper.php`). Do not add to it as it is:
+   rename it to the unit's name in the same change, fold in any sibling class for the same unit, and
+   then add the method. A fix never leaves a misnamed class it touched.
+3. **A new class, only when the unit has no test class at all.** Name it after the unit, as in
+   the table. One production unit, one test class.
+
+Further rules:
+
+- A fix that touches two units adds a method to each unit's class, not a third class for the fix.
+- A class name never contains an issue, PR or advisory number, a description of the defect, or
+  a theme word: `Security`, `Regression`, `Hardening`, `Boundary`, `EdgeCases`, `Scope`,
+  `Guard`, `Flow`, `Fix`.
+- A rule that every controller must obey (auth guard, CSRF on every mutating route, frame
+  headers) is tested in the class of the base controller that enforces it, with the routes as
+  a data provider.
+- A long test class is not a reason to split it by bug. Split by production unit or not at all.
+- Count before you commit: a fix that adds or extends a test class file under `tests/` whose name is
+  not a production unit's name is not ready. Fakes and fixtures are not test classes.
+
 ## Common pitfalls
 
 - **Do NOT call `php artisan`** — InvoicePlane is not Laravel.
