@@ -105,9 +105,13 @@ jobs:
           - image: mariadb:10.11
             health: healthcheck.sh --connect --innodb_initialized
             experimental: false
+            known_installer_errors: ''
+          # 043_1.7.2.sql compares a DATE column with '0000-00-00', which MySQL 8's strict mode rejects,
+          # so the setup wizard reports this error on a MySQL 8 install (044_1.7.3.sql redoes the cleanup).
           - image: mysql:8.0
             health: mysqladmin ping -h 127.0.0.1 -uroot -proot --silent
             experimental: true
+            known_installer_errors: "Incorrect DATE value: '0000-00-00'"
 
     env:
       DB_HOSTNAME: 127.0.0.1
@@ -148,7 +152,7 @@ jobs:
           # emptying it hid every query and insert the default mode rejects.
           # Build the schema the way an installation gets it: Mdl_Setup runs the SQL files and the
           # PHP upgrade steps, so a change to either is exercised by every test.
-          php tests/Support/build-test-db.php
+          TEST_DB_KNOWN_INSTALLER_ERRORS="${{ matrix.database.known_installer_errors }}" php tests/Support/build-test-db.php
           php tests/Support/seed-test-db.php
 
       - name: Prepare test configuration (MySQL)
