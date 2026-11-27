@@ -7,10 +7,16 @@ name: PHPUnit
 #     (8.2, 8.3, 8.4) so upper-version regressions are still caught, without
 #     paying for a full matrix on every push.
 #
-# Database: the suite runs against MariaDB, so it exercises the same SQL
-# (NOW(), IF(), DATEDIFF(), ...) the application uses in production. The
-# schema is imported from the setup migrations and the baseline rows are
-# seeded via tests/Support/seed-test-db.php.
+# Database: the suite runs against MariaDB 10.11 and MySQL 8.0, each at the
+# server's own default sql_mode, so it exercises the same SQL (NOW(), IF(),
+# DATEDIFF(), ...) the application uses in production. MySQL 8's default mode
+# adds ONLY_FULL_GROUP_BY, which MariaDB's leaves off: a grouped query MariaDB
+# accepts can be a blank HTTP 500 there (InvoicePlane/InvoicePlane#1865). The
+# schema is built through Mdl_Setup (tests/Support/build-test-db.php) and the
+# baseline rows are seeded via tests/Support/seed-test-db.php.
+#
+# The MySQL job reports without failing the run until it has been green once;
+# drop its `experimental: true` then.
 
 on:
   # Not every push to every branch — only the shared integration branch and
@@ -70,20 +76,23 @@ jobs:
           echo "versions=$versions" >> "$GITHUB_OUTPUT"
 
   test:
-    name: PHPUnit (PHP ${{ matrix.php }})
+    name: PHPUnit (PHP ${{ matrix.php }}, ${{ matrix.database.image }})
     needs: matrix
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.database.experimental }}
 
     services:
-      mariadb:
-        image: mariadb:10.11
+      database:
+        image: ${{ matrix.database.image }}
         env:
           MARIADB_ROOT_PASSWORD: root
           MARIADB_DATABASE: invoiceplane_test
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: invoiceplane_test
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-cmd="${{ matrix.database.health }}"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -92,6 +101,13 @@ jobs:
       fail-fast: false
       matrix:
         php: ${{ fromJSON(needs.matrix.outputs.versions) }}
+        database:
+          - image: mariadb:10.11
+            health: healthcheck.sh --connect --innodb_initialized
+            experimental: false
+          - image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -proot --silent
+            experimental: true
 
     env:
       DB_HOSTNAME: 127.0.0.1
@@ -125,10 +141,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build MariaDB schema and seed baseline
+      - name: Build the schema and seed baseline
         run: |
           export MYSQL_PWD="$DB_PASSWORD"
-          # Leave sql_mode at the server's default (STRICT_TRANS_TABLES,...), as a user's MariaDB has it:
+          # Leave sql_mode at the server's default, as a user's server has it:
           # emptying it hid every query and insert the default mode rejects.
           # Build the schema the way an installation gets it: Mdl_Setup runs the SQL files and the
           # PHP upgrade steps, so a change to either is exercised by every test.
