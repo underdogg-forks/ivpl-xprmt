@@ -1,17 +1,16 @@
 <?php
 
-namespace Tests\Feature\Core\Security;
+namespace Tests\Feature\Core\Auth;
 
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 
 /**
- * GHSA-jw57-6692-jh2q: a deactivated account could still sign in. Mdl_sessions::auth() now insists on user_active === 1
- * after the password check. LoginSecurityTest covers the plain inactive and active cases only; the legacy md5 route
- * (accounts that have never logged in since the salted-hash migration, user_psalt empty) and an unexpected user_active
- * value were not exercised.
+ * Sessions controller: application/modules/sessions/controllers/Sessions.php, with Mdl_sessions::auth() behind
+ * POST /sessions/login. Covers who may sign in: the active flag, the legacy md5 route (accounts that have not
+ * logged in since the salted-hash migration, user_psalt empty) and its hash comparison.
  */
-final class LegacyLoginAndActiveStatusTest extends AbstractTestCase
+final class SessionsControllerTest extends AbstractTestCase
 {
     protected function setUp(): void
     {

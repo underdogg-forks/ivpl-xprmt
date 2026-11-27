@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
  * `assertTrue(function_exists('some_function'))` (or class_exists()/method_exists())
  * standing in for a real assertion on behavior. Checking that a dependency merely
  * exists can never fail for the reason the test's name claims, and it is exactly
- * what tests/Unit/Helpers/PdfSecurityTest.php::it_escapes_filename_in_pdf_footer
+ * what tests/Unit/Core/Helpers/MpdfHelperTest.php::it_escapes_filename_in_pdf_footer
  * did before being fixed to call the real escaping function and assert on its
  * output. A diff review can miss this because the surrounding comments often
  * still read as if the test does something real; this test reads every tracked
