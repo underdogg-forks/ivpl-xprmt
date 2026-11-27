@@ -184,19 +184,17 @@ final class SetupModelInstallTest extends TestCase
     }
 
     /**
-     * 043_1.7.2.sql compares a DATE column with '0000-00-00'. MySQL in strict mode with NO_ZERO_DATE
-     * (its default since 5.7) rejects that literal, so the setup wizard reports this one error there;
-     * 044_1.7.3.sql redoes the cleanup. MariaDB accepts the comparison.
+     * 043_1.7.2.sql compares a DATE column with '0000-00-00'. MySQL with NO_ZERO_DATE (in its default
+     * mode since 5.7) rejects that literal, strict mode or not, so the setup wizard reports this one
+     * error there; 044_1.7.3.sql redoes the cleanup. MariaDB accepts the comparison.
      *
      * @return list<string>
      */
     private function installerErrorsThisServerIsKnownToReport(): array
     {
         $server = $this->db->query('SELECT VERSION() AS version, @@SESSION.sql_mode AS sql_mode')->row();
-        $mode   = explode(',', (string) $server->sql_mode);
-        $strict = array_intersect($mode, ['STRICT_TRANS_TABLES', 'STRICT_ALL_TABLES']) !== [];
 
-        if (stripos((string) $server->version, 'mariadb') !== false || ! $strict || ! in_array('NO_ZERO_DATE', $mode, true)) {
+        if (stripos((string) $server->version, 'mariadb') !== false || ! in_array('NO_ZERO_DATE', explode(',', (string) $server->sql_mode), true)) {
             return [];
         }
 
