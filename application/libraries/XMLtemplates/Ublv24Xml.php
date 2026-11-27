@@ -188,8 +188,9 @@ class Ublv24Xml extends BaseXml
 
         $node->appendChild($this->xmlPartyName($who)); // company (or name)
         $node->appendChild($this->xmlAddress($who)); // PostalAddress by default
-        if ( ! $this->notax) {
-            $node->appendChild($this->xmlPartyTaxScheme($who)); // need vat_id
+        // An empty cbc:CompanyID breaks EN 16931 BR-CO-9, and the buyer's VAT identifier (BT-48) is optional.
+        if ( ! $this->notax && trim((string) ($this->invoice->{$who . '_vat_id'} ?? '')) !== '') {
+            $node->appendChild($this->xmlPartyTaxScheme($who));
         }
 
         if ( ! empty($this->options['PartyLegalEntity'])) {
