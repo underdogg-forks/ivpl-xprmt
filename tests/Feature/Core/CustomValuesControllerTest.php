@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
 use Tests\Concerns\PerformsCsrfProtectedRequests;
+use Tests\Concerns\SwitchesSqlMode;
 
 /**
  * Custom_Values controller — application/modules/custom_values/controllers/Custom_values.php.
@@ -25,11 +26,21 @@ use Tests\Concerns\PerformsCsrfProtectedRequests;
 class CustomValuesControllerTest extends AbstractTestCase
 {
     use PerformsCsrfProtectedRequests;
+    use SwitchesSqlMode;
+
+    private ?string $hiddenTable = null;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->actingAsAdmin();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->showTable();
+        $this->restoreSqlMode();
+        parent::tearDown();
     }
 
     // -------------------------------------------------------------------------
@@ -239,6 +250,129 @@ class CustomValuesControllerTest extends AbstractTestCase
         $this->assertResponseBodyNotContains($response, 'Secret Segment');
     }
 
+    // -------------------------------------------------------------------------
+    // Index: one row per field with its number of values (MySQL 8, ONLY_FULL_GROUP_BY)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_lists_each_field_once_with_the_number_of_its_values_under_only_full_group_by(): void
+    {
+        /* Arrange: two choice fields, 3 and 1 values, plus a field without values (not listed: inner join) */
+        $this->switchSqlMode(self::MYSQL8_DEFAULT_SQL_MODE);
+        self::assertStringContainsString('ONLY_FULL_GROUP_BY', $this->currentGlobalSqlMode());
+        $big   = $this->seedLabelledField('Segment Alpha', 'ip_client_custom');
+        $small = $this->seedLabelledField('Region Beta', 'ip_invoice_custom');
+        $this->seedLabelledField('Unused Gamma', 'ip_quote_custom');
+        foreach (['one', 'two', 'three'] as $value) {
+            $this->seedValue($big, $value);
+        }
+        $this->seedValue($small, 'only');
+
+        /* Act */
+        $response = $this->get('/custom_values');
+
+        /* Assert */
+        $this->assertResponseOk($response);
+        $body = $response->body();
+        self::assertSame(1, substr_count($body, 'Segment Alpha'), 'a field is listed once, not once per value');
+        self::assertSame(1, substr_count($body, 'Region Beta'));
+        self::assertStringNotContainsString('Unused Gamma', $body);
+        self::assertMatchesRegularExpression('/Segment Alpha.*?<td>3<\/td>/s', $body, 'the field with three values shows 3');
+        self::assertMatchesRegularExpression('/Region Beta.*?<td>1<\/td>/s', $body, 'the field with one value shows 1');
+    }
+
+    #[Test]
+    public function it_lists_the_fields_ordered_by_table_then_label_under_only_full_group_by(): void
+    {
+        /* Arrange: inserted out of order */
+        $this->switchSqlMode(self::MYSQL8_DEFAULT_SQL_MODE);
+        $this->seedValue($this->seedLabelledField('Zulu label', 'ip_client_custom'), 'v');
+        $this->seedValue($this->seedLabelledField('Alpha label', 'ip_client_custom'), 'v');
+
+        /* Act */
+        $response = $this->get('/custom_values');
+
+        /* Assert */
+        $this->assertResponseOk($response);
+        $body = $response->body();
+        self::assertLessThan(strpos($body, 'Zulu label'), strpos($body, 'Alpha label'));
+    }
+
+    #[Test]
+    public function it_answers_200_under_only_full_group_by_when_there_are_no_custom_fields_at_all(): void
+    {
+        /* Arrange: the reporter's second install: 0 fields, 0 values */
+        $this->switchSqlMode(self::MYSQL8_DEFAULT_SQL_MODE);
+        $this->assertDatabaseCount('ip_custom_fields', 0);
+
+        /* Act */
+        $response = $this->get('/custom_values');
+
+        /* Assert: a rejected query used to end in a blank HTTP 500 */
+        $this->assertResponseOk($response);
+        self::assertNotSame('', $response->body());
+    }
+
+    // -------------------------------------------------------------------------
+    // A query the database rejects stops the request; it is not read as "no rows"
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function it_answers_the_index_with_a_500_error_page_when_its_query_is_rejected(): void
+    {
+        /* Arrange: the list query joins ip_custom_values, so hiding it makes that query fail */
+        $this->hideTable('ip_custom_values');
+
+        /* Act */
+        $response = $this->get('/custom_values');
+
+        /* Assert: a real error page with the message, not a blank body and not an empty list */
+        $this->assertResponseStatusCode($response, 500);
+        $this->assertResponseBodyContains($response, 'A database error occurred');
+    }
+
+    #[Test]
+    public function it_does_not_delete_a_value_whose_usage_could_not_be_checked(): void
+    {
+        /* Arrange: a value, then a database that rejects the lookup used() makes */
+        $valueId = $this->seedValue($this->seedLabelledField('Kept', 'ip_client_custom'), 'maybe in use');
+        $this->hideTable('ip_custom_fields');
+
+        /* Act */
+        $response = $this->post('/custom_values/delete/' . $valueId, []);
+        $this->showTable();
+
+        /* Assert: the request stopped with a 500 and the value survived */
+        $this->assertResponseStatusCode($response, 500);
+        $this->assertDatabaseHas('ip_custom_values', ['custom_values_id' => $valueId]);
+    }
+
+    #[Test]
+    public function it_still_deletes_an_unused_value_in_the_production_environment_when_the_database_is_healthy(): void
+    {
+        /* Arrange: the positive control for the test above, in the same environment */
+        $valueId = $this->seedValue($this->seedLabelledField('Control', 'ip_client_custom'), 'unused');
+        $this->withServer(['CI_ENV' => 'production']);
+
+        /* Act */
+        $response = $this->post('/custom_values/delete/' . $valueId, []);
+
+        /* Assert */
+        self::assertTrue($response->isRedirect());
+        $this->assertDatabaseMissing('ip_custom_values', ['custom_values_id' => $valueId]);
+    }
+
+    protected function seedLabelledField(string $label, string $table): int
+    {
+        return $this->databaseInsert('ip_custom_fields', [
+            'custom_field_table'    => $table,
+            'custom_field_label'    => $label,
+            'custom_field_type'     => 'SINGLE-CHOICE',
+            'custom_field_order'    => 1,
+            'custom_field_location' => 0,
+        ]);
+    }
+
     protected function seedChoiceField(): int
     {
         return $this->databaseInsert('ip_custom_fields', [
@@ -254,5 +388,29 @@ class CustomValuesControllerTest extends AbstractTestCase
             'custom_values_field' => $fieldId,
             'custom_values_value' => $value,
         ]);
+    }
+
+    /**
+     * Renames the table away for the request, in the production environment: there db_debug is off and
+     * CodeIgniter hands the model false for a rejected query; in the testing environment it throws first.
+     */
+    private function hideTable(string $table): void
+    {
+        $this->withServer(['CI_ENV' => 'production']);
+        $this->databaseRunScript("RENAME TABLE {$table} TO {$table}_hidden");
+        $this->hiddenTable = $table;
+    }
+
+    /**
+     * Puts a hidden table back; a no-op when none is hidden.
+     */
+    private function showTable(): void
+    {
+        if ($this->hiddenTable === null) {
+            return;
+        }
+
+        $this->databaseRunScript("RENAME TABLE {$this->hiddenTable}_hidden TO {$this->hiddenTable}");
+        $this->hiddenTable = null;
     }
 }

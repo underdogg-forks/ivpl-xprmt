@@ -6,6 +6,7 @@ use Ajax;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\AbstractTestCase;
+use Tests\Concerns\SwitchesSqlMode;
 
 /**
  * filter/controllers/Ajax.php — read-only table-filtering endpoints (POST a
@@ -16,10 +17,18 @@ use Tests\AbstractTestCase;
 #[CoversClass(Ajax::class)]
 class FilterAjaxControllerTest extends AbstractTestCase
 {
+    use SwitchesSqlMode;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->actingAsAdmin();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->restoreSqlMode();
+        parent::tearDown();
     }
 
     #[Test]
@@ -144,6 +153,45 @@ class FilterAjaxControllerTest extends AbstractTestCase
         /* Assert: the field owning the matching value is listed; the other field is not */
         $this->assertResponseBodyContains($response, 'Matching field');
         $this->assertResponseBodyNotContains($response, 'Other field');
+    }
+
+    #[Test]
+    public function it_filters_custom_values_by_value_text_under_only_full_group_by(): void
+    {
+        /* Arrange */
+        $this->switchSqlMode(self::MYSQL8_DEFAULT_SQL_MODE);
+        self::assertStringContainsString('ONLY_FULL_GROUP_BY', $this->currentGlobalSqlMode());
+        $match = $this->seedChoiceFieldWithValues('Matching field', ['NeedleValue', 'second']);
+        $this->seedChoiceFieldWithValues('Other field', ['Unrelated']);
+
+        /* Act */
+        $response = $this->ajax('POST', '/filter/ajax/filter_custom_values', ['filter_query' => 'needlevalue']);
+
+        /* Assert: the field owning the matching value is listed once, counting the matching value only; the other is not */
+        $this->assertResponseOk($response);
+        $body = $response->body();
+        self::assertSame(1, substr_count($body, 'Matching field'));
+        self::assertStringNotContainsString('Other field', $body);
+        self::assertMatchesRegularExpression('/Matching field.*?<td>1<\/td>/s', $body, 'only the matching value is counted');
+        $this->assertDatabaseCount('ip_custom_values', 3);
+        self::assertGreaterThan(0, $match);
+    }
+
+    #[Test]
+    public function it_lists_every_custom_values_field_under_only_full_group_by_when_the_filter_box_is_empty(): void
+    {
+        /* Arrange */
+        $this->switchSqlMode(self::MYSQL8_DEFAULT_SQL_MODE);
+        $this->seedChoiceFieldWithValues('First field', ['v']);
+        $this->seedChoiceFieldWithValues('Second field', ['v']);
+
+        /* Act */
+        $response = $this->ajax('POST', '/filter/ajax/filter_custom_values', ['filter_query' => '']);
+
+        /* Assert */
+        $this->assertResponseOk($response);
+        $this->assertResponseBodyContains($response, 'First field');
+        $this->assertResponseBodyContains($response, 'Second field');
     }
 
     #[Test]
@@ -380,5 +428,23 @@ class FilterAjaxControllerTest extends AbstractTestCase
 
         /* Assert */
         self::assertSame('', $response->body());
+    }
+
+    /**
+     * Inserts a choice field with the given values and returns the field id.
+     *
+     * @param list<string> $values
+     */
+    private function seedChoiceFieldWithValues(string $label, array $values): int
+    {
+        $fieldId = $this->databaseInsert('ip_custom_fields', [
+            'custom_field_table' => 'ip_client_custom', 'custom_field_label' => $label, 'custom_field_type' => 'SINGLE-CHOICE',
+            'custom_field_order' => 1, 'custom_field_location' => 0,
+        ]);
+        foreach ($values as $value) {
+            $this->databaseInsert('ip_custom_values', ['custom_values_field' => $fieldId, 'custom_values_value' => $value]);
+        }
+
+        return $fieldId;
     }
 }
