@@ -203,6 +203,49 @@ final class PdfStreamingTest extends TestCase
         self::assertNotSame('archive/' . $existing, $result['returned']);
     }
 
+    #[Test]
+    public function it_does_not_read_a_local_file_named_through_the_file_scheme(): void
+    {
+        /* Arrange: GHSA-j89p-m59x-86r9. A real image on disk, referenced the way unescaped report data once was */
+        $image = $this->root . '/local.png';
+        file_put_contents($image, $this->png(7, 13));
+        $args = ['filename' => 'report', 'stream' => true, 'html' => '<p>Report</p><img src="file://' . $image . '">'];
+
+        /* Act */
+        $result = $this->probe($args);
+
+        /* Assert: the PDF is produced, and the 7x13 local image is not in it */
+        self::assertSame('%PDF-', $result['stream_head']);
+        self::assertNotContains('7x13', $result['image_sizes'], 'mPDF must not open file:// sources.');
+    }
+
+    #[Test]
+    public function it_still_embeds_an_image_supplied_inline(): void
+    {
+        /* Arrange: the positive control for the test above: the same image, handed over as a data: URI */
+        $args = ['filename' => 'report', 'stream' => true, 'html' => '<p>Report</p><img src="data:image/png;base64,' . base64_encode($this->png(7, 13)) . '">'];
+
+        /* Act */
+        $result = $this->probe($args);
+
+        /* Assert: the 7x13 image is found, so its absence above is not an artefact of the probe */
+        self::assertSame('%PDF-', $result['stream_head']);
+        self::assertContains('7x13', $result['image_sizes']);
+    }
+
+    /**
+     * A plain grey PNG of the given size; the odd size is what the probe looks for in the PDF.
+     */
+    private function png(int $width, int $height): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        imagefill($image, 0, 0, (int) imagecolorallocate($image, 120, 120, 120));
+        ob_start();
+        imagepng($image);
+
+        return (string) ob_get_clean();
+    }
+
     private function removeTree(string $path): void
     {
         foreach (scandir($path) ?: [] as $entry) {
@@ -215,7 +258,7 @@ final class PdfStreamingTest extends TestCase
     }
 
     /**
-     * @return array{returned: ?string, stream_head: string, stream_len: int, archive: list<string>, temp: list<string>}
+     * @return array{returned: ?string, stream_head: string, stream_len: int, image_sizes: list<string>, archive: list<string>, temp: list<string>}
      */
     private function probe(array $args): array
     {
