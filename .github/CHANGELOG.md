@@ -35,6 +35,9 @@ Thanks to [@hariprakash6969-create](https://github.com/hariprakash6969-create),
 [@krishnan-tech](https://github.com/krishnan-tech) for responsibly disclosing the issues resolved or
 in progress in this release.
 
+Thanks to [@smithdesign77](https://github.com/smithdesign77) for reporting the invalid Factur-X / ZUGFeRD e-invoices for buyers
+without a VAT ID, including the cause and the fix.
+
 ### Security Vulnerability Summary
 
 | Vulnerability | Severity | Security Advisory (GHSA) | Reported By | Fixed In |
@@ -220,6 +223,10 @@ in progress in this release.
 - **Stored XSS via unescaped `system_theme` setting (CWE-79, leading to CWE-116 / CWE-20 / CWE-693):** `system_theme` was persisted by `Settings::index()` with no server-side allowlist — unlike `first_day_of_week`, which already has a guard in the same loop — and echoed unescaped by `_theme_asset()` into a double-quoted `href="..."` attribute on 18 views, including the unauthenticated login page, so a value planted by any administrator (not just the primary one) executed in the browser of every visitor, logged in or not. An attribute-breakout payload (`x" onerror="..." x="`) contains no `<` and matches none of `xss_clean()`'s tag- or keyword-gated filters, so the global input filter did not stop it either. **Fix:** `Settings::index()` now validates `system_theme` against the same theme list its own `<select>` is built from, and `_theme_asset()` escapes the value on output as defense-in-depth. Fixing this safely on this fork also required fixing a separate, fork-specific bug first: `bootstrap/kernel.php` defined `THEME_FOLDER` pointing at `resources/assets/`, which does not exist in this tree (themes ship under `assets/`, matching upstream's `FCPATH . 'assets'`), so `Mdl_Settings::get_themes()` silently returned no themes and an allowlist built from it would have rejected every value, breaking the settings form entirely — now pointed at `assets/`. Thanks to [@cray4367](https://github.com/cray4367) for responsible disclosure. [#1805](https://github.com/InvoicePlane/InvoicePlane/pull/1805)
 
 ### Bug fixes
+
+- **E-invoices for a buyer without a VAT ID were invalid (EN 16931 BR-CO-9):** the UBL generator (`Ublv24Xml`) wrote an empty `cbc:CompanyID` in `cac:PartyTaxScheme` for a party without a VAT identifier, and the Factur-X / ZUGFeRD 2.x generator (`Facturxv10Xml`) in the [InvoicePlane-e-invoices](https://github.com/InvoicePlane/InvoicePlane-e-invoices) templates wrote an empty `<ram:ID schemeID="VA"/>`, which validators such as KoSIT, Mustang and DATEV reject for the whole invoice. The buyer's VAT identifier (BT-48) is optional, so the block is now left out when the VAT ID is empty; a party with a VAT ID is written as before. Reported by [@smithdesign77](https://github.com/smithdesign77).
+
+- **Factur-X MINIMUM profile wrote an empty tax basis total:** `Facturxv10Xml` only set the amount for `ram:TaxBasisTotalAmount` for the other profiles, so MINIMUM invoices carried `0.00` there and raised a PHP warning. The amount is now set for every profile.
 
 - **Missing English strings for the services, payment-reminders and e-invoicing UI:** the views, controllers and models for these features (`application/modules/services/`, the invoice reminders panel, the Peppol/e-invoicing status UI) were present, but 53 of the `trans()` keys they reference — `services`, `service_name`, `payment_reminders`, `reminder_sent`, `electronic_invoicing`, `peppol_id_missing`, `user_einvoice_identifier`, and the rest — had no English string defined, so those views would have echoed the raw key or an empty string instead of real text. Found while porting `LanguageKeysDefinedTest` (and other regression tests) from the `ivpl/modules-180` branch, which already had these defined; added the same 53 keys to `ip_lang.php`.
 
