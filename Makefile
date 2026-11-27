@@ -117,7 +117,7 @@ db-prepare:
 
 docker-db-prepare:
 	$(MARIADB_EXEC_TTY) mariadb -u$(DB_USERNAME) -p$(DB_PASSWORD) \
-		-e "SET GLOBAL sql_mode=''; DROP DATABASE IF EXISTS \`$(DB_DATABASE)\`; CREATE DATABASE \`$(DB_DATABASE)\` CHARACTER SET utf8;"
+		-e "SET GLOBAL sql_mode=DEFAULT; DROP DATABASE IF EXISTS \`$(DB_DATABASE)\`; CREATE DATABASE \`$(DB_DATABASE)\` CHARACTER SET utf8;"
 	@MDB=$$(docker ps -aqf "name=$(MARIADB_CONTAINER)"); \
 	for file in application/modules/setup/sql/*.sql tests/Support/schema_fixups.sql; do \
 		echo "Importing $$file"; \
